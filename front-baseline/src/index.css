@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius-small: 6px;
+  --radius-medium: 8px;
+  --radius-large: 12px;
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  --font-caption: 12px;
+  --font-body: 14px;
+  --font-title: 16px;
+  
+  --motion-fast: 100ms;
+  --motion-normal: 160ms;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+code, kbd, pre {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.3);
+  border-radius: var(--radius-small);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.5);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.2);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.4);
+}
+
+.panel {
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-medium);
+}
+
+html.dark .panel {
+  background-color: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mac-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: var(--font-caption);
+  color: #333;
+}
+
+html.dark .mac-kbd {
+  background-color: #2a2a2a;
+  border-color: #444;
+  color: #ccc;
+}
+
+.fade-in {
+  animation: fadeIn var(--motion-normal) ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
