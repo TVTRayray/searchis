@@ -31,7 +31,6 @@ export const App: React.FC = () => {
       restoreClipboard: false,
       launchAtLogin: true,
       theme: 'dark',
-      accentColor: 'blue',
       playAudioFeedback: true,
       maxResultsCount: 20
     };
@@ -59,21 +58,17 @@ export const App: React.FC = () => {
     localStorage.setItem('searchis_config_v1', JSON.stringify(config));
   }, [config]);
 
-  // Apply dark mode class to html element
+  // Apply the selected theme and keep system mode in sync with OS changes.
   useEffect(() => {
     const root = document.documentElement;
-    if (config.theme === 'dark') {
-      root.classList.add('dark');
-    } else if (config.theme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // System mode
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    }
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      root.classList.toggle('dark', config.theme === 'dark' || (config.theme === 'system' && media.matches));
+    };
+
+    applyTheme();
+    if (config.theme === 'system') media.addEventListener('change', applyTheme);
+    return () => media.removeEventListener('change', applyTheme);
   }, [config.theme]);
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
@@ -193,7 +188,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col justify-between">
+    <div className="min-h-screen ambient-glow-bg text-theme flex flex-col justify-between transition-colors">
       
       {/* Top Header Navigation Bar */}
       <HeaderBar
@@ -270,23 +265,23 @@ export const App: React.FC = () => {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 max-w-sm">
-          <div className="p-3.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-start gap-3">
+          <div className="p-3.5 rounded-xl theme-surface theme-divider border theme-shadow flex items-start gap-3">
             <div className="mt-0.5">
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-              {toast.type === 'info' && <Copy className="w-5 h-5 text-blue-500" />}
-              {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 icon-success" />}
+              {toast.type === 'info' && <Copy className="w-5 h-5 icon-accent" />}
+              {toast.type === 'error' && <AlertCircle className="w-5 h-5 icon-danger" />}
             </div>
             <div className="flex-1 pr-2">
-              <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              <h4 className="text-sm font-bold text-theme">
                 {toast.title}
               </h4>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 leading-tight">
+              <p className="text-xs text-theme-secondary mt-0.5 leading-tight">
                 {toast.message}
               </p>
             </div>
             <button
               onClick={() => setToast(null)}
-              className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5"
+              className="interactive-muted rounded-md p-0.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>

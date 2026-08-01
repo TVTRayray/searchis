@@ -25,46 +25,46 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-4 py-3">
+    <header className="sticky top-0 z-40 w-full border-b theme-divider bg-[color:var(--surface)] backdrop-blur-xl px-4 py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         
         {/* Brand Logo & Title */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white font-bold text-sm">
+          <div className="brand-mark flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm">
             <Search className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-zinc-900 dark:text-zinc-100">
+              <span className="font-semibold text-sm tracking-tight text-theme">
                 Searchis
               </span>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
+            <p className="text-xs text-theme-muted font-normal">
               本地文本片段检索工具
             </p>
           </div>
         </div>
 
         {/* Navigation Mode Switcher */}
-        <nav className="flex items-center p-1 rounded-lg bg-zinc-200 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800">
+        <nav className="flex items-center p-1 rounded-lg theme-surface-subtle border theme-divider">
           <button
             onClick={() => onSelectView('quick-picker')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               currentView === 'quick-picker'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
             }`}
           >
-            <Zap className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5 icon-accent" />
             <span>快速检索</span>
           </button>
 
           <button
             onClick={() => onSelectView('manager')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               currentView === 'manager'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -73,10 +73,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           <button
             onClick={() => onSelectView('onboarding')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               currentView === 'onboarding'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
             }`}
           >
             <span>使用引导</span>
@@ -84,10 +84,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           <button
             onClick={() => onSelectView('settings')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               currentView === 'settings'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
-                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
@@ -100,12 +100,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <button
             onClick={toggleTheme}
             title="切换深色/浅色模式"
-            className="p-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-lg interactive-muted"
           >
             {config.theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-500" />
+              <Sun className="w-4 h-4 icon-accent" />
             ) : (
-              <Moon className="w-4 h-4 text-blue-600" />
+              <Moon className="w-4 h-4 icon-accent" />
             )}
           </button>
         </div>

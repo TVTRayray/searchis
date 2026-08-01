@@ -34,7 +34,6 @@ export interface SettingsConfig {
   restoreClipboard: boolean;
   launchAtLogin: boolean;
   theme: 'dark' | 'light' | 'system';
-  accentColor: 'blue' | 'purple' | 'pink' | 'orange' | 'green' | 'slate';
   playAudioFeedback: boolean;
   maxResultsCount: number;
 }

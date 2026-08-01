@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Snippet, SearchMatchResult } from '../types/snippet';
 import { searchSnippets } from '../utils/searchEngine';
-import { Search } from 'lucide-react';
+import { Search, Star, Eye, EyeOff, Lock, Settings, Sparkles, Command, CornerDownLeft } from 'lucide-react';
 
 interface QuickSearchWindowProps {
   snippets: Snippet[];
@@ -24,6 +24,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   const [results, setResults] = useState<SearchMatchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [revealedSensitiveIds, setRevealedSensitiveIds] = useState<Record<string, boolean>>({});
   
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -129,51 +130,55 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     }
   }, [selectedIndex]);
 
+  const toggleSensitive = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRevealedSensitiveIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const selectedSnippet = results[selectedIndex]?.snippet;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
-      {/* 720x460 container */}
+    <div className="fixed inset-0 flex items-center justify-center z-50 theme-backdrop backdrop-blur-xs p-4">
+      {/* Raycast Glassmorphism Container (~760x480) */}
       <div 
-      className="w-[720px] h-[460px] bg-white dark:bg-zinc-900 rounded-lg shadow-lg flex flex-col overflow-hidden text-zinc-800 dark:text-zinc-200"
+        className="w-[760px] h-[480px] raycast-window rounded-2xl flex flex-col overflow-hidden animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search area */}
-        <div className="flex-none p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-          <div className="flex items-center gap-3">
-            <Search className="w-5 h-5 text-zinc-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[16px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500"
-              placeholder="输入 Key 或搜索片段内容..."
-            />
-          </div>
+        {/* Search area (Top Input Bar) */}
+        <div className="flex-none px-4 py-3.5 border-b theme-divider flex items-center gap-3">
+          <Search className="w-5 h-5 text-theme-muted flex-shrink-0" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent outline-none border-none text-[17px] font-normal text-theme placeholder:text-theme-disabled selection:bg-[color:var(--accent)] selection:text-[color:var(--accent-contrast)]"
+            placeholder="Search snippets or keys (e.g. window management, addr)..."
+          />
         </div>
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Results list */}
-          <div className={`flex flex-col h-full overflow-hidden ${showPreview ? 'w-1/2 border-r border-zinc-200 dark:border-zinc-800' : 'w-full'}`}>
-            <div className="flex-none px-4 py-2 text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-              匹配结果 ({results.length})
+          <div className={`flex flex-col h-full overflow-hidden ${showPreview ? 'w-1/2 border-r theme-divider' : 'w-full'}`}>
+            <div className="flex-none px-4 py-2 text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+              Results ({results.length})
             </div>
             
-            <div ref={listRef} className="flex-1 overflow-y-auto p-2 bg-white dark:bg-zinc-900">
+            <div ref={listRef} className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
               {results.length === 0 ? (
-                <div className="p-4 text-center text-zinc-500 text-sm">
+                <div className="py-12 px-4 text-center text-theme-muted text-sm">
                   {searchQuery ? (
-                    <>
-                      <p className="mb-2">未找到与 "{searchQuery}" 匹配的片段</p>
+                    <div className="space-y-2">
+                      <p className="text-theme-muted">未找到与 &quot;{searchQuery}&quot; 匹配的片段</p>
                       <button
                         onClick={() => onCreateNewSnippet(searchQuery)}
-                        className="text-blue-600 dark:text-blue-400 hover:underline text-xs"
+                        className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                       >
-                        以 "{searchQuery}" 为 Key 新建片段
+                        <span>以 &quot;{searchQuery}&quot; 为 Key 新建片段</span>
+                        <kbd className="raycast-kbd text-[10px]">⌘N</kbd>
                       </button>
-                    </>
+                    </div>
                   ) : (
                     <p>暂无片段数据</p>
                   )}
@@ -185,44 +190,56 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
                   return (
                     <div
                       key={s.id}
-                      className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                        isSelected ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'raycast-item-active' 
+                          : 'interactive-muted'
                       }`}
                       onClick={() => {
                         setSelectedIndex(index);
                         onPasteSnippet(s);
                       }}
                     >
-                      {/* Pinned star */}
-                      {s.pinned && (
-                        <span className={`text-xs ${isSelected ? 'text-amber-300' : 'text-amber-400'}`}>★</span>
-                      )}
+                      <div className="flex items-center gap-3 min-w-0 pr-2">
+                        {/* Left Icon Badge - Warm Rose Accent Fill when selected */}
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs flex-shrink-0 transition-all ${
+                          isSelected
+                            ? 'brand-mark'
+                            : 'badge-accent'
+                        }`}>
+                          {s.pinned ? <Star className="w-3.5 h-3.5 fill-current" /> : s.key.slice(0, 2).toUpperCase()}
+                        </div>
 
-                      {/* Key badge - more prominent */}
-                      <span className={`font-mono font-bold text-sm px-1.5 py-0.5 rounded-md flex-shrink-0 ${
-                        isSelected ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                      }`}>
-                        {s.key}
-                      </span>
-                      
-                      {/* Title */}
-                      <span className={`truncate flex-1 text-sm ${isSelected ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                        {s.title}
-                      </span>
+                        {/* Title & Key Badge */}
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className="text-[14px] font-medium truncate text-theme">
+                            {s.title}
+                          </span>
+                          <span className={`text-xs font-mono px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+                            isSelected 
+                              ? 'badge-accent' 
+                              : 'badge-accent'
+                          }`}>
+                            {s.key}
+                          </span>
+                        </div>
+                      </div>
 
-                      {/* Tags */}
-                      {s.tags.slice(0, 2).map(tag => (
-                        <span key={tag} className={`text-xs ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
-                          #{tag}
-                        </span>
-                      ))}
-
-                      {/* Number shortcut hint */}
-                      {index < 9 && (
-                        <span className={`text-xs font-mono opacity-60 ${isSelected ? 'text-white' : 'text-zinc-500'}`}>
-                          ⌘{index + 1}
-                        </span>
-                      )}
+                      {/* Right Tags & Shortcut Hint */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {s.tags.slice(0, 1).map(tag => (
+                          <span key={tag} className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            isSelected ? 'badge-neutral' : 'badge-neutral'
+                          }`}>
+                            #{tag}
+                          </span>
+                        ))}
+                        {index < 9 && (
+                          <span className="text-[11px] font-mono text-theme-muted">
+                            ⌘{index + 1}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -232,22 +249,68 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
 
           {/* Preview pane */}
           {showPreview && (
-            <div className="w-1/2 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+            <div className="w-1/2 flex flex-col overflow-hidden theme-pane-muted p-4 border-l theme-divider-subtle">
               {selectedSnippet ? (
-                <div className="flex-1 p-4 overflow-y-auto">
-                  <div className="mb-3">
-                    <span className="font-mono font-bold text-sm px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                      {selectedSnippet.key}
+                <div className="flex-1 space-y-3.5 overflow-y-auto">
+                  
+                  {/* Top Action Header */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-theme-muted">
+                      片段内容预览
                     </span>
-                    <h3 className="font-semibold text-base text-zinc-800 dark:text-zinc-200 mt-2">{selectedSnippet.title}</h3>
+                    <div className="flex items-center gap-1.5">
+                      {selectedSnippet.sensitive && (
+                        <button
+                          onClick={e => toggleSensitive(selectedSnippet.id, e)}
+                          className="flex items-center gap-1 text-[11px] text-accent hover:underline mr-1"
+                        >
+                          {revealedSensitiveIds[selectedSnippet.id] ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>遮挡</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>显示明文</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                      
+                      {/* Gear Icon: Jump to snippet manager page */}
+                      <button
+                        onClick={() => onEditSnippet(selectedSnippet)}
+                        title="跳转到该片段的管理页"
+                        className="p-1.5 rounded-lg interactive-muted"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
+                  {/* 1. 标题 (Title) */}
+                  <div>
+                    <h3 className="text-base font-bold text-theme leading-snug">
+                      {selectedSnippet.title}
+                    </h3>
+                  </div>
+
+                  {/* 2. Key */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-theme-muted font-medium">Key:</span>
+                    <span className="badge-accent px-2 py-0.5 rounded text-xs font-mono font-bold">
+                      {selectedSnippet.key}
+                    </span>
+                  </div>
+
+                  {/* 3. 别名 (Aliases) */}
                   {selectedSnippet.aliases && selectedSnippet.aliases.length > 0 && (
-                    <div className="flex items-center gap-2 mb-2 text-xs">
-                      <span className="text-zinc-400">别名:</span>
-                      <div className="flex flex-wrap gap-1 font-mono">
-                        {selectedSnippet.aliases.map((alias, i) => (
-                          <span key={i} className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-[11px] text-theme-muted font-medium flex-shrink-0">别名:</span>
+                      <div className="flex flex-wrap gap-1 font-mono text-theme-secondary">
+                        {selectedSnippet.aliases.map((alias, aIdx) => (
+                          <span key={aIdx} className="badge-neutral px-1.5 py-0.5 rounded text-[11px]">
                             {alias}
                           </span>
                         ))}
@@ -255,27 +318,39 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
                     </div>
                   )}
 
+                  {/* 4. 标签 (Tags) */}
                   {selectedSnippet.tags && selectedSnippet.tags.length > 0 && (
-                    <div className="flex items-center gap-2 mb-3 text-xs">
-                      <span className="text-zinc-400">标签:</span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-[11px] text-theme-muted font-medium flex-shrink-0">标签:</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedSnippet.tags.map(t => (
-                          <span key={t} className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs">
+                          <span key={t} className="badge-neutral px-2 py-0.5 rounded-md text-[10px] font-medium">
                             #{t}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
-                  
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md p-3">
-                    <pre className="text-sm font-mono text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap break-all leading-relaxed">
-                      {selectedSnippet.sensitive ? '•••••••••••••••' : selectedSnippet.content}
-                    </pre>
+
+                  {/* 5. 文本内容在最下方 (Content at the very bottom) */}
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[11px] text-theme-muted font-medium">文本内容:</span>
+                    <div className="relative p-3 rounded-xl control text-xs font-mono whitespace-pre-wrap break-all max-h-52 overflow-y-auto leading-relaxed shadow-xs">
+                      {selectedSnippet.sensitive && !revealedSensitiveIds[selectedSnippet.id] ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center text-theme-muted">
+                          <Lock className="w-5 h-5 mb-1.5 icon-warning" />
+                          <span>••••••••••••••••••••</span>
+                          <span className="text-[11px] mt-1 text-theme-disabled">敏感信息已隐蔽</span>
+                        </div>
+                      ) : (
+                        selectedSnippet.content
+                      )}
+                    </div>
                   </div>
+
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm">
+                <div className="flex-1 flex items-center justify-center text-theme-muted text-sm">
                   选择左侧片段进行预览
                 </div>
               )}
@@ -283,18 +358,43 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
           )}
         </div>
 
-        {/* Bottom shortcut hints */}
-        <div className="flex-none px-4 py-2.5 bg-zinc-100 dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <span><kbd className="mac-kbd">↑</kbd><kbd className="mac-kbd">↓</kbd> 选择</span>
-            <span><kbd className="mac-kbd">↵</kbd> 粘贴</span>
-            <span><kbd className="mac-kbd">⌘</kbd><kbd className="mac-kbd">↵</kbd> 仅复制</span>
-            <span><kbd className="mac-kbd">Tab</kbd> {showPreview ? '收起预览' : '展开预览'}</span>
+        {/* Bottom Raycast Status Footer Bar (Matching ref1.png) */}
+        <div className="flex-none px-4 py-2.5 theme-titlebar border-t theme-divider text-xs text-theme-muted flex justify-between items-center select-none">
+          {/* Left product logo icon - Rich Rose Crimson Obsidian Gradient */}
+          <div className="flex items-center gap-2">
+            <div className="brand-mark w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px]">
+              S
+            </div>
+            <span className="font-medium text-[13px] text-theme tracking-tight">Searchis</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span><kbd className="mac-kbd">⌘</kbd><kbd className="mac-kbd">E</kbd> 编辑</span>
-            <span><kbd className="mac-kbd">⌘</kbd><kbd className="mac-kbd">N</kbd> 新建</span>
-            <span><kbd className="mac-kbd">Esc</kbd> 关闭</span>
+
+          {/* Right Action Shortcuts (Raycast style) */}
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-theme-secondary">
+            <span className="flex items-center gap-1">
+              <span className="text-theme-muted">Open Command</span>
+              <kbd className="raycast-kbd">↵</kbd>
+            </span>
+
+            <span className="theme-separator mx-1 font-light">|</span>
+
+            <span className="flex items-center gap-1">
+              <span className="text-theme-muted">仅复制</span>
+              <kbd className="raycast-kbd">⌘↵</kbd>
+            </span>
+
+            <span className="theme-separator mx-1 font-light">|</span>
+
+            <span className="flex items-center gap-1">
+              <span className="text-theme-muted">Actions</span>
+              <kbd className="raycast-kbd">⌘K</kbd>
+            </span>
+
+            <span className="theme-separator mx-1 font-light">|</span>
+
+            <span className="flex items-center gap-1">
+              <span className="text-theme-muted">预览</span>
+              <kbd className="raycast-kbd">Tab</kbd>
+            </span>
           </div>
         </div>
       </div>
