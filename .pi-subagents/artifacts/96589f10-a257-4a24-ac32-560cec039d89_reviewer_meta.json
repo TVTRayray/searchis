@@ -1,0 +1,126 @@
+{
+  "runId": "96589f10-a257-4a24-ac32-560cec039d89",
+  "agent": "reviewer",
+  "task": "Read-only follow-up review of current SPEC-01 after fixes in /home/ray/Projects/CodeRepo/searchis. Verify the prior findings are actually resolved: revision reload/unsaved handling, idempotency payload fingerprint, config-vs-data key location, key directory fsync and O_NOFOLLOW race, non-sensitive diagnostic logging, in-flight save navigation, exact 100KB/symlink/update rollback tests. Also flag any new blocker/high/medium regression. Inspect source directly; do not edit. Return concise disposition and only actionable remaining findings.\n\n## Acceptance Contract\nAcceptance level: attested\nCompletion is not accepted from prose alone. End with a structured acceptance report.\n\nCriteria:\n- criterion-1: Return concrete findings with file paths and severity when applicable\n\nRequired evidence: review-findings, residual-risks\n\nFinish with a fenced JSON block tagged `acceptance-report` in this shape:\nUse empty arrays when no items apply; array fields contain strings unless object entries are shown.\n`criteriaSatisfied[].status` must be exactly one of: satisfied, not-satisfied, not-applicable.\n`commandsRun[].result` must be exactly one of: passed, failed, not-run.\n`manualNotes` and `notes` are optional strings; an empty string means no note and does not satisfy `manual-notes` evidence.\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"specific proof\"\n    }\n  ],\n  \"changedFiles\": [\n    \"src/file.ts\"\n  ],\n  \"testsAddedOrUpdated\": [\n    \"test/file.test.ts\"\n  ],\n  \"commandsRun\": [\n    {\n      \"command\": \"command\",\n      \"result\": \"passed\",\n      \"summary\": \"short result\"\n    }\n  ],\n  \"validationOutput\": [\n    \"validation output or concise summary\"\n  ],\n  \"residualRisks\": [\n    \"none\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"short description of the diff\",\n  \"reviewFindings\": [\n    \"blocker: file.ts:12 - issue found, or no blockers\"\n  ],\n  \"manualNotes\": \"anything else the parent should know\"\n}\n```",
+  "exitCode": 0,
+  "model": "openai-codex/gpt-5.6-sol:high",
+  "attemptedModels": [
+    "openai-codex/gpt-5.6-sol:high"
+  ],
+  "modelAttempts": [
+    {
+      "model": "openai-codex/gpt-5.6-sol:high",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 62631,
+        "output": 6849,
+        "cacheRead": 244736,
+        "cacheWrite": 0,
+        "cost": 0.640993,
+        "turns": 11
+      }
+    }
+  ],
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "read-only/reviewer-style agent"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": [
+            "review-findings",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "review-findings",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "read-only/reviewer-style agent"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": [
+          "review-findings",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Concrete medium finding at front-baseline/src-tauri/src/storage.rs:19,62-69,313-362; all requested fixes were traced to exact source locations."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [
+        "front-baseline/src-tauri/src/storage.rs",
+        "front-baseline/src-tauri/src/validation.rs"
+      ],
+      "commandsRun": [
+        {
+          "command": "cd front-baseline/src-tauri && cargo test",
+          "result": "passed",
+          "summary": "15 tests passed."
+        },
+        {
+          "command": "cd front-baseline && npm run build",
+          "result": "passed",
+          "summary": "TypeScript and Vite production build passed."
+        },
+        {
+          "command": "cd front-baseline/src-tauri && cargo fmt --all -- --check",
+          "result": "passed",
+          "summary": "Formatting check passed."
+        },
+        {
+          "command": "cd front-baseline/src-tauri && cargo clippy --all-targets -- -D warnings",
+          "result": "passed",
+          "summary": "No Clippy issues."
+        }
+      ],
+      "validationOutput": [
+        "Revision reload, idempotency fingerprinting, key location/durability/symlink protection, diagnostics, save navigation locking, and requested boundary/rollback tests are implemented.",
+        "One medium schema-compatibility defect remains."
+      ],
+      "residualRisks": [
+        "Existing Schema v1 databases created before request_fingerprint was introduced are accepted without migration and can fail future create operations.",
+        "Frontend reload and in-flight navigation behavior has no automated frontend test coverage.",
+        "Target Arch/KDE/X11 full-exit restart and AC-02 remain manual QA items."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Read-only follow-up review; no files edited.",
+      "reviewFindings": [
+        "medium: front-baseline/src-tauri/src/storage.rs:19,62-69,313-362 - request_fingerprint changed Schema v1 without a migration for existing v1 databases.",
+        "no blocker or high-severity regressions"
+      ],
+      "manualNotes": "Initial root-level validation invocations used the wrong working directory; the correctly scoped commands listed above all passed."
+    }
+  },
+  "launchContractDigest": "cb80776d0816fe2bc58929e2556a45ee6ab06d54c56d5e0798daa01579815e7c",
+  "transcriptPath": "/home/ray/Projects/CodeRepo/searchis/.pi-subagents/artifacts/96589f10-a257-4a24-ac32-560cec039d89_reviewer_transcript.jsonl",
+  "skills": [],
+  "timestamp": 1785568121449
+}

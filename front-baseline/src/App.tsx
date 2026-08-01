@@ -1,293 +1,240 @@
-import React, { useState, useEffect } from 'react';
-import { Snippet, ViewMode, SettingsConfig } from './types/snippet';
-import { initialSnippets } from './data/initialSnippets';
-import { HeaderBar } from './components/HeaderBar';
-import { QuickSearchWindow } from './components/QuickSearchWindow';
-import { ManagerWindow } from './components/ManagerWindow';
-import { OnboardingWizard } from './components/OnboardingWizard';
-import { SettingsModal } from './components/SettingsModal';
-import { CheckCircle2, Copy, AlertCircle, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Database, Edit3, Plus, Save, ShieldAlert } from 'lucide-react'
+import {
+  AppError,
+  PersistedSnippet,
+  SnippetFields,
+  snippetsApi,
+} from './api/snippets'
+
+const EMPTY_FIELDS: SnippetFields = {
+  key: '',
+  title: '',
+  content: '',
+  aliases: [],
+  tags: [],
+  sensitive: false,
+  pinned: false,
+}
+
+const splitList = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
 
 export const App: React.FC = () => {
-  // Load snippets from localStorage or fallback to initialSnippets
-  const [snippets, setSnippets] = useState<Snippet[]>(() => {
-    const saved = localStorage.getItem('searchis_snippets_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch { return initialSnippets; }
-    }
-    return initialSnippets;
-  });
+  const [snippets, setSnippets] = useState<PersistedSnippet[]>([])
+  const [selected, setSelected] = useState<PersistedSnippet | null>(null)
+  const [fields, setFields] = useState<SnippetFields>(EMPTY_FIELDS)
+  const [aliasesText, setAliasesText] = useState('')
+  const [tagsText, setTagsText] = useState('')
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID())
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<AppError | null>(null)
+  const [notice, setNotice] = useState('')
+  const [sensitiveRevealed, setSensitiveRevealed] = useState(false)
 
-  // Settings Configuration
-  const [config, setConfig] = useState<SettingsConfig>(() => {
-    const saved = localStorage.getItem('searchis_config_v1');
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return {
-      globalShortcut: 'Option + Space',
-      copyShortcut: 'Cmd + Enter',
-      autoPaste: true,
-      restoreClipboard: false,
-      launchAtLogin: true,
-      theme: 'dark',
-      playAudioFeedback: true,
-      maxResultsCount: 20
-    };
-  });
-
-  // View state
-  const [currentView, setCurrentView] = useState<ViewMode>('quick-picker');
-  const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
-
-  // Toast Notification state
-  const [toast, setToast] = useState<{
-    id: string;
-    type: 'success' | 'info' | 'error';
-    title: string;
-    message: string;
-  } | null>(null);
-
-  // Save snippets to localStorage
   useEffect(() => {
-    localStorage.setItem('searchis_snippets_v1', JSON.stringify(snippets));
-  }, [snippets]);
-
-  // Save config to localStorage
-  useEffect(() => {
-    localStorage.setItem('searchis_config_v1', JSON.stringify(config));
-  }, [config]);
-
-  // Apply the selected theme and keep system mode in sync with OS changes.
-  useEffect(() => {
-    const root = document.documentElement;
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const applyTheme = () => {
-      root.classList.toggle('dark', config.theme === 'dark' || (config.theme === 'system' && media.matches));
-    };
-
-    applyTheme();
-    if (config.theme === 'system') media.addEventListener('change', applyTheme);
-    return () => media.removeEventListener('change', applyTheme);
-  }, [config.theme]);
-
-  const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    setToast({
-      id: `${Date.now()}`,
-      type,
-      title,
-      message,
-    });
-    setTimeout(() => {
-      setToast(null);
-    }, 3500);
-  };
-
-  // Handlers for Snippet Actions
-  const handlePasteSnippet = (snippet: Snippet) => {
-    // Write to clipboard simulation
-    navigator.clipboard.writeText(snippet.content).catch(() => {});
-
-    // Update usage count & lastUsedAt
-    setSnippets(prev =>
-      prev.map(s =>
-        s.id === snippet.id
-          ? {
-              ...s,
-              usageCount: s.usageCount + 1,
-              lastUsedAt: new Date().toISOString(),
-            }
-          : s
-      )
-    );
-
-    showToast(
-      '粘贴成功 (Simulated Paste)',
-      `已写剪贴板并粘贴 Key "${snippet.key}" 到当前活动应用`,
-      'success'
-    );
-  };
-
-  const handleCopySnippet = (snippet: Snippet) => {
-    navigator.clipboard.writeText(snippet.content).catch(() => {});
-    showToast(
-      '已仅复制到剪贴板',
-      `片段 "${snippet.title}" 已写入系统剪贴板 (⌘↵)`,
-      'info'
-    );
-  };
-
-  const handleSaveSnippet = (snippetToSave: Snippet) => {
-    setSnippets(prev => {
-      const exists = prev.some(s => s.id === snippetToSave.id);
-      if (exists) {
-        return prev.map(s => (s.id === snippetToSave.id ? snippetToSave : s));
-      }
-      return [snippetToSave, ...prev];
-    });
-    showToast('片段已保存', `Key "${snippetToSave.key}" 更新成功`, 'success');
-  };
-
-  const handleDeleteSnippet = (id: string) => {
-    setSnippets(prev =>
-      prev.map(s => (s.id === id ? { ...s, deletedAt: new Date().toISOString() } : s))
-    );
-    showToast('已移入回收站', '片段已被移动至回收站，可随时还原', 'info');
-  };
-
-  const handleRestoreSnippet = (id: string) => {
-    setSnippets(prev =>
-      prev.map(s => {
-        if (s.id === id) {
-          const { deletedAt, ...rest } = s;
-          return rest;
-        }
-        return s;
+    snippetsApi.list()
+      .then(items => {
+        setSnippets(items)
+        if (items[0]) selectSnippet(items[0])
       })
-    );
-    showToast('还原成功', '片段已重新恢复到列表', 'success');
-  };
+      .catch(setError)
+      .finally(() => setLoading(false))
+  }, [])
 
-  const handlePermanentDeleteSnippet = (id: string) => {
-    setSnippets(prev => prev.filter(s => s.id !== id));
-    showToast('彻底删除', '已从本地存储中永久清空该片段', 'error');
-  };
+  const contentBytes = useMemo(() => new TextEncoder().encode(fields.content).length, [fields.content])
 
-  const handleExportData = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(snippets, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `searchis_snippets_backup_${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast('导出成功', '已生成 JSON 备份数据文件', 'success');
-  };
+  const selectSnippet = (snippet: PersistedSnippet) => {
+    setSelected(snippet)
+    setFields({
+      key: snippet.key,
+      title: snippet.title,
+      content: snippet.content,
+      aliases: snippet.aliases,
+      tags: snippet.tags,
+      sensitive: snippet.sensitive,
+      pinned: snippet.pinned,
+    })
+    setAliasesText(snippet.aliases.join(', '))
+    setTagsText(snippet.tags.join(', '))
+    setSensitiveRevealed(false)
+    setError(null)
+    setNotice('')
+  }
 
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    if (e.target.files && e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], 'UTF-8');
-      fileReader.onload = (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string);
-          if (Array.isArray(parsed)) {
-            setSnippets(parsed);
-            showToast('导入成功', `成功从备份恢复 ${parsed.length} 条文本片段`, 'success');
-          }
-        } catch {
-          showToast('导入失败', 'JSON 文件格式不合规', 'error');
-        }
-      };
+  const startCreate = () => {
+    setSelected(null)
+    setFields(EMPTY_FIELDS)
+    setAliasesText('')
+    setTagsText('')
+    setRequestId(crypto.randomUUID())
+    setSensitiveRevealed(true)
+    setError(null)
+    setNotice('')
+  }
+
+  const reloadSelected = async () => {
+    if (!selected || !window.confirm('重新载入会放弃当前未保存输入。是否继续？')) return
+    setSaving(true)
+    setError(null)
+    try {
+      const fresh = await snippetsApi.get(selected.id)
+      setSnippets(previous => previous.map(item => item.id === fresh.id ? fresh : item))
+      selectSnippet(fresh)
+      setNotice('已重新载入数据库中的最新版本。')
+    } catch (reloadError) {
+      setError(reloadError as AppError)
+    } finally {
+      setSaving(false)
     }
-  };
+  }
 
-  const handleResetSampleData = () => {
-    setSnippets(initialSnippets);
-    showToast('已恢复初始数据', '初始化 9 条演示 Key 文本片段', 'info');
-  };
+  const updateField = <K extends keyof SnippetFields>(key: K, value: SnippetFields[K]) => {
+    setFields(previous => ({ ...previous, [key]: value }))
+    if (error?.field === key) setError(null)
+    setNotice('')
+  }
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    setNotice('')
+    const payload = { ...fields, aliases: splitList(aliasesText), tags: splitList(tagsText) }
+    try {
+      const saved = selected
+        ? await snippetsApi.update(selected, payload)
+        : await snippetsApi.create(payload, requestId)
+      setSnippets(previous => {
+        const exists = previous.some(item => item.id === saved.id)
+        const next = exists
+          ? previous.map(item => item.id === saved.id ? saved : item)
+          : [saved, ...previous]
+        return next.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      })
+      selectSnippet(saved)
+      setNotice(selected ? '修改已安全保存。' : '片段已写入加密数据库。')
+      setRequestId(crypto.randomUUID())
+    } catch (saveError) {
+      setError(saveError as AppError)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <main className="min-h-screen ambient-glow-bg text-theme flex items-center justify-center">正在打开加密数据库…</main>
+  }
+
+  if (error && ['DB_KEY_UNAVAILABLE', 'DB_OPEN_FAILED'].includes(error.code) && snippets.length === 0) {
+    return (
+      <main className="min-h-screen ambient-glow-bg text-theme flex items-center justify-center p-6">
+        <section className="raycast-window rounded-2xl max-w-xl p-8 space-y-4" role="alert">
+          <ShieldAlert className="w-10 h-10 icon-danger" />
+          <h1 className="text-xl font-bold">加密数据库不可用</h1>
+          <p className="text-theme-secondary">{error.message}</p>
+          <p className="text-sm text-theme-muted">为保护现有数据，Searchis 没有删除、重建或降级为明文数据库。完成修复后请完全退出并重启应用。</p>
+          <code className="badge-danger inline-block px-2 py-1 rounded">{error.code}</code>
+        </section>
+      </main>
+    )
+  }
 
   return (
-    <div className="min-h-screen ambient-glow-bg text-theme flex flex-col justify-between transition-colors">
-      
-      {/* Top Header Navigation Bar */}
-      <HeaderBar
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        config={config}
-        onUpdateConfig={setConfig}
-        snippetCount={snippets.filter(s => !s.deletedAt).length}
-      />
-
-      {/* Main Active View Container */}
-      <main className="flex-1 py-6 px-2 sm:px-4">
-        {currentView === 'quick-picker' && (
-          <QuickSearchWindow
-            snippets={snippets.filter(s => !s.deletedAt)}
-            onPasteSnippet={handlePasteSnippet}
-            onCopySnippet={handleCopySnippet}
-            onEditSnippet={(snippet) => {
-              setEditingSnippet(snippet);
-              setCurrentView('manager');
-            }}
-            onCreateNewSnippet={(prefillKey) => {
-              setCurrentView('manager');
-            }}
-          />
-        )}
-
-        {currentView === 'manager' && (
-          <ManagerWindow
-            snippets={snippets}
-            onSaveSnippet={handleSaveSnippet}
-            onDeleteSnippet={handleDeleteSnippet}
-            onRestoreSnippet={handleRestoreSnippet}
-            onPermanentDeleteSnippet={handlePermanentDeleteSnippet}
-            onCopySnippet={handleCopySnippet}
-            onPasteSnippet={handlePasteSnippet}
-            onOpenSettings={() => setCurrentView('settings')}
-          />
-        )}
-
-        {currentView === 'onboarding' && (
-          <OnboardingWizard
-            onComplete={() => setCurrentView('quick-picker')}
-            onCreateSnippet={(key, title, content) => {
-              const newSnip: Snippet = {
-                id: `snip-${Date.now()}`,
-                key,
-                title,
-                content,
-                aliases: ['guide'],
-                tags: ['常用'],
-                pinned: true,
-                usageCount: 1,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              handleSaveSnippet(newSnip);
-            }}
-          />
-        )}
-
-        {currentView === 'settings' && (
-          <SettingsModal
-            config={config}
-            onUpdateConfig={setConfig}
-            onExportData={handleExportData}
-            onImportData={handleImportData}
-            onResetSampleData={handleResetSampleData}
-            onClose={() => setCurrentView('quick-picker')}
-          />
-        )}
-      </main>
-
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm">
-          <div className="p-3.5 rounded-xl theme-surface theme-divider border theme-shadow flex items-start gap-3">
-            <div className="mt-0.5">
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 icon-success" />}
-              {toast.type === 'info' && <Copy className="w-5 h-5 icon-accent" />}
-              {toast.type === 'error' && <AlertCircle className="w-5 h-5 icon-danger" />}
-            </div>
-            <div className="flex-1 pr-2">
-              <h4 className="text-sm font-bold text-theme">
-                {toast.title}
-              </h4>
-              <p className="text-xs text-theme-secondary mt-0.5 leading-tight">
-                {toast.message}
-              </p>
-            </div>
-            <button
-              onClick={() => setToast(null)}
-              className="interactive-muted rounded-md p-0.5"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+    <main className="min-h-screen ambient-glow-bg text-theme p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto raycast-window rounded-2xl overflow-hidden min-h-[680px]">
+        <header className="theme-titlebar border-b theme-divider px-5 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="font-bold flex items-center gap-2"><Database className="w-5 h-5 icon-accent" />Searchis 安全片段库</h1>
+            <p className="text-xs text-theme-muted mt-1">本机 SQLCipher 加密持久化 · {snippets.length} 条片段</p>
           </div>
+          <button onClick={startCreate} disabled={saving} className="btn-primary rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+            <Plus className="w-4 h-4" />新建片段
+          </button>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] min-h-[610px]">
+          <aside className="theme-sidebar border-r theme-divider p-3">
+            <h2 className="text-xs uppercase tracking-wider text-theme-muted px-2 py-2">已持久化片段</h2>
+            <div className="space-y-2">
+              {snippets.length === 0 && <p className="text-sm text-theme-muted p-4">尚无片段。创建第一条后，完全退出再启动即可验证持久化。</p>}
+              {snippets.map(snippet => (
+                <button
+                  key={snippet.id}
+                  onClick={() => selectSnippet(snippet)}
+                  disabled={saving}
+                  className={`w-full disabled:opacity-50 text-left p-3 rounded-xl border ${selected?.id === snippet.id ? 'nav-active' : 'theme-surface-subtle theme-divider-subtle interactive-muted'}`}
+                >
+                  <span className="badge-accent px-2 py-0.5 rounded text-xs font-mono">{snippet.key}</span>
+                  <span className="block text-sm font-semibold mt-2 truncate">{snippet.title}</span>
+                  <span className="block text-xs text-theme-muted mt-1">revision {snippet.revision} · {new Date(snippet.updatedAt).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="theme-pane-muted p-5 sm:p-8">
+            <div className="flex items-center gap-2 mb-6">
+              {selected ? <Edit3 className="w-5 h-5 icon-accent" /> : <Plus className="w-5 h-5 icon-accent" />}
+              <h2 className="font-bold">{selected ? '编辑片段' : '创建第一条片段'}</h2>
+            </div>
+
+            <fieldset disabled={saving} className="space-y-4 max-w-2xl disabled:opacity-70">
+              <Field label="Key" error={error?.field === 'key' ? error.message : undefined}>
+                <input aria-label="Key" value={fields.key} onChange={event => updateField('key', event.target.value)} className="input-theme w-full px-3 py-2 rounded-xl font-mono" placeholder="例如 hello-world" />
+              </Field>
+              <Field label="标题" error={error?.field === 'title' ? error.message : undefined}>
+                <input aria-label="标题" value={fields.title} onChange={event => updateField('title', event.target.value)} className="input-theme w-full px-3 py-2 rounded-xl" />
+              </Field>
+              <Field label={`正文（${contentBytes} / 102400 bytes）`} error={error?.field === 'content' ? error.message : undefined}>
+                {selected?.sensitive && !sensitiveRevealed ? (
+                  <button onClick={() => setSensitiveRevealed(true)} className="control w-full p-5 rounded-xl text-sm text-theme-secondary">敏感正文已遮挡。点击后仅在当前窗口会话中显示。</button>
+                ) : (
+                  <textarea aria-label="正文" rows={8} value={fields.content} onChange={event => updateField('content', event.target.value)} className="input-theme w-full px-3 py-2 rounded-xl font-mono resize-y" />
+                )}
+              </Field>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="别名（逗号分隔）" error={error?.field === 'aliases' ? error.message : undefined}>
+                  <input aria-label="别名" value={aliasesText} onChange={event => setAliasesText(event.target.value)} className="input-theme w-full px-3 py-2 rounded-xl" />
+                </Field>
+                <Field label="标签（逗号分隔）" error={error?.field === 'tags' ? error.message : undefined}>
+                  <input aria-label="标签" value={tagsText} onChange={event => setTagsText(event.target.value)} className="input-theme w-full px-3 py-2 rounded-xl" />
+                </Field>
+              </div>
+              <div className="control rounded-xl p-3 flex gap-6 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={fields.sensitive} onChange={event => updateField('sensitive', event.target.checked)} />敏感正文</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={fields.pinned} onChange={event => updateField('pinned', event.target.checked)} />置顶</label>
+              </div>
+
+              {error && (
+                <div className="status-danger border rounded-xl p-3 text-sm flex items-start gap-2" role="alert">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  <div className="space-y-2">
+                    <span className="block">{error.message}{error.conflictKey ? ` 冲突 Key：${error.conflictKey}` : ''} <code>{error.code}</code></span>
+                    {error.code === 'REVISION_CONFLICT' && (
+                      <button type="button" onClick={reloadSelected} className="btn-secondary rounded-lg px-3 py-1.5 font-semibold">放弃未保存输入并重新载入</button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {notice && <div className="status-success border rounded-xl p-3 text-sm flex gap-2" role="status"><CheckCircle2 className="w-5 h-5" />{notice}</div>}
+
+              <div className="flex justify-end pt-2">
+                <button onClick={save} disabled={saving} className="btn-primary rounded-xl px-5 py-2 font-semibold flex items-center gap-2 disabled:opacity-50">
+                  <Save className="w-4 h-4" />{saving ? '保存中…' : '保存到加密数据库'}
+                </button>
+              </div>
+            </fieldset>
+          </section>
         </div>
-      )}
-    </div>
-  );
-};
+      </div>
+    </main>
+  )
+}
+
+const Field: React.FC<{ label: string; error?: string; children: React.ReactNode }> = ({ label, error, children }) => (
+  <label className="block space-y-1.5">
+    <span className="text-sm font-semibold text-theme-secondary">{label}</span>
+    {children}
+    {error && <span className="text-xs text-danger flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{error}</span>}
+  </label>
+)
