@@ -7,12 +7,13 @@ import { App } from './App.tsx'
 try {
   const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}') as { theme?: string }
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  document.documentElement.classList.toggle(
-    'dark',
-    saved.theme === 'dark' || ((saved.theme === 'system' || !saved.theme) && prefersDark),
-  )
+  const isDark = saved.theme === 'dark' || ((saved.theme === 'system' || !saved.theme) && prefersDark)
+  document.documentElement.classList.toggle('dark', isDark)
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
 } catch {
-  document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  document.documentElement.classList.toggle('dark', isDark)
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
 }
 
 createRoot(document.getElementById('root')!).render(

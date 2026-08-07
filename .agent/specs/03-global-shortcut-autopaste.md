@@ -6,7 +6,7 @@
 - 关联阶段：Phase 3
 - 当前责任角色：`Coder`
 - 关联 PRD：`FR-ONB-02`、`FR-PCK-01/03`、`AC-03/04/11/20`、`NFR-PERF-01/03`、`E-07/08/14`
-- 前置 Spec：`SPEC-02`
+- 前置 Spec：`SPEC-02`、`SPEC-11`
 - 允许修改：`src-tauri/**` 平台适配/粘贴服务，检索窗口相关前端与测试，本 spec 状态
 - 禁止修改：AppMenu、XDG Autostart、向导、导入导出
 

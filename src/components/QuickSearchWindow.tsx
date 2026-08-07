@@ -1,356 +1,401 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react';
+import { Snippet, SearchMatchResult } from '../types/snippet';
+import { searchSnippets } from '../utils/searchEngine';
+import { Search, Star, Eye, EyeOff, Lock, Settings } from 'lucide-react';
 import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  Clipboard,
-  Copy,
-  Keyboard,
-  Plus,
-  Search,
-  Shield,
-  Star,
-} from 'lucide-react'
-import { AppError, SearchResultItem, snippetsApi } from '../api/snippets'
-
-export interface OpenManagerOptions {
-  prefillKey?: string
-  editId?: string
-}
+  Box,
+  VStack,
+  HStack,
+  Inline,
+  Layout,
+  LayoutPanel,
+  List,
+  ListItem,
+  Badge,
+  Token,
+  StatusDot,
+  Button,
+  IconButton,
+  Kbd,
+} from './astryx';
 
 interface QuickSearchWindowProps {
-  onClose: () => void
-  onOpenManager: (options: OpenManagerOptions) => void
+  snippets: Snippet[];
+  onPasteSnippet: (snippet: Snippet) => void;
+  onCopySnippet: (snippet: Snippet) => void;
+  onEditSnippet: (snippet: Snippet) => void;
+  onCreateNewSnippet: (prefillKey?: string) => void;
+  onClose?: () => void;
 }
 
-const DEFAULT_LIMIT = 20
-
 export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
+  snippets,
+  onPasteSnippet,
+  onCopySnippet,
+  onEditSnippet,
+  onCreateNewSnippet,
   onClose,
-  onOpenManager,
 }) => {
-  const [query, setQuery] = useState('')
-  const [items, setItems] = useState<SearchResultItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [selectedIndex, setSelectedIndex] = useState(0)
-  const [previewOpen, setPreviewOpen] = useState(true)
-  const [copying, setCopying] = useState(false)
-  const copyingRef = useRef(false)
-  const [error, setError] = useState<AppError | null>(null)
-  const [notice, setNotice] = useState('')
-  const [loading, setLoading] = useState(false)
-  const seqRef = useRef(0)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [results, setResults] = useState<SearchMatchResult[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
+  const [revealedSensitiveIds, setRevealedSensitiveIds] = useState<Record<string, boolean>>({});
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Focus search input on mount
   useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+    inputRef.current?.focus();
+  }, []);
 
-  // 防抖检索：忽略过期响应，避免输入乱序覆盖。
+  // Handle search filtering
   useEffect(() => {
-    const seq = ++seqRef.current
-    setLoading(true)
-    setError(null)
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await snippetsApi.search(query, DEFAULT_LIMIT)
-        if (seq !== seqRef.current) return
-        setItems(response.items)
-        setTotal(response.total)
-        setSelectedIndex(prev =>
-          response.items.length === 0
-            ? -1
-            : Math.max(0, Math.min(prev, response.items.length - 1)),
-        )
-      } catch (searchError) {
-        if (seq === seqRef.current) {
-          setItems([])
-          setTotal(0)
-          setError(searchError as AppError)
+    const searchResults = searchSnippets(snippets, searchQuery);
+    setResults(searchResults);
+    setSelectedIndex(0);
+  }, [searchQuery, snippets]);
+
+  // Keyboard navigation & shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose?.();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        setShowPreview(prev => !prev);
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, Math.max(0, results.length - 1)));
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        return;
+      }
+
+      const isModifier = e.ctrlKey || e.metaKey;
+
+      if (isModifier) {
+        if (/^[1-9]$/.test(e.key)) {
+          e.preventDefault();
+          const index = parseInt(e.key) - 1;
+          if (index >= 0 && index < results.length) {
+            onPasteSnippet(results[index].snippet);
+          }
+          return;
         }
-      } finally {
-        if (seq === seqRef.current) setLoading(false)
-      }
-    }, 120)
-    return () => window.clearTimeout(timer)
-  }, [query])
 
-  const selected = useMemo(
-    () => (selectedIndex >= 0 ? items[selectedIndex] ?? null : null),
-    [items, selectedIndex],
-  )
-
-  const move = (delta: number) => {
-    if (items.length === 0) return
-    setSelectedIndex(prev =>
-      Math.max(0, Math.min(items.length - 1, prev + delta)),
-    )
-  }
-
-  const showError = (e: AppError) => {
-    setError(e)
-    setNotice('')
-  }
-
-  const doCopy = async (item: SearchResultItem, keepOpen: boolean) => {
-    if (copyingRef.current) return
-    copyingRef.current = true
-    setCopying(true)
-    setError(null)
-    setNotice('')
-    try {
-      const operationId = crypto.randomUUID()
-      const outcome = await snippetsApi.copy(item.id, operationId, keepOpen)
-      setItems(prev =>
-        prev.map(it =>
-          it.id === outcome.snippet.id
-            ? { ...it, usageCount: outcome.snippet.usageCount }
-            : it,
-        ),
-      )
-      setNotice(
-        outcome.counted
-          ? `已复制「${item.key}」到系统剪贴板`
-          : `已复制「${item.key}」（该操作此前已处理，未重复计数）`,
-      )
-      if (!keepOpen) {
-        window.setTimeout(onClose, 120)
-      }
-    } catch (copyError) {
-      showError(copyError as AppError)
-    } finally {
-      copyingRef.current = false
-      setCopying(false)
-    }
-  }
-
-  const createFromQuery = async () => {
-    const raw = query.trim()
-    if (!raw) return
-    try {
-      const outcome = await snippetsApi.prepareNew(raw)
-      onOpenManager({ prefillKey: outcome.normalizedKey })
-    } catch (prepareError) {
-      showError(prepareError as AppError)
-    }
-  }
-
-  const openEdit = () => {
-    if (!selected) return
-    onOpenManager({ editId: selected.id })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // 输入法组合态：Esc 用于取消组合，不关闭窗口；J/K/Enter 不拦截。
-    if (e.nativeEvent.isComposing) return
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-      return
-    }
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      setPreviewOpen(prev => !prev)
-      return
-    }
-    if (e.key === 'Enter') {
-      if (e.ctrlKey) {
-        if (selected) {
-          e.preventDefault()
-          doCopy(selected, true)
+        if (e.key === 'Enter' && results.length > 0) {
+          e.preventDefault();
+          onCopySnippet(results[selectedIndex].snippet);
+          return;
         }
-      } else if (selected) {
-        e.preventDefault()
-        doCopy(selected, false)
-      }
-      return
-    }
-    if (e.key === 'ArrowDown' || e.key === 'k' || e.key === 'K') {
-      e.preventDefault()
-      move(1)
-      return
-    }
-    if (e.key === 'ArrowUp' || e.key === 'j' || e.key === 'J') {
-      e.preventDefault()
-      move(-1)
-      return
-    }
-    if (e.ctrlKey && !e.altKey && !e.metaKey) {
-      const num = Number(e.key)
-      if (num >= 1 && num <= 9 && items.length >= num) {
-        e.preventDefault()
-        doCopy(items[num - 1], false)
-        return
-      }
-      if (e.key === 'e' || e.key === 'E') {
-        e.preventDefault()
-        openEdit()
-        return
-      }
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault()
-        createFromQuery()
-        return
-      }
-    }
-  }
 
-  const noResults = !loading && query.trim().length > 0 && items.length === 0 && !error
+        if (e.key === 'e' || e.key === 'E') {
+          e.preventDefault();
+          if (results.length > 0) {
+            onEditSnippet(results[selectedIndex].snippet);
+          }
+          return;
+        }
+
+        if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          onCreateNewSnippet(searchQuery);
+          return;
+        }
+      } else {
+        if (e.key === 'Enter' && results.length > 0) {
+          e.preventDefault();
+          onPasteSnippet(results[selectedIndex].snippet);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [results, selectedIndex, showPreview, searchQuery, onClose, onPasteSnippet, onCopySnippet, onEditSnippet, onCreateNewSnippet]);
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (listRef.current) {
+      const activeElement = listRef.current.children[selectedIndex] as HTMLElement;
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [selectedIndex]);
+
+  const toggleSensitive = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRevealedSensitiveIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const selectedSnippet = results[selectedIndex]?.snippet;
 
   return (
-    <div className="max-w-3xl mx-auto p-4 sm:p-6">
-      <div className="rounded-2xl raycast-window overflow-hidden min-h-[520px] flex flex-col">
-        <div className="h-11 px-4 theme-titlebar border-b theme-divider flex items-center gap-2">
-          <Search className="w-4 h-4 icon-accent" />
-          <span className="text-sm font-bold text-theme">Searchis 快速检索</span>
-          <span className="ml-auto text-xs text-theme-muted flex items-center gap-3">
-            <span><kbd className="raycast-kbd">↵</kbd> 复制并关闭</span>
-            <span><kbd className="raycast-kbd">Ctrl+↵</kbd> 仅复制</span>
-            <span><kbd className="raycast-kbd">Esc</kbd> 关闭</span>
-          </span>
-        </div>
-
-        <div className="px-5 pt-5 pb-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" />
+    <Box
+      padding="md"
+      className="fixed inset-0 flex items-center justify-center z-50 theme-backdrop backdrop-blur-xs"
+      onClick={() => onClose?.()}
+    >
+      {/* Raycast Glassmorphism Container Framed with Astryx Box (760x480) */}
+      <Box
+        width="760px"
+        height="480px"
+        radius="xl"
+        shadow="window"
+        background="surface"
+        border="all"
+        overflow="hidden"
+        className="raycast-window flex flex-col animate-pop-in select-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Search Input Bar */}
+        <Box paddingX="lg" paddingY="md" border="bottom" background="sunken" className="flex-none">
+          <HStack align="center" gap="md">
+            <Search className="w-5 h-5 text-theme-muted shrink-0" />
             <input
               ref={inputRef}
               type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="输入 Key、别名、标题、标签或正文…"
-              aria-label="检索文本片段"
-              className="input-theme w-full pl-9 pr-3 py-2.5 rounded-xl text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent outline-none border-none text-[16px] font-normal text-theme placeholder:text-theme-disabled selection:bg-[color:var(--color-accent)] selection:text-[color:var(--color-accent-contrast)]"
+              placeholder="搜索 Key 或文本内容 (如: addr, email-work, pg)..."
             />
-          </div>
-        </div>
+          </HStack>
+        </Box>
 
-        {error && (
-          <div className="mx-5 mb-3 status-danger border rounded-xl p-3 text-xs flex gap-2" role="alert">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error.message} <code>{error.code}</code></span>
-          </div>
-        )}
-        {notice && !error && (
-          <div className="mx-5 mb-3 status-success border rounded-xl p-3 text-xs flex gap-2" role="status">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{notice}</span>
-          </div>
-        )}
+        {/* Main Content Area using Astryx Layout & LayoutPanel */}
+        <Layout direction="row" height="calc(100% - 100px)">
+          {/* Results list panel */}
+          <LayoutPanel
+            width={showPreview ? '50%' : '100%'}
+            height="100%"
+            border={showPreview ? 'right' : 'none'}
+            overflow="hidden"
+            className="flex flex-col"
+          >
+            <Box paddingX="lg" paddingY="xs" background="subtle" border="bottom">
+              <HStack align="center" justify="space-between">
+                <span className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">
+                  匹配片段结果
+                </span>
+                <Badge variant="accent" size="sm">{results.length} 条</Badge>
+              </HStack>
+            </Box>
 
-        {noResults ? (
-          <div className="flex-1 px-5 py-10 text-center space-y-4">
-            <p className="text-sm text-theme-muted">
-              没有匹配 <code className="px-1.5 py-0.5 rounded badge-neutral font-mono">{query.trim()}</code> 的片段
-            </p>
-            <button
-              onClick={createFromQuery}
-              className="btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-            >
-              <Plus className="w-4 h-4" />
-              以该查询词作为 Key 新建片段
-            </button>
-          </div>
-        ) : (
-          <div className="flex-1 px-5 pb-5 grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4 min-h-[320px]">
-            <div className="theme-surface-subtle border theme-divider rounded-xl overflow-hidden flex flex-col">
-              <div className="px-3 py-2 border-b theme-divider text-xs text-theme-muted flex items-center justify-between">
-                <span>{loading ? '检索中…' : `展示 ${items.length} / 总数 ${total}`}</span>
-                <span className="flex items-center gap-1"><Keyboard className="w-3 h-3" /> ↑↓/J/K</span>
-              </div>
-              <div className="flex-1 overflow-y-auto max-h-[360px] divide-y theme-divider-subtle">
-                {items.length === 0 && !loading && (
-                  <p className="p-6 text-xs text-theme-muted text-center">输入内容开始检索</p>
-                )}
-                {items.map((item, index) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedIndex(index)
-                      if (index === selectedIndex) doCopy(item, false)
-                    }}
-                    onMouseMove={() => setSelectedIndex(index)}
-                    className={`w-full text-left px-3 py-2.5 transition-colors ${
-                      index === selectedIndex ? 'raycast-item-active' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="badge-accent px-1.5 py-0.5 rounded text-xs font-mono font-bold">
-                        {item.key}
-                      </span>
-                      {item.pinned && <Star className="w-3 h-3 icon-accent" />}
-                      {item.sensitive && (
-                        <span className="badge-warning px-1.5 py-0.5 rounded text-xs flex items-center gap-0.5">
-                          <Shield className="w-3 h-3" /> 敏感
-                        </span>
+            <Box flex="1" overflow="auto" padding="xs">
+              {results.length === 0 ? (
+                <VStack align="center" justify="center" gap="md" className="py-12 px-4 text-center">
+                  {searchQuery ? (
+                    <>
+                      <span className="text-xs text-theme-muted">未找到与 &quot;{searchQuery}&quot; 匹配的片段</span>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<Star className="w-3.5 h-3.5" />}
+                        onClick={() => onCreateNewSnippet(searchQuery)}
+                      >
+                        以 &quot;{searchQuery}&quot; 为 Key 新建片段 <Kbd>⌘N</Kbd>
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-theme-muted">暂无片段数据</span>
+                  )}
+                </VStack>
+              ) : (
+                <List divided={false} ref={listRef as unknown as React.RefObject<HTMLUListElement>}>
+                  {results.map((res, index) => {
+                    const s = res.snippet;
+                    const isSelected = index === selectedIndex;
+                    return (
+                      <ListItem
+                        key={s.id}
+                        active={isSelected}
+                        onClick={() => {
+                          setSelectedIndex(index);
+                          onPasteSnippet(s);
+                        }}
+                        icon={
+                          <Box
+                            width="28px"
+                            height="28px"
+                            radius="sm"
+                            className={`flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-all ${
+                              isSelected ? 'brand-mark' : 'badge-accent'
+                            }`}
+                          >
+                            {s.pinned ? <Star className="w-3.5 h-3.5 fill-current" /> : s.key.slice(0, 2).toUpperCase()}
+                          </Box>
+                        }
+                        title={s.title}
+                        meta={<Token size="sm">{s.key}</Token>}
+                        extra={
+                          <Inline gap="xs" align="center">
+                            {s.tags.slice(0, 1).map(tag => (
+                              <Badge key={tag} variant="neutral" size="sm">#{tag}</Badge>
+                            ))}
+                            {index < 9 && (
+                              <span className="text-[11px] font-mono text-theme-muted">
+                                ⌘{index + 1}
+                              </span>
+                            )}
+                          </Inline>
+                        }
+                      />
+                    );
+                  })}
+                </List>
+              )}
+            </Box>
+          </LayoutPanel>
+
+          {/* Preview Pane using Astryx LayoutPanel */}
+          {showPreview && (
+            <LayoutPanel width="50%" height="100%" background="sunken" padding="lg" overflow="auto">
+              {selectedSnippet ? (
+                <VStack gap="md">
+                  <HStack align="center" justify="space-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-theme-muted">
+                      片段内容预览
+                    </span>
+                    <HStack align="center" gap="xs">
+                      {selectedSnippet.sensitive && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => toggleSensitive(selectedSnippet.id, e)}
+                        >
+                          {revealedSensitiveIds[selectedSnippet.id] ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>遮挡</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>明文</span>
+                            </>
+                          )}
+                        </Button>
                       )}
-                      {index === selectedIndex && (
-                        <span className="ml-auto flex items-center gap-1 text-xs text-theme-muted">
-                          <span className="text-accent"><kbd className="raycast-kbd">↵</kbd> 复制</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm font-semibold text-theme truncate">{item.title}</div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {item.tags.slice(0, 3).map(tag => (
-                        <span key={tag} className="badge-neutral px-1.5 py-0.5 rounded text-xs">#{tag}</span>
+                      <IconButton
+                        icon={<Settings className="w-4 h-4" />}
+                        ariaLabel="跳转到该片段的管理编辑页"
+                        onClick={() => onEditSnippet(selectedSnippet)}
+                      />
+                    </HStack>
+                  </HStack>
+
+                  {/* Title & Key */}
+                  <VStack gap="2xs">
+                    <h3 className="text-base font-bold text-theme leading-snug">{selectedSnippet.title}</h3>
+                    <Inline gap="xs" align="center">
+                      <span className="text-[11px] text-theme-muted">Key:</span>
+                      <Token>{selectedSnippet.key}</Token>
+                    </Inline>
+                  </VStack>
+
+                  {/* Aliases */}
+                  {selectedSnippet.aliases && selectedSnippet.aliases.length > 0 && (
+                    <Inline gap="xs" align="center">
+                      <span className="text-[11px] text-theme-muted">别名:</span>
+                      {selectedSnippet.aliases.map(a => (
+                        <Badge key={a} variant="neutral" size="sm">{a}</Badge>
                       ))}
-                      <span className="ml-auto text-xs text-theme-muted">使用 {item.usageCount} 次</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+                    </Inline>
+                  )}
 
-            {previewOpen && (
-              <aside className="theme-surface-subtle border theme-divider rounded-xl p-3 space-y-2 hidden md:block">
-                <h3 className="text-xs font-bold text-theme-secondary flex items-center gap-1">
-                  <ChevronRight className="w-3 h-3 icon-accent" /> 预览 (Tab 切换)
-                </h3>
-                {selected ? (
-                  <>
-                    <p className="text-xs text-theme-muted">Key</p>
-                    <p className="text-sm font-mono font-bold text-accent break-all">{selected.key}</p>
-                    <p className="text-xs text-theme-muted">标题</p>
-                    <p className="text-sm text-theme break-words">{selected.title}</p>
-                    <p className="text-xs text-theme-muted">别名</p>
-                    <p className="text-xs text-theme-secondary break-words">{selected.aliases.join('、') || '—'}</p>
-                    <p className="text-xs text-theme-muted">标签</p>
-                    <p className="text-xs text-theme-secondary break-words">{selected.tags.join('、') || '—'}</p>
-                    <p className="text-xs text-theme-muted">使用次数</p>
-                    <p className="text-sm text-theme">{selected.usageCount}</p>
-                    {selected.sensitive && (
-                      <p className="text-xs badge-warning px-2 py-1 rounded flex items-center gap-1">
-                        <Shield className="w-3 h-3" /> 敏感正文默认遮挡，不展示正文
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-xs text-theme-muted">选择一条结果查看详情</p>
-                )}
-              </aside>
-            )}
-          </div>
-        )}
+                  {/* Tags */}
+                  {selectedSnippet.tags && selectedSnippet.tags.length > 0 && (
+                    <Inline gap="xs" align="center">
+                      <span className="text-[11px] text-theme-muted">标签:</span>
+                      {selectedSnippet.tags.map(t => (
+                        <Badge key={t} variant="neutral" size="sm">#{t}</Badge>
+                      ))}
+                    </Inline>
+                  )}
 
-        <div className="px-5 py-3 theme-titlebar border-t theme-divider flex items-center justify-between text-xs text-theme-muted">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1"><kbd className="raycast-kbd">Ctrl+1~9</kbd> 直接选择</span>
-            <span className="flex items-center gap-1"><kbd className="raycast-kbd">Ctrl+E</kbd> 编辑当前</span>
-            <span className="flex items-center gap-1"><kbd className="raycast-kbd">Ctrl+N</kbd> 以查询词新建</span>
-          </div>
-          <button onClick={onClose} className="btn-secondary px-3 py-1.5 rounded-lg flex items-center gap-1">
-            <Clipboard className="w-3.5 h-3.5" /> 管理窗口
-          </button>
-        </div>
+                  {/* Content Box */}
+                  <VStack gap="2xs">
+                    <span className="text-[11px] text-theme-muted font-medium">文本内容:</span>
+                    <Box
+                      padding="md"
+                      radius="md"
+                      background="subtle"
+                      border="all"
+                      overflow="auto"
+                      className="max-h-48 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed"
+                    >
+                      {selectedSnippet.sensitive && !revealedSensitiveIds[selectedSnippet.id] ? (
+                        <VStack align="center" justify="center" gap="xs" className="py-6 text-center text-theme-muted">
+                          <Lock className="w-5 h-5 icon-warning" />
+                          <span>••••••••••••••••••••</span>
+                          <span className="text-[11px] text-theme-disabled">敏感信息默认已隐蔽</span>
+                        </VStack>
+                      ) : (
+                        selectedSnippet.content
+                      )}
+                    </Box>
+                  </VStack>
+                </VStack>
+              ) : (
+                <VStack align="center" justify="center" className="h-full text-theme-muted text-xs">
+                  选择左侧片段以查看详细预览
+                </VStack>
+              )}
+            </LayoutPanel>
+          )}
+        </Layout>
 
-        {copying && (
-          <div className="absolute bottom-4 right-4 btn-primary rounded-lg px-3 py-2 text-xs font-semibold shadow-lg">
-            <Copy className="w-3.5 h-3.5 inline mr-1" /> 写入剪贴板…
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+        {/* Bottom Raycast Status Footer Bar */}
+        <Box paddingX="lg" paddingY="sm" background="titlebar" border="top" className="flex-none text-xs text-theme-muted">
+          <HStack align="center" justify="space-between">
+            <HStack align="center" gap="xs">
+              <Box width="20px" height="20px" radius="xs" className="brand-mark flex items-center justify-center font-bold text-[10px]">
+                S
+              </Box>
+              <span className="font-semibold text-xs text-theme">Searchis</span>
+              <StatusDot status="active" size="sm" />
+            </HStack>
+
+            <Inline gap="sm" align="center" className="text-[11px]">
+              <Inline gap="3xs" align="center">
+                <span className="text-theme-muted">粘贴</span>
+                <Kbd>↵</Kbd>
+              </Inline>
+              <span className="text-theme-muted">|</span>
+              <Inline gap="3xs" align="center">
+                <span className="text-theme-muted">仅复制</span>
+                <Kbd>⌘↵</Kbd>
+              </Inline>
+              <span className="text-theme-muted">|</span>
+              <Inline gap="3xs" align="center">
+                <span className="text-theme-muted">预览</span>
+                <Kbd>Tab</Kbd>
+              </Inline>
+              <span className="text-theme-muted">|</span>
+              <Inline gap="3xs" align="center">
+                <span className="text-theme-muted">关闭</span>
+                <Kbd>Esc</Kbd>
+              </Inline>
+            </Inline>
+          </HStack>
+        </Box>
+      </Box>
+    </Box>
+  );
+};

@@ -10,13 +10,13 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前阶段
 
-- 阶段名称：Phase 1 — 安全持久化首个闭环
-- 阶段目标：建立可运行的 Tauri 桌面壳、加密 SQLite 数据库，并让用户创建一条片段后在重启后仍可读取。
-- 当前活跃 Spec：`.agent/specs/03-global-shortcut-autopaste.md`（待 Master 产线就绪后启动）
-- 当前状态：`SPEC-02 done`（QA `passed`，2026-08-07 实机验收全绿）
-- 当前责任角色：`Master`（准备 SPEC-03）
-- QA Status：`passed`
-- 下一步：SPEC-03 KGlobalAccel 呼出与 X11 自动粘贴（前置 SPEC-02 已完成）
+- 阶段名称：Phase 4 — 重建前端接入与双窗口形态
+- 阶段目标：把重建前端（astryx + 独立窗口组件）接入已验收的 Rust 后端，落地 PRD 的独立无边框检索窗口 + 单独管理窗口双窗口形态。
+- 当前活跃 Spec：`.agent/specs/11-rebuild-integration-dual-window.md`
+- 当前状态：`todo`（重建前端已覆盖，待 Coder 接入）
+- 当前责任角色：`Coder`
+- QA Status：`not_run`
+- 下一步：Coder 实现 SPEC-11（真实数据接入 + 双窗口），完成后 QA 验收
 
 ## 技术决策
 
@@ -37,7 +37,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 |---:|---|---|---|---|
 | 01 | [安全持久化首条片段](specs/01-secure-persistent-snippet.md) | 启动桌面应用、创建片段、重启后读取；数据库为 SQLCipher 加密 | 无 | `done` |
 | 02 | [检索窗口与可靠复制](specs/02-search-and-copy.md) | 打开检索窗口、稳定检索、键盘选择、复制；失败不计使用次数 | 01 | `done` |
-| 03 | [KGlobalAccel 呼出与 X11 自动粘贴](specs/03-global-shortcut-autopaste.md) | `Alt+O` 呼出并向原窗口粘贴；能力不可用时仅复制 | 02 | `todo` |
+| 11 | [重建前端接入与双窗口形态](specs/11-rebuild-integration-dual-window.md) | 重建 UI（astryx/独立窗口组件）接真实后端；独立无边框检索窗口 + 单独管理窗口 | 01、02 | `todo`（active） |
+| 03 | [KGlobalAccel 呼出与 X11 自动粘贴](specs/03-global-shortcut-autopaste.md) | `Alt+O` 呼出并向原窗口粘贴；能力不可用时仅复制 | 02、11 | `todo` |
 | 04 | [管理视图与敏感信息保护](specs/04-management-and-privacy.md) | 编辑、筛选、排序、置顶、标签、敏感正文会话级显隐 | 01、02 | `todo` |
 | 05 | [回收站完整生命周期](specs/05-trash-lifecycle.md) | 软删除、还原、永久删除、手动/自动清理及事务回滚 | 04 | `todo` |
 | 06 | [设置、主题与开机启动](specs/06-settings-theme-autostart.md) | 设置即时持久化，主题生效，XDG Autostart 真实状态回填 | 02、03、05 | `todo` |
@@ -73,6 +74,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - [x] SPEC-01 安全持久化首条片段（18 tests, MT1+AC-02 passed, QA 验收通过 2026-08-03）
 - [x] 已确认桌面端发布构建命令：`npm run tauri:build`（在仓库根目录执行）。
 - [x] SPEC-02 检索窗口与可靠复制（32 tests + 性能 p95=7ms + 实机 MT1/MT2 全绿，QA 验收通过 2026-08-07）
+- [x] SPEC-01/02 全部实现已提交（commit `96d5ead`）；重建前端（`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline`）已文件级覆盖到仓库根目录 `src/`（含 astryx 组件库与独立窗口组件），`npm run build` 验证通过；Rust 侧保留 SPEC-01/02 已验收成果未覆盖。
 
 ## 跨 Spec 不变量
 
@@ -92,6 +94,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-01：前端位于仓库根目录 `src/`（原 `front-baseline/` 已并入根目录），逐 slice 替换 mock 数据和 macOS 语义；音效能力只删除、不迁移。
 - 2026-08-03：确认 `conditional_pass` 仅用于 QA 阶段结论；Spec 仍保持 `in_qa`，直到人工验收完成后才可转为 `done`。
 - 2026-08-07：SPEC-02 在目标 Arch/KDE/X11 实机完成 MT1（真实剪贴板）与 MT2（键盘交互）验收，QA 升级为 `passed`；同日确认发布构建必须走 `npm run tauri:build`（纯 `cargo build --release` 不嵌入前端资源，烟测需验证 UI 渲染而非仅进程存活）。
+- 2026-08-08：确认 PRD 双窗口形态（独立无边框置顶检索窗口 + 单独管理窗口，rofi/krunner 式）为需求本意；SPEC-01/02 的单窗口视图切换为过渡形态，由 SPEC-11 落地正式形态。
+- 2026-08-08：重建前端覆盖决策——只覆盖前端层（`src/**`、`index.html`、`package*.json`），`src-tauri/**` 保留已验收 Rust 成果；重建前端为 mock 形态（searchEngine/initialSnippets），接入与适配全部由 SPEC-11 的 Coder 承担。
 
 ## 风险记录
 
@@ -102,11 +106,11 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：`SPEC-02`
-- 状态：`done`
-- Next Owner：`Master`（启动 SPEC-03）
-- QA Status：`passed`
-- Blocking Issue：无
+- Spec：`SPEC-11`
+- 状态：`todo`
+- Next Owner：`Coder`
+- QA Status：`not_run`
+- Blocking Issue：重建前端待接入真实后端并落地双窗口形态
 - Required Fixes：无
-- Retest Required：`no`（实机 MT1/MT2 已全数执行）
-- Last Updated：2026-08-07
+- Retest Required：`no`
+- Last Updated：2026-08-08
