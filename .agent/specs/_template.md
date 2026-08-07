@@ -137,7 +137,7 @@ flowchart TD
 
 ## QA Result
 
-- Status：`not_run | passed | failed`
+- Status：`not_run | conditional_pass | passed | failed`
 - Owner Back：`Master | Coder | none`
 - Verdict Date：
 - Summary：

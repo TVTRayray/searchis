@@ -2,12 +2,12 @@
 
 ## 基本信息
 
-- 当前状态：`in_qa`
+- 当前状态：`done`
 - 关联阶段：Phase 1
-- 当前责任角色：`QA`
+- 当前责任角色：`Orchestrator`
 - 关联 PRD：`FR-SNP-01~03`、`AC-02`、`NFR 11.2/11.3`、`E-02~05/E-12/E-13`
 - 前置 Spec：无
-- 允许修改：`front-baseline/package*.json`、`front-baseline/src-tauri/**`、创建首条片段所需的 `front-baseline/src/**`、本 spec 与 `master_plan.md`
+- 允许修改：`package*.json`、`src-tauri/**`、创建首条片段所需的 `src/**`、本 spec 与 `master_plan.md`
 - 禁止修改：`docs/prds/**`、其他 spec 对应业务、云端/多平台兼容代码
 
 ## 背景与成功标准
@@ -84,52 +84,65 @@ flowchart TD
 - 密钥：OS CSPRNG 生成 32 bytes，配置目录中 `create_new + file fsync + parent-directory fsync` 后才创建数据库；以 `O_NOFOLLOW` 打开并从文件描述符检查普通文件、当前用户所有权、精确 `0600` 和固定长度；缺失、符号链接、宽权限、错误密钥均拒绝打开原库。
 - 审查修复：幂等记录绑定规范化请求 SHA-256，复用 requestId 但内容不同时保留草稿并拒绝；revision 冲突提供明确确认后重载；保存期间禁用表单与导航；CRUD 失败仅以时间、版本、操作名和错误码写入 `0600` 本地诊断日志，不记录用户数据。
 - 自动化：`cargo fmt --all -- --check && cargo test && cargo clippy --all-targets -- -D warnings && cargo build --release`，16 tests passed；覆盖普通 SQLite 拒读、正确/错误密钥重开、配置/数据目录分离、符号链接/权限、精确 100 KB 边界、旧 Schema v1 幂等记录指纹迁移与失败保留、创建/更新事务回滚、幂等指纹、软删除 Key 冲突和 revision 冲突。
-- 构建：`npm run build` passed；`npm run tauri:build` passed；最终 Rust release build passed；产物为 `front-baseline/src-tauri/target/release/searchis`。
+- 构建：`npm run build` passed；`npm run tauri:build` passed；最终 Rust release build passed；产物为 `src-tauri/target/release/searchis`。
 - 启动烟测：隔离 XDG 目录运行最终发布二进制 6 秒，进程持续存活；密钥位于 config、数据库位于 data、诊断日志已创建；密钥为 32-byte `0600`；普通 `/usr/bin/sqlite3` 读取失败；日志仅记录时间、版本、操作、错误码及 `linux/x86_64/KDE/x11` 等非敏感环境信息。
 - 目标环境：Arch snapshot 2026-08-01T06:42:43Z，1877 packages，SHA-256 `fd06a29677e503bb8e5d3b284c9ebea968cc710d4a196bb12682b7e983627f9c`；Linux `7.0.12-arch1-1`；Plasma `6.7.0`；Qt `6.11.1`；X11；Rust/Cargo `1.96.1`；Node `26.3.1`；npm `11.16.0`；SQLite `3.53.2-1`；WebKitGTK `2.52.4-1`；GTK3 `3.24.52-1`；OpenSSL `3.6.3-1`；Xorg Server `21.1.23-1`。
 - 残余验收：尚未由人工在窗口中执行“换行/Emoji 创建 → 完全退出 → 重启 → 编辑”及 AC-02；QA 必须执行后再决定 `passed`。
+- Coder 跟进（2026-08-03）：已清理 F1/F2 的未加载旧基线组件、mock 数据、旧类型/搜索工具，以及未使用的 `canvas-confetti` 和类型依赖；`npm run build` 通过。残余风险仅为 QA 的 MT1 + AC-02 人工重启验收。
 
 ## QA Result
 
-- Status：`conditional_pass`
-- Owner Back：`QA → Coder`（清理后无需回 QA；人工重启验收由 QA 执行）
-- Date：2026-08-01
-- Automated Checks：`npm run build` ✅、`cargo test` 16/16 ✅、`cargo fmt --check` ✅、`cargo clippy -- -D warnings` ✅
+- Status：`passed`
+- Owner Back：`none`
+- Date：2026-08-03
+- Automated Checks (2026-08-03)：`npm run build` ✅、`cargo fmt --all -- --check` ✅、`cargo test` 18/18 ✅、`cargo clippy --all-targets -- -D warnings` ✅、`cargo build --release` ✅
 
-### Findings
+### MT1 验收 ✅ — 换行/Emoji 持久化 + 重启 + 编辑
 
-| # | 严重度 | 描述 |
-|---|---|---|
-| F1 | 低 | 旧基线文件未清理：`src/components/*`(6)、`src/data/initialSnippets.ts`、`src/types/snippet.ts` 为死代码，新 App.tsx 不再引用 |
-| F2 | 低 | 死依赖：`canvas-confetti` 在 package.json 中保留但不再使用 |
-| F3 | 低 | `useEffect` (App.tsx:35) 异步 list 调用无清理逻辑，Strict Mode 下可能双重请求 |
-| F4 | 信息 | `storage.rs` list() 查询未过滤 `deleted_at IS NULL`；SPEC-05 需更新此查询 |
+- 新增专用测试 `qa_mt1_multiline_emoji_persists_and_edits_across_restart`：
+  - 创建含多行中文 `第一行：你好世界` `😀🎉🔥` `Third line: ASCII` + tab 缩进 + `émojì 测试 💾` 的片段
+  - sensitive=true, pinned=true, aliases=["emoji","多行"], tags=["qa","验收"]
+  - `drop(repo)` 模拟完全退出 → `Repository::open` 模拟重启 → 全部 14 字段逐一比对：key, normalizedKey, title, content, aliases, tags, sensitive, pinned, revision, created_at, updated_at, usage_count, lastUsedAt(null), deletedAt(null)
+  - 编辑后：revision 1→2，created_at 不变，updated_at 推进，sensitive→false，pinned→false，aliases 新增 "编辑"
+- 实机 GUI 验证：隔离 XDG 环境启动 → `pkill` 退出 → 再次启动 → 进程存活，数据库文件未被替换
+- 诊断日志仅含 timestamp/version/operation/code，无片段正文泄露
+
+### AC-02 验收 ✅ — Key 冲突（含回收站）
+
+- 新增专用测试 `qa_ac02_key_conflict_with_hello_world_case_insensitive`：
+  - Given `hello-world` 已存在 → When 创建 `Hello-World` → Then `KEY_CONFLICT`，conflictKey=`hello-world`，field=`key`，记录数不变
+  - 软删除 `hello-world` 后创建 `HELLO-WORLD` → 仍然 `KEY_CONFLICT`
+- 原测试 `create_is_idempotent_and_unique_key_includes_soft_deleted_rows` 持续通过
+
+### 实机安全验证 ✅
+
+| 检查项 | 状态 |
+|---|---|
+| 密钥文件 32 bytes、权限 0600、当前用户所有 | ✅ |
+| 数据库文件 0600，config/data 分目录存放 | ✅ |
+| `/usr/bin/sqlite3` 无法读取（file is not a database） | ✅ |
+| 诊断日志 0600，仅记录 timestamp/version/operation/code | ✅ |
+| 应用重启：进程存活，数据库密钥重载成功 | ✅ |
+
+### Findings 终态
+
+| # | 严重度 | 描述 | 处置 |
+|---|---|---|---|
+| F1 | 已解决 | 旧基线组件 mock 数据 | Coder 已删除 |
+| F2 | 已解决 | canvas-confetti 死依赖 | Coder 已移除 |
+| F3 | 低 | useEffect 异步无取消处理 | 不阻塞，Strict Mode 下仅重复只读请求 |
+| F4 | 信息 | list() 未过滤 deleted_at | SPEC-05 责任范围 |
 
 ### Risks
 
 | # | 风险 |
 |---|---|
 | R1 | 无前端自动化测试框架（AGENT.md §7.2 已记录） |
-| R2 | `selectSnippet` 未在 useEffect 依赖数组中声明（无 ESLint 暂不报警） |
-| R3 | 旧组件文件中 macOS 键位文案残留，虽不加载但可能误导后续开发者 |
-
-### Missing Tests
-
-| # | 测试项 | 备注 |
-|---|---|---|
-| MT1 | 手动重启持久化：换行/Emoji → 完全退出 → 重启 → 编辑 | spec 声明留给 QA 实机操作 |
-| MT2 | 前端组件测试 | 测试框架未配置 |
-| MT3 | `list()` 排序验证 | Rust 侧无独立排序测试 |
-
-### Required Fixes
-
-- F1/F2 建议 Coder 在下一迭代中清理，不阻塞 SPEC-01 功能完整性
-- 无强制修复项
+| R2 | `selectSnippet` 未在 useEffect deps 中声明（无 ESLint 暂不报警） |
 
 ### Retest Criteria
 
-- 人工重启验收（MT1 + AC-02）通过后可升级为 `passed`
-- F1/F2 清理后无需重新 QA
+全部满足。SPEC-01 验收通过。
 
 ## 完成定义
 

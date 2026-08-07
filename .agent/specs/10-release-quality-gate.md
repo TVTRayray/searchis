@@ -21,7 +21,7 @@
 - [ ] 启动空闲内存 ≤150 MB；快捷键、剪贴板、X11、AppMenu、Autostart 分别完成实机集成测试。
 - [ ] 键盘、输入法、Orca、WCAG AA、减少动态效果完成检查。
 - [ ] 日志/通知/错误/a11y 全面扫描不含正文、query、剪贴板、完整 Alias/Title；本地诊断默认 7 天、可查看目录并清除。
-- [ ] 形成 `front-baseline/` 差异清单，确认 Linux 键位、无音效、无 restoreClipboard UI。
+- [ ] 形成 `src/`（原 `front-baseline/`，已并入仓库根目录）差异清单，确认 Linux 键位、无音效、无 restoreClipboard UI。
 
 ## 非目标
 

@@ -2,7 +2,7 @@
 
 > 适用范围：本仓库的 spec-first 开发流程  
 > 需求真理源：`docs/prds/prd.md`  
-> UI 交互基线：`front-baseline/`
+> UI 交互基线：仓库根目录 `src/`（原 `front-baseline/` 已并入仓库根目录）
 
 ## 1. 项目上下文
 
@@ -13,7 +13,7 @@
 - 数据边界：单机、单用户、本地存储；不建设账户、服务端、云同步或跨设备同步。
 - 内容边界：V1 仅支持 UTF-8 纯文本；Markdown 仅属于后续版本候选范围。
 - 交付形式：只交付可执行文件，不交付 PKGBUILD、安装包或应用内自动更新。
-- 当前前端基线：React 19、TypeScript、Vite，位于 `front-baseline/`。
+- 当前前端基线：React 19、TypeScript、Vite，位于仓库根目录 `src/`；Tauri 壳位于 `src-tauri/`。
 - 当前技术基线：Tauri 2 + React 19/TypeScript/Vite + Rust + SQLite；为满足数据库自身加密约束，SQLite 必须采用 SQLCipher 加密实现，不得退化为明文 upstream SQLite。
 
 ## 2. 产品硬约束
@@ -35,7 +35,7 @@
 
 ### 3.1 当前决策状态
 
-- `front-baseline/` 是 React/Vite UI 与交互参考，Tauri 接入后仍须按 PRD 修正 Linux/KDE 语义。
+- 仓库根目录 `src/` 与 `src-tauri/` 是正式实现，同时承担交互参考；仍须按 PRD 修正 Linux/KDE 语义。
 - 桌面运行时采用 Tauri 2，应用核心与平台适配采用 Rust，存储采用 SQLite Schema v1 + SQLCipher。
 - 具体 Rust 绑定和系统集成库由所属 vertical slice 以目标 Arch 环境实测决定；不得改变 Tauri/Rust/加密 SQLite 技术边界。
 - 依赖决策顺序：平台原生能力 → 已存在依赖 → 成熟依赖 → 最小本地实现。
@@ -78,7 +78,7 @@ UI 不得直接调用未封装的平台命令。平台能力失败必须转换�
 
 ## 6. UI / UX 规则
 
-- `front-baseline/` 提供布局和交互参考；实现必须按 PRD 将 macOS 键位和文案改为 Linux/KDE 语义。
+- 仓库根目录 `src/` 提供布局和交互参考；实现必须按 PRD 将 macOS 键位和文案改为 Linux/KDE 语义。
 - 必须支持浅色、深色、跟随系统三种主题。
 - 使用语义化主题变量，禁止在新增业务组件中散布无语义硬编码颜色。
 - 所有核心动作必须可通过键盘完成，并正确处理输入法组合态。
@@ -98,14 +98,19 @@ UI 不得直接调用未封装的平台命令。平台能力失败必须转换�
 
 ### 7.2 当前可用前端检查
 
-在改动 `front-baseline/` 时至少运行：
+在改动 `src/` 时至少运行：
 
 ```bash
-cd front-baseline
 npm run build
 ```
 
-项目尚未配置 ESLint、单元测试或桌面端构建命令。相关工具确定后，Master 必须先更新本文件和目标 spec，再把命令作为完成定义。
+项目尚未配置 ESLint 或前端单元测试。桌面端发布构建命令为：
+
+```bash
+npm run tauri:build
+```
+
+相关工具确定后，Master 必须先更新本文件和目标 spec，再把命令作为完成定义。
 
 ### 7.3 后续平台实现的最低测试范围
 
