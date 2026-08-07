@@ -10,13 +10,13 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前阶段
 
-- 阶段名称：Phase 4 — 重建前端接入与双窗口形态
-- 阶段目标：把重建前端（astryx + 独立窗口组件）接入已验收的 Rust 后端，落地 PRD 的独立无边框检索窗口 + 单独管理窗口双窗口形态。
-- 当前活跃 Spec：`.agent/specs/11-rebuild-integration-dual-window.md`
-- 当前状态：`in_qa`（`conditional_pass`；MT1 通过，Esc/Ctrl+Enter 有小问题待人工确认）
-- 当前责任角色：`QA`（待人工确认 Esc 关闭行为）
-- QA Status：`conditional_pass`
-- 下一步：人工确认 Esc 关闭搜索窗口行为；如可通过则升级为 `passed`
+- 阶段名称：Phase 3 — KGlobalAccel 呼出与 X11 自动粘贴
+- 阶段目标：实现全局快捷键呼出独立检索窗口、记录呼出前窗口并向其发送固定 Ctrl+V；能力不可用时退化为仅复制。
+- 当前活跃 Spec：`.agent/specs/03-global-shortcut-autopaste.md`
+- 当前状态：`todo`（SPEC-02/11 已 done，双窗口形态就绪）
+- 当前责任角色：`Coder`
+- QA Status：`not_run`
+- 下一步：Coder 实现 SPEC-03，完成 KGlobalAccel 注册、X11 窗口激活/按键注入与降级路径
 
 ## 技术决策
 
@@ -107,11 +107,11 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：`SPEC-11`
-- 状态：`in_qa`（QA `conditional_pass`，Esc 关闭行为已获 Orchestrator 人工确认）
-- Next Owner：`QA`（剩余：Ctrl+Enter 真实键盘 / Ctrl+N 表单创建 / 管理窗口 CRUD 真实用户验收）
-- QA Status：`conditional_pass`
-- Blocking Issue：无（F1/F2/RF3 已闭环）
-- Required Fixes：RF4（Ctrl+Enter 真实键盘验证，建议项）
-- Retest Required：`yes`（三项真实用户验收未完成）
+- Spec：`SPEC-03`
+- 状态：`todo`
+- Next Owner：`Coder`
+- QA Status：`not_run`
+- Blocking Issue：无（SPEC-02/11 已完成，双窗口形态就绪）
+- Required Fixes：无
+- Retest Required：`no`
 - Last Updated：2026-08-08

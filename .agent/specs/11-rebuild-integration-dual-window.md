@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`in_qa`（Esc 关闭行为已获 Orchestrator 人工确认，剩余 Ctrl+Enter/Ctrl+N/管理 CRUD 待真实用户验收）
+- 当前状态：`done`（全部功能与人工验收完成，QA passed）
 - 关联阶段：Phase 4（重建整合）
-- 当前责任角色：`QA`（剩余 retest 项）
+- 当前责任角色：`Master`（推进 SPEC-03）
 - 关联 PRD：`FR-PCK-01~03`、`FR-MGT-01~03`、`FR-SCH-01~03`、`FR-SNP-03`、`AC-01/05/08/13`、`E-06`
 - 前置 Spec：`SPEC-01`（done）、`SPEC-02`（done）
 - 允许修改：`src/**`、`src-tauri/**`（窗口创建与命令暴露）、`tauri.conf.json`、`package*.json`、本 spec 与 `master_plan.md`
@@ -87,9 +87,9 @@
 
 ## QA Result
 
-- Status：`conditional_pass`
-- Owner Back：`QA`（待人工确认 Esc 关闭行为）
-- Verdict Date：2026-08-07（第三次）
+- Status：`passed`（conditional 条件全部满足：Esc/Ctrl+Enter/Ctrl+N/管理 CRUD 均获 Orchestrator 人工验收确认，2026-08-08）
+- Owner Back：`Master`（SPEC-11 全部闭环，推进 SPEC-03）
+- Verdict Date：2026-08-08（第四次，人工验收全部完成）
 - Summary：自动化全绿（fmt/32 tests/clippy/build/tauri:build）；webview 可交互（typing 生效，截图 MD5 变化）；MT1 检索→Enter→剪贴板完整链路通过（`git commit -m "QA accept"`，DB usage+1/rev+1）；无结果 Enter 不写入；搜索窗口内容渲染正确（3 条片段、输入框、快捷键提示）。
 - Findings：
   - **F1（已解决）**：前次 `cargo build --release` 不嵌入前端资源→webview 不可交互。根因已定位，正确构建为 `npm run tauri:build`。
@@ -109,14 +109,16 @@
   - **RF4（建议）**：验证 Ctrl+Enter 在真实用户键盘下是否正常（排除 xdotool modifier 传递问题）。
 - Retest Criteria：
   - RF3 修复后：Esc 关闭搜索窗口且窗口不可见。—— ✅ 2026-08-08 Orchestrator 实机人工确认 Esc 关闭搜索窗口行为正确（且 Coder E2E 已 `wmctrl` 确认窗口 hidden）。
-  - Ctrl+Enter 在真实键盘下可复制。（待真实用户验收）
-  - Ctrl+N 表单创建可通过真实鼠标点击验证。（待真实用户验收）
+  - Ctrl+Enter 在真实键盘下可复制。—— ✅ 2026-08-08 Orchestrator 人工确认通过（排除 xdotool modifier 传递问题，真实键盘正常）。
+  - Ctrl+N 表单创建可通过真实鼠标点击验证。—— ✅ 2026-08-08 Orchestrator 人工确认通过（MT2 闭环）。
 
 ## Orchestrator 人工验收记录（2026-08-08）
 
 - Esc 关闭搜索窗口行为：✅ 正确（人工实机确认）。
-- 关联闭环：QA F2/R1/RF3、Retest Criteria 第 3 条全部关闭。
-- 待验收项（真实用户）：Ctrl+Enter 复制（RF4）、Ctrl+N 表单创建（MT2）、管理窗口 CRUD（Retest #4）。
+- Ctrl+Enter 复制（RF4）：✅ 真实键盘下可复制。
+- Ctrl+N 表单创建（MT2）：✅ 真实鼠标操作通过。
+- 管理窗口 CRUD（Retest #4）：✅ 真实鼠标新建/保存 → 写入数据库 → 重启后仍在，通过。
+- 关联闭环：F1/F2/R1/RF3/RF4、MT1/MT2/MT3、Retest Criteria 全部关闭；SPEC-11 全部成功标准达成。
 
 ## Retest Specific Criteria
 
@@ -127,4 +129,9 @@
 
 ## 完成定义
 
-双窗口形态、真实数据闭环、命令薄封装与既有测试保持通过；QA `passed`；`master_plan.md` 状态一致。
+- [x] 双窗口形态、真实数据闭环、命令薄封装与既有测试保持通过（cargo test 32 passed / clippy / npm run build / npm run tauri:build 全绿）。
+- [x] 失败、降级路径已实现（DB 错误页、剪贴板失败不计数、revision 冲突提示）。
+- [x] 人工验收全部完成（Esc / Ctrl+Enter / Ctrl+N / 管理 CRUD）。
+- [x] 无超出本 spec 的范围扩张（回收站/导入导出/设置持久化按计划留给 SPEC-05/06/07）。
+- [x] QA Result 为 `passed`。
+- [x] `master_plan.md` 与本 spec 状态一致（SPEC-11 `done`）。
