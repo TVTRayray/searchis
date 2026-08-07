@@ -35,6 +35,37 @@ export interface AppError {
   conflictKey?: string
 }
 
+export interface SearchResultItem {
+  id: string
+  key: string
+  title: string
+  aliases: string[]
+  tags: string[]
+  pinned: boolean
+  sensitive: boolean
+  usageCount: number
+  lastUsedAt: string | null
+}
+
+export interface SearchResponse {
+  items: SearchResultItem[]
+  total: number
+}
+
+export interface CopyOutcome {
+  snippet: SearchResultItem
+  counted: boolean
+}
+
+export interface PrepareNewOutcome {
+  normalizedKey: string
+}
+
+export interface ManagerRequest {
+  editId?: string
+  prefillKey?: string
+}
+
 function normalizeError(error: unknown): AppError {
   if (typeof error === 'object' && error !== null && 'code' in error && 'message' in error) {
     return error as AppError
@@ -62,4 +93,19 @@ export const snippetsApi = {
     call<PersistedSnippet>('snippet_update', {
       input: { ...fields, id: snippet.id, revision: snippet.revision },
     }),
+  search: (query: string, limit: number) =>
+    call<SearchResponse>('search_snippets', { input: { query, limit } }),
+  copy: (id: string, operationId: string, keepOpen: boolean) =>
+    call<CopyOutcome>('copy_snippet', { input: { id, operationId, keepOpen } }),
+  prepareNew: (rawQuery: string) =>
+    call<PrepareNewOutcome>('prepare_new_snippet', { rawQuery }),
+}
+
+export const windowApi = {
+  openSearch: () => call<void>('open_search_window'),
+  closeSearch: () => call<void>('close_search_window'),
+  openManager: (request?: ManagerRequest) =>
+    call<void>('open_manager_window', { request: request ?? null }),
+  takeManagerRequest: () =>
+    call<ManagerRequest | null>('take_manager_request'),
 }

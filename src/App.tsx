@@ -1,6 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Snippet, ViewMode, SettingsConfig } from './types/snippet';
-import { initialSnippets } from './data/initialSnippets';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ViewMode, SettingsConfig } from './types/snippet';
+import {
+  AppError,
+  ManagerRequest,
+  PersistedSnippet,
+  SearchResultItem,
+  snippetsApi,
+  windowApi,
+} from './api/snippets';
 import {
   ThemeProvider,
   AppShell,
@@ -8,7 +16,6 @@ import {
   VStack,
   HStack,
   Button,
-  Badge,
   Kbd,
   useTheme,
 } from './components/astryx';
@@ -18,170 +25,227 @@ import { ManagerWindow } from './components/ManagerWindow';
 import { SettingsModal } from './components/SettingsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { CheckCircle2, Zap } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+
+// 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
+// 纯浏览器（vite dev 无 Tauri）环境回退为管理窗口形态。
+let WINDOW_LABEL = 'main';
+try {
+  WINDOW_LABEL = getCurrentWindow().label;
+} catch {
+  // 非 Tauri 环境
+}
 
 const DEFAULT_CONFIG: SettingsConfig = {
-  globalShortcut: 'Option + Space',
-  copyShortcut: 'Cmd + Enter',
+  globalShortcut: 'Alt + O',
+  copyShortcut: 'Ctrl + Enter',
   autoPaste: true,
-  restoreClipboard: true,
+  restoreClipboard: false,
   launchAtLogin: true,
   theme: 'system',
-  playAudioFeedback: true,
+  playAudioFeedback: false,
   maxResultsCount: 20,
 };
 
-const MainContent: React.FC = () => {
-  const [snippets, setSnippets] = useState<Snippet[]>(() => {
-    try {
-      const saved = localStorage.getItem('searchis_snippets_v1');
-      return saved ? JSON.parse(saved) : initialSnippets;
-    } catch {
-      return initialSnippets;
-    }
-  });
+const errorMessage = (e: unknown): string =>
+  (e as AppError)?.message ?? (e as { message?: string })?.message ?? '操作失败';
 
+/* ============ 检索窗口（独立无边框窗口） ============ */
+const SearchWindowApp: React.FC = () => {
+  const handleClose = useCallback(() => {
+    windowApi.closeSearch().catch(() => {});
+  }, []);
+
+  const handleEdit = useCallback((item: SearchResultItem) => {
+    // 先隐藏置顶检索窗口，再跳转管理窗口（避免悬浮遮挡）。
+    windowApi
+      .closeSearch()
+      .then(() => windowApi.openManager({ editId: item.id }))
+      .catch(() => {});
+  }, []);
+
+  const handleCreate = useCallback((prefillKey?: string) => {
+    windowApi
+      .closeSearch()
+      .then(() => windowApi.openManager(prefillKey ? { prefillKey } : undefined))
+      .catch(() => {});
+  }, []);
+
+  return (
+    <QuickSearchWindow
+      onClose={handleClose}
+      onEditSnippet={handleEdit}
+      onCreateNewSnippet={handleCreate}
+    />
+  );
+};
+
+/* ============ 管理窗口（常规主窗口） ============ */
+const MainContent: React.FC = () => {
+  const [snippets, setSnippets] = useState<PersistedSnippet[]>([]);
+  const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<SettingsConfig>(() => {
     try {
       const saved = localStorage.getItem('searchis_config_v1');
-      return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+      return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
     } catch {
       return DEFAULT_CONFIG;
     }
   });
 
   const [currentView, setCurrentView] = useState<ViewMode>('manager');
-  const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [editRequestId, setEditRequestId] = useState<string | null>(null);
   const [prefillCreateKey, setPrefillCreateKey] = useState<string | undefined>();
 
   const { effectiveTheme } = useTheme();
 
-  // Persist snippets
-  useEffect(() => {
-    try {
-      localStorage.setItem('searchis_snippets_v1', JSON.stringify(snippets));
-    } catch {
-      // ignore
-    }
-  }, [snippets]);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    window.setTimeout(() => setToast(null), 3000);
+  };
 
-  // Persist config
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     try {
-      localStorage.setItem('searchis_config_v1', JSON.stringify(config));
-    } catch {
-      // ignore
+      const items = await snippetsApi.list();
+      setSnippets(items);
+    } catch (e) {
+      showToast(`读取片段失败：${errorMessage(e)}`, 'error');
     }
-  }, [config]);
-
-  // Global Option+Space keyboard shortcut to toggle quick picker overlay
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.code === 'Space') {
-        e.preventDefault();
-        setIsQuickPickerOpen(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+  // 初始加载真实数据（不使用 mock）
+  useEffect(() => {
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
+
+  // 消费检索窗口跳转请求（Ctrl+E 编辑 / Ctrl+N 预填新建）
+  const consumeManagerRequest = useCallback(async () => {
+    try {
+      const request = await windowApi.takeManagerRequest();
+      if (!request) return;
+      applyManagerRequest(request);
+    } catch {
+      // 窗口请求消费失败不影响主流程
+    }
+  }, []);
+
+  const applyManagerRequest = (request: ManagerRequest) => {
+    if (request.prefillKey) {
+      setPrefillCreateKey(request.prefillKey);
+      setEditRequestId(null);
+      setCurrentView('manager');
+    } else if (request.editId) {
+      setEditRequestId(request.editId);
+      setPrefillCreateKey(undefined);
+      setCurrentView('manager');
+    }
   };
 
-  const handleSaveSnippet = (snippet: Snippet) => {
-    setSnippets(prev => {
-      const exists = prev.some(s => s.id === snippet.id);
-      if (exists) {
-        return prev.map(s => s.id === snippet.id ? snippet : s);
+  useEffect(() => {
+    consumeManagerRequest();
+  }, [consumeManagerRequest]);
+
+  // 窗口重新聚焦时再次消费（检索窗口已在显示状态下发出请求的场景）
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    try {
+      getCurrentWindow()
+        .onFocusChanged(({ payload }) => {
+          if (payload) consumeManagerRequest();
+        })
+        .then(fn => { unlisten = fn; })
+        .catch(() => {});
+    } catch {
+      // 非 Tauri 环境
+    }
+    return () => unlisten?.();
+  }, [consumeManagerRequest]);
+
+  // 预填/编辑请求由 ManagerWindow 消费后回调清除
+  const handleRequestHandled = useCallback(() => {
+    setEditRequestId(null);
+    setPrefillCreateKey(undefined);
+  }, []);
+
+  const fieldsFrom = (snippet: PersistedSnippet) => ({
+    key: snippet.key,
+    title: snippet.title,
+    content: snippet.content,
+    aliases: snippet.aliases,
+    tags: snippet.tags,
+    sensitive: snippet.sensitive,
+    pinned: snippet.pinned,
+  });
+
+  // ManagerWindow 以构造的 Snippet 调用；此处映射到真实 create/update（带 revision）
+  const handleSaveSnippet = async (snippet: PersistedSnippet) => {
+    const existing = snippets.find(s => s.id === snippet.id);
+    try {
+      if (existing) {
+        await snippetsApi.update(existing, fieldsFrom(snippet));
+        showToast(`片段 "${snippet.title}" 已保存`);
+      } else {
+        await snippetsApi.create(fieldsFrom(snippet), crypto.randomUUID());
+        showToast(`片段 "${snippet.title}" 已创建`);
       }
-      return [snippet, ...prev];
-    });
-    showToast(`片段 "${snippet.title}" 已保存`);
+      await refresh();
+    } catch (e) {
+      const err = e as AppError;
+      if (err.code === 'REVISION_CONFLICT') {
+        showToast('片段已被其他窗口修改，已重新载入最新数据。请重新编辑。', 'error');
+        await refresh();
+      } else if (err.field === 'key' || err.code === 'KEY_CONFLICT') {
+        showToast(err.message, 'error');
+      } else {
+        showToast(`保存失败：${err.message}`, 'error');
+      }
+    }
   };
 
-  const handleDeleteSnippet = (id: string) => {
-    const target = snippets.find(s => s.id === id);
-    if (!target) return;
-    setSnippets(prev => prev.map(s => s.id === id ? { ...s, deletedAt: new Date().toISOString() } : s));
-    showToast(`片段 "${target.title}" 已移入回收站`);
+  const handleCopySnippet = async (snippet: PersistedSnippet) => {
+    try {
+      const outcome = await snippetsApi.copy(snippet.id, crypto.randomUUID(), true);
+      showToast(`已复制 "${snippet.key}" 到剪贴板${outcome.counted ? '' : '（重复操作）'}`);
+      await refresh();
+    } catch (e) {
+      showToast(`复制失败：${errorMessage(e)}`, 'error');
+    }
   };
 
-  const handleRestoreSnippet = (id: string) => {
-    const target = snippets.find(s => s.id === id);
-    if (!target) return;
-    setSnippets(prev => prev.map(s => s.id === id ? { ...s, deletedAt: undefined } : s));
-    showToast(`片段 "${target.title}" 已恢复`);
+  const handlePasteSnippet = async (snippet: PersistedSnippet) => {
+    await handleCopySnippet(snippet);
   };
 
-  const handlePermanentDeleteSnippet = (id: string) => {
-    const target = snippets.find(s => s.id === id);
-    if (!target) return;
-    setSnippets(prev => prev.filter(s => s.id !== id));
-    showToast(`片段 "${target.title}" 已彻底删除`);
+  // 以下功能由后续 Spec 提供：回收站（SPEC-05）、导入导出/重置（SPEC-07）
+  const notYet = (feature: string) => () => {
+    showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
   };
 
-  const handleCopySnippet = (snippet: Snippet) => {
-    navigator.clipboard.writeText(snippet.content).catch(() => {});
-    setSnippets(prev => prev.map(s => s.id === snippet.id ? { ...s, usageCount: s.usageCount + 1, lastUsedAt: new Date().toISOString() } : s));
-    showToast(`已复制 "${snippet.title}" 到剪贴板`);
+  const handleOpenSearchWindow = () => {
+    windowApi.openSearch().catch(() => showToast('无法打开检索窗口', 'error'));
   };
 
-  const handlePasteSnippet = (snippet: Snippet) => {
-    navigator.clipboard.writeText(snippet.content).catch(() => {});
-    setSnippets(prev => prev.map(s => s.id === snippet.id ? { ...s, usageCount: s.usageCount + 1, lastUsedAt: new Date().toISOString() } : s));
-    showToast(`已将 "${snippet.title}" 自动粘贴到目标窗口`);
-    setIsQuickPickerOpen(false);
-  };
-
-  const handleEditSnippetFromQuickPicker = (snippet: Snippet) => {
-    setIsQuickPickerOpen(false);
-    setCurrentView('manager');
-  };
-
-  const handleCreateNewSnippetFromQuickPicker = (prefillKey?: string) => {
-    setIsQuickPickerOpen(false);
-    setPrefillCreateKey(prefillKey);
-    setCurrentView('manager');
-  };
-
-  const handleExportData = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(snippets, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `searchis_snippets_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast('JSON 备份文件已导出');
-  };
-
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const imported = JSON.parse(event.target?.result as string);
-        if (Array.isArray(imported)) {
-          setSnippets(imported);
-          showToast(`成功恢复 ${imported.length} 条片段数据`);
-        }
-      } catch {
-        showToast('导入失败：JSON 格式不正确');
+  // 本窗口焦点态 Alt+O 呼出检索窗口（PRD FR-PCK-01 语义）
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && e.code === 'KeyO') {
+        e.preventDefault();
+        handleOpenSearchWindow();
       }
     };
-    reader.readAsText(file);
-  };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
-  const handleResetSampleData = () => {
-    setSnippets(initialSnippets);
-    showToast('已恢复内置演示片段数据');
-  };
+  if (loading) {
+    return (
+      <Box className="h-screen w-full flex items-center justify-center ambient-glow-bg">
+        <span className="text-sm text-theme-muted">正在打开加密数据库…</span>
+      </Box>
+    );
+  }
 
   return (
     <AppShell
@@ -195,6 +259,7 @@ const MainContent: React.FC = () => {
           onUpdateConfig={setConfig}
           snippetCount={snippets.filter(s => !s.deletedAt).length}
           onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+          onOpenQuickPicker={handleOpenSearchWindow}
         />
       }
       actions={
@@ -202,18 +267,32 @@ const MainContent: React.FC = () => {
           variant="primary"
           size="sm"
           icon={<Zap className="w-3.5 h-3.5" />}
-          onClick={() => setIsQuickPickerOpen(true)}
+          onClick={handleOpenSearchWindow}
         >
-          呼出快速窗口 <Kbd>⌥Space</Kbd>
+          呼出快速窗口 <Kbd>Alt+O</Kbd>
         </Button>
       }
     >
       {/* Toast Notification */}
-      {toastMessage && (
+      {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-pop-in">
-          <Box paddingX="lg" paddingY="md" radius="lg" shadow="elevated" background="elevated" border="all" className="status-success flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            <span className="text-xs font-semibold">{toastMessage}</span>
+          <Box
+            paddingX="lg"
+            paddingY="md"
+            radius="lg"
+            shadow="elevated"
+            background="elevated"
+            border="all"
+            className={`flex items-center gap-2 ${
+              toast.type === 'success' ? 'status-success' : 'status-danger'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <AlertCircle className="w-4 h-4" />
+            )}
+            <span className="text-xs font-semibold">{toast.message}</span>
           </Box>
         </div>
       )}
@@ -223,12 +302,15 @@ const MainContent: React.FC = () => {
         <ManagerWindow
           snippets={snippets}
           onSaveSnippet={handleSaveSnippet}
-          onDeleteSnippet={handleDeleteSnippet}
-          onRestoreSnippet={handleRestoreSnippet}
-          onPermanentDeleteSnippet={handlePermanentDeleteSnippet}
+          onDeleteSnippet={notYet('回收站')}
+          onRestoreSnippet={notYet('回收站')}
+          onPermanentDeleteSnippet={notYet('回收站')}
           onCopySnippet={handleCopySnippet}
           onPasteSnippet={handlePasteSnippet}
           onOpenSettings={() => setCurrentView('settings')}
+          editRequestId={editRequestId}
+          prefillCreateKey={prefillCreateKey}
+          onRequestHandled={handleRequestHandled}
         />
       )}
 
@@ -236,18 +318,11 @@ const MainContent: React.FC = () => {
         <OnboardingWizard
           onComplete={() => setCurrentView('manager')}
           onCreateSnippet={(key, title, content) => {
-            handleSaveSnippet({
-              id: `snip-${Date.now()}`,
-              key,
-              title,
-              content,
-              aliases: [],
-              tags: ['向导新建'],
-              pinned: false,
-              usageCount: 0,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
+            snippetsApi
+              .create({ key, title, content, aliases: [], tags: ['向导新建'], sensitive: false, pinned: false }, crypto.randomUUID())
+              .then(() => refresh())
+              .then(() => showToast('片段已创建'))
+              .catch(e => showToast(`创建失败：${errorMessage(e)}`, 'error'));
           }}
         />
       )}
@@ -256,33 +331,10 @@ const MainContent: React.FC = () => {
         <SettingsModal
           config={config}
           onUpdateConfig={setConfig}
-          onExportData={handleExportData}
-          onImportData={handleImportData}
-          onResetSampleData={handleResetSampleData}
+          onExportData={notYet('数据导出')}
+          onImportData={notYet('数据导入')}
+          onResetSampleData={notYet('重置示例数据')}
           onClose={() => setCurrentView('manager')}
-        />
-      )}
-
-      {currentView === 'quick-picker' && (
-        <QuickSearchWindow
-          snippets={snippets.filter(s => !s.deletedAt)}
-          onPasteSnippet={handlePasteSnippet}
-          onCopySnippet={handleCopySnippet}
-          onEditSnippet={handleEditSnippetFromQuickPicker}
-          onCreateNewSnippet={handleCreateNewSnippetFromQuickPicker}
-          onClose={() => setCurrentView('manager')}
-        />
-      )}
-
-      {/* Floating Quick Search Overlay (Triggerable from any screen via ⌥Space button or hotkey) */}
-      {isQuickPickerOpen && (
-        <QuickSearchWindow
-          snippets={snippets.filter(s => !s.deletedAt)}
-          onPasteSnippet={handlePasteSnippet}
-          onCopySnippet={handleCopySnippet}
-          onEditSnippet={handleEditSnippetFromQuickPicker}
-          onCreateNewSnippet={handleCreateNewSnippetFromQuickPicker}
-          onClose={() => setIsQuickPickerOpen(false)}
         />
       )}
 
@@ -296,9 +348,5 @@ const MainContent: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  return (
-    <ThemeProvider>
-      <MainContent />
-    </ThemeProvider>
-  );
+  return <ThemeProvider>{WINDOW_LABEL === 'search' ? <SearchWindowApp /> : <MainContent />}</ThemeProvider>;
 };

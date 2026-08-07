@@ -11,8 +11,6 @@ import {
   Upload,
   RotateCcw,
   Zap,
-  Volume2,
-  VolumeX,
   X
 } from 'lucide-react';
 import {
@@ -126,25 +124,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 checked={config.autoPaste}
                 onChange={checked => onUpdateConfig(prev => ({ ...prev, autoPaste: checked }))}
                 label="自动模拟粘贴"
-                description="在快速检索窗口按 Enter 选定片段后，自动复制并发送 Cmd+V 粘贴到上一个应用"
+                description="在快速检索窗口按 Enter 选定片段后，自动复制并发送 Ctrl+V 粘贴到上一个应用"
               />
 
               <Box border="top" paddingY="2xs" />
 
-              <HStack align="center" justify="space-between">
-                <VStack gap="3xs">
-                  <span className="text-xs font-semibold text-theme">操作音效反馈</span>
-                  <span className="text-[11px] text-theme-muted">复制或成功粘贴时播放极简轻柔提示音</span>
-                </VStack>
-                <Button
-                  variant={config.playAudioFeedback ? 'primary' : 'secondary'}
-                  size="sm"
-                  icon={config.playAudioFeedback ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                  onClick={() => onUpdateConfig(prev => ({ ...prev, playAudioFeedback: !prev.playAudioFeedback }))}
-                >
-                  {config.playAudioFeedback ? '已开启' : '已关闭'}
-                </Button>
-              </HStack>
+              <Box padding="md" radius="md" background="subtle" border="all">
+                <span className="text-xs text-theme-muted">
+                  本产品不提供任何操作音效（PRD 硬约束）。
+                </span>
+              </Box>
             </VStack>
           </Card>
 

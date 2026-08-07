@@ -2,6 +2,8 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default Searchis desktop capability",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "windows": ["main", "search"],
+  "permissions": [
+    "core:default"
+  ]
 }

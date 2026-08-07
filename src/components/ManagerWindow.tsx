@@ -52,6 +52,12 @@ interface ManagerWindowProps {
   onCopySnippet: (snippet: Snippet) => void;
   onPasteSnippet: (snippet: Snippet) => void;
   onOpenSettings: () => void;
+  /** 检索窗口 Ctrl+E 跳转：编辑指定片段 */
+  editRequestId?: string | null;
+  /** 检索窗口 Ctrl+N 跳转：以该 Key 预填新建 */
+  prefillCreateKey?: string;
+  /** 请求消费完成后通知 App 清除 */
+  onRequestHandled?: () => void;
 }
 
 export const ManagerWindow: React.FC<ManagerWindowProps> = ({
@@ -63,6 +69,9 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   onCopySnippet,
   onPasteSnippet,
   onOpenSettings,
+  editRequestId,
+  prefillCreateKey,
+  onRequestHandled,
 }) => {
   const [activeFilter, setActiveFilter] = useState<SidebarFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +107,35 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       setKeyError('');
     }
   }, [selectedSnippetId, selectedSnippet]);
+
+  // 检索窗口 Ctrl+N：预填 Key 新建
+  React.useEffect(() => {
+    if (prefillCreateKey) {
+      handleStartCreateNew();
+      setKeyInput(prefillCreateKey);
+      onRequestHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillCreateKey]);
+
+  // 检索窗口 Ctrl+E：定位并选中指定片段（snippets 异步加载完成后重试）
+  React.useEffect(() => {
+    if (!editRequestId) return;
+    const target = snippets.find(s => s.id === editRequestId);
+    if (target) {
+      setSelectedSnippetId(target.id);
+      setIsCreatingNew(false);
+      onRequestHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequestId, snippets]);
+
+  // 异步保存（App 经 IPC 创建后返回真实 UUID）后，临时 id 失效时回退到首项
+  React.useEffect(() => {
+    if (!isCreatingNew && selectedSnippetId && !snippets.some(s => s.id === selectedSnippetId)) {
+      setSelectedSnippetId(snippets[0]?.id ?? null);
+    }
+  }, [snippets, selectedSnippetId, isCreatingNew]);
 
   // Extract unique tags and count map
   const { allTags, tagCounts, pinnedCount, deletedCount } = useMemo(() => {
@@ -196,6 +234,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     const updatedSnippet: Snippet = {
       id: selectedSnippet && !isCreatingNew ? selectedSnippet.id : `snip-${Date.now()}`,
       key: trimmedKey,
+      normalizedKey: trimmedKey,
       title: titleInput.trim() || trimmedKey,
       content: contentInput,
       aliases,
@@ -203,8 +242,11 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       pinned: isPinned,
       sensitive: isSensitive,
       usageCount: selectedSnippet ? selectedSnippet.usageCount : 0,
+      lastUsedAt: selectedSnippet ? selectedSnippet.lastUsedAt : null,
       createdAt: selectedSnippet ? selectedSnippet.createdAt : now,
       updatedAt: now,
+      deletedAt: selectedSnippet ? selectedSnippet.deletedAt : null,
+      revision: selectedSnippet ? selectedSnippet.revision : 0,
     };
 
     onSaveSnippet(updatedSnippet);

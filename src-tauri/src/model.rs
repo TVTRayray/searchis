@@ -120,3 +120,13 @@ pub struct CopyOutcome {
 pub struct PrepareNewOutcome {
     pub normalized_key: String,
 }
+
+/// 检索窗口跳转管理窗口时携带的请求（编辑目标或新建预填 Key）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagerRequest {
+    #[serde(default)]
+    pub edit_id: Option<String>,
+    #[serde(default)]
+    pub prefill_key: Option<String>,
+}

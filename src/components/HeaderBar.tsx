@@ -20,6 +20,8 @@ interface HeaderBarProps {
   onUpdateConfig: (updater: (prev: SettingsConfig) => SettingsConfig) => void;
   snippetCount: number;
   onOpenKeyboardHelp?: () => void;
+  /** 呼出独立检索窗口（双窗口形态） */
+  onOpenQuickPicker?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -29,6 +31,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onUpdateConfig,
   snippetCount,
   onOpenKeyboardHelp,
+  onOpenQuickPicker,
 }) => {
   const { theme, effectiveTheme, setTheme } = useTheme();
 
@@ -76,7 +79,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <Inline gap="2xs" className="p-1 rounded-xl theme-surface-subtle border theme-divider">
           <button
             type="button"
-            onClick={() => onSelectView('quick-picker')}
+            onClick={() => onOpenQuickPicker?.()}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               currentView === 'quick-picker'
                 ? 'nav-active shadow-xs'

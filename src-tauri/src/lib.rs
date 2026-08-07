@@ -30,6 +30,7 @@ pub fn run() {
                     service: Some(Arc::new(SnippetService::new(repository))),
                     startup_error: None,
                     logger: Arc::clone(&logger),
+                    manager_request: std::sync::Mutex::new(None),
                 },
                 Err(error) => {
                     logger.failure("database_startup", &error);
@@ -37,6 +38,7 @@ pub fn run() {
                         service: None,
                         startup_error: Some(error),
                         logger: Arc::clone(&logger),
+                        manager_request: std::sync::Mutex::new(None),
                     }
                 }
             };
@@ -49,6 +51,16 @@ pub fn run() {
             );
             logger.record("startup_environment", &environment_code);
             app.manage(state);
+            // 检索窗口：拦截 WM 关闭（Alt+F4）转为隐藏，避免窗口被永久销毁后无法再呼出。
+            if let Some(search_window) = app.get_webview_window("search") {
+                let window_for_close = search_window.clone();
+                search_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_for_close.hide();
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -59,6 +71,10 @@ pub fn run() {
             commands::search_snippets,
             commands::copy_snippet,
             commands::prepare_new_snippet,
+            commands::open_search_window,
+            commands::close_search_window,
+            commands::open_manager_window,
+            commands::take_manager_request,
         ])
         .run(tauri::generate_context!())
         .expect("Searchis Tauri runtime failed");
