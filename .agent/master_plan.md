@@ -13,10 +13,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段名称：Phase 4 — 重建前端接入与双窗口形态
 - 阶段目标：把重建前端（astryx + 独立窗口组件）接入已验收的 Rust 后端，落地 PRD 的独立无边框检索窗口 + 单独管理窗口双窗口形态。
 - 当前活跃 Spec：`.agent/specs/11-rebuild-integration-dual-window.md`
-- 当前状态：`todo`（重建前端已覆盖，待 Coder 接入）
-- 当前责任角色：`Coder`
-- QA Status：`not_run`
-- 下一步：Coder 实现 SPEC-11（真实数据接入 + 双窗口），完成后 QA 验收
+- 当前状态：`in_qa`（`conditional_pass`；MT1 通过，Esc/Ctrl+Enter 有小问题待人工确认）
+- 当前责任角色：`QA`（待人工确认 Esc 关闭行为）
+- QA Status：`conditional_pass`
+- 下一步：人工确认 Esc 关闭搜索窗口行为；如可通过则升级为 `passed`
 
 ## 技术决策
 
@@ -37,7 +37,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 |---:|---|---|---|---|
 | 01 | [安全持久化首条片段](specs/01-secure-persistent-snippet.md) | 启动桌面应用、创建片段、重启后读取；数据库为 SQLCipher 加密 | 无 | `done` |
 | 02 | [检索窗口与可靠复制](specs/02-search-and-copy.md) | 打开检索窗口、稳定检索、键盘选择、复制；失败不计使用次数 | 01 | `done` |
-| 11 | [重建前端接入与双窗口形态](specs/11-rebuild-integration-dual-window.md) | 重建 UI（astryx/独立窗口组件）接真实后端；独立无边框检索窗口 + 单独管理窗口 | 01、02 | `todo`（active） |
+| 11 | [重建前端接入与双窗口形态](specs/11-rebuild-integration-dual-window.md) | 重建 UI（astryx/独立窗口组件）接真实后端；独立无边框检索窗口 + 单独管理窗口 | 01、02 | `in_qa`（RF fix verified） |
 | 03 | [KGlobalAccel 呼出与 X11 自动粘贴](specs/03-global-shortcut-autopaste.md) | `Alt+O` 呼出并向原窗口粘贴；能力不可用时仅复制 | 02、11 | `todo` |
 | 04 | [管理视图与敏感信息保护](specs/04-management-and-privacy.md) | 编辑、筛选、排序、置顶、标签、敏感正文会话级显隐 | 01、02 | `todo` |
 | 05 | [回收站完整生命周期](specs/05-trash-lifecycle.md) | 软删除、还原、永久删除、手动/自动清理及事务回滚 | 04 | `todo` |
@@ -51,15 +51,15 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### In Progress
 
-- [ ] 无（SPEC-03 待 Master 产线就绪）
+- [ ] 无
 
 ### QA Queue
 
-- [ ] 无
+- [ ] SPEC-11 重建前端接入与双窗口形态（`conditional_pass`；MT1 通过，Esc 关闭/Ctrl+Enter 待人工确认；QA 待升级为 passed）
 
 ### Returned To Coder
 
-- [ ] 无
+- [ ] 无（QA F1 已定位根因：构建路径问题，非代码问题；Coder 已以正确构建验证可交互）
 
 ### Blocked
 
@@ -96,6 +96,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-07：SPEC-02 在目标 Arch/KDE/X11 实机完成 MT1（真实剪贴板）与 MT2（键盘交互）验收，QA 升级为 `passed`；同日确认发布构建必须走 `npm run tauri:build`（纯 `cargo build --release` 不嵌入前端资源，烟测需验证 UI 渲染而非仅进程存活）。
 - 2026-08-08：确认 PRD 双窗口形态（独立无边框置顶检索窗口 + 单独管理窗口，rofi/krunner 式）为需求本意；SPEC-01/02 的单窗口视图切换为过渡形态，由 SPEC-11 落地正式形态。
 - 2026-08-08：重建前端覆盖决策——只覆盖前端层（`src/**`、`index.html`、`package*.json`），`src-tauri/**` 保留已验收 Rust 成果；重建前端为 mock 形态（searchEngine/initialSnippets），接入与适配全部由 SPEC-11 的 Coder 承担。
+- 2026-08-08（QA F1 根因）：确认 `cargo build --release`（直接 Cargo 构建）不走 Tauri CLI 的前端嵌入流水线（`beforeBuildCommand` 不执行），产出的二进制可能嵌入过时/空的 `dist/` 资源。唯一正确的发布构建命令为 `npm run tauri:build`（该命令依次执行 `npm run build` + `tauri build`，在 Cargo 编译前完成前端资源嵌入）。
 
 ## 风险记录
 
@@ -107,10 +108,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 ## 当前活跃 Spec 状态卡
 
 - Spec：`SPEC-11`
-- 状态：`todo`
-- Next Owner：`Coder`
-- QA Status：`not_run`
-- Blocking Issue：重建前端待接入真实后端并落地双窗口形态
-- Required Fixes：无
-- Retest Required：`no`
+- 状态：`in_qa`（QA `conditional_pass`，Esc 关闭行为已获 Orchestrator 人工确认）
+- Next Owner：`QA`（剩余：Ctrl+Enter 真实键盘 / Ctrl+N 表单创建 / 管理窗口 CRUD 真实用户验收）
+- QA Status：`conditional_pass`
+- Blocking Issue：无（F1/F2/RF3 已闭环）
+- Required Fixes：RF4（Ctrl+Enter 真实键盘验证，建议项）
+- Retest Required：`yes`（三项真实用户验收未完成）
 - Last Updated：2026-08-08
