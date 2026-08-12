@@ -150,6 +150,8 @@ export interface SettingsConfig {
   trashAutoPurgeDays: number | null
   onboardingCompletedAt: string | null
   schemaVersion: number
+  playAudioFeedback?: boolean
+  accent?: string
 }
 
 export interface SettingsResponse {

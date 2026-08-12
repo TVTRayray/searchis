@@ -9,28 +9,28 @@ import {
   ArrowLeft,
   CornerDownLeft,
   Check,
-  Terminal
+  Terminal,
 } from 'lucide-react';
-import {
-  Box,
-  VStack,
-  HStack,
-  Inline,
-  Card,
-  Button,
-  Badge,
-  StatusToken,
-  TextInput,
-  TextArea,
-  Kbd,
-  List,
-  ListItem,
-} from './astryx';
+import { Box, VStack, HStack, Inline } from './layout';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Kbd } from '@/components/ui/kbd';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
   onCreateSnippet: (key: string, title: string, content: string) => void;
 }
+
+const statusToken = (color: string, label: string) => (
+  <Badge variant="outline" className="gap-1.5 rounded-full text-[11px] font-medium">
+    <span className="size-1.5 rounded-full" style={{ background: color }} aria-hidden />
+    {label}
+  </Badge>
+);
 
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onComplete,
@@ -99,7 +99,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 width="32px"
                 height="32px"
                 radius="full"
-                className={`flex items-center justify-center text-xs font-bold transition-all ${
+                className={`flex items-center justify-center text-xs font-bold transition-[color,background-color,box-shadow] ${
                   i === step
                     ? 'btn-primary'
                     : i < step
@@ -113,7 +113,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           </HStack>
         </Box>
 
-        {/* Step Content Body using Astryx Cards */}
+        {/* Step Content Body */}
         <Box padding="xl" className="flex-1 flex flex-col justify-center">
           {step === 1 && (
             <VStack align="center" justify="center" gap="md" className="text-center max-w-md mx-auto">
@@ -130,9 +130,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </VStack>
 
               <Inline gap="md" align="center" className="pt-2">
-                <StatusToken status="active" label="键盘驱动" />
-                <StatusToken status="active" label="毫秒搜索" />
-                <StatusToken status="success" label="SQLCipher 本地存储" />
+                {statusToken('var(--color-accent)', '键盘驱动')}
+                {statusToken('var(--color-accent)', '毫秒搜索')}
+                {statusToken('var(--color-success)', 'SQLCipher 本地存储')}
               </Inline>
             </VStack>
           )}
@@ -147,18 +147,20 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 <p className="text-xs text-theme-muted">无论当前在前台使用什么应用，按下该组合键即可立刻置顶呼出搜索窗</p>
               </VStack>
 
-              <Card className="w-full" padding="md">
-                <VStack gap="sm" align="center">
-                  <span className="text-xs font-semibold text-theme-secondary">当前唤醒快捷键:</span>
-                  <Kbd className="px-4 py-2 text-sm">{shortcutKey}</Kbd>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setIsRecordingShortcut(prev => !prev)}
-                  >
-                    {isRecordingShortcut ? '请按下您想设置的按键...' : '更改快捷键'}
-                  </Button>
-                </VStack>
+              <Card className="w-full">
+                <CardContent className="py-6">
+                  <VStack gap="sm" align="center">
+                    <span className="text-xs font-semibold text-theme-secondary">当前唤醒快捷键:</span>
+                    <Kbd className="px-4 py-2 text-sm">{shortcutKey}</Kbd>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsRecordingShortcut(prev => !prev)}
+                    >
+                      {isRecordingShortcut ? '请按下您想设置的按键...' : '更改快捷键'}
+                    </Button>
+                  </VStack>
+                </CardContent>
               </Card>
             </VStack>
           )}
@@ -166,24 +168,32 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           {step === 3 && (
             <VStack gap="md" className="max-w-md mx-auto">
               <VStack align="center" gap="2xs" className="text-center">
-                <ShieldCheck className="w-8 h-8 icon-success" />
+                <ShieldCheck className="w-8 h-8 text-[color:var(--color-success)]" />
                 <h3 className="text-base font-bold text-theme">Linux / X11 系统权限状态</h3>
                 <p className="text-xs text-theme-muted">自动发送 Cmd+V 粘贴按键与获取窗口句柄需要以下权限：</p>
               </VStack>
 
-              <Box className="w-full">
-                <List bordered>
-                  <ListItem
-                    title="X11 / KGlobalAccel 按键注入"
-                    subtitle="用于向目标应用窗口自动模拟粘贴"
-                    extra={<Badge variant="success">已授权 ✓</Badge>}
-                  />
-                  <ListItem
-                    title="剪贴板暂存与恢复"
-                    subtitle="用于安全暂存选中的文本片段"
-                    extra={<Badge variant="success">已授权 ✓</Badge>}
-                  />
-                </List>
+              <Box className="w-full border rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between gap-4 px-4 py-3">
+                  <VStack gap="2xs">
+                    <span className="text-xs font-semibold text-theme">X11 / KGlobalAccel 按键注入</span>
+                    <span className="text-xs text-theme-muted">用于向目标应用窗口自动模拟粘贴</span>
+                  </VStack>
+                  <Badge className="gap-1 rounded-full text-[11px] bg-[color:var(--color-success)] text-[color:var(--color-fg-inverse)]">
+                    已授权
+                    <Check className="size-3" />
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between gap-4 px-4 py-3 border-t">
+                  <VStack gap="2xs">
+                    <span className="text-xs font-semibold text-theme">剪贴板暂存与恢复</span>
+                    <span className="text-xs text-theme-muted">用于安全暂存选中的文本片段</span>
+                  </VStack>
+                  <Badge className="gap-1 rounded-full text-[11px] bg-[color:var(--color-success)] text-[color:var(--color-fg-inverse)]">
+                    已授权
+                    <Check className="size-3" />
+                  </Badge>
+                </div>
               </Box>
             </VStack>
           )}
@@ -191,31 +201,26 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           {step === 4 && (
             <VStack gap="md" className="max-w-md mx-auto">
               <VStack align="center" gap="2xs" className="text-center">
-                <Plus className="w-7 h-7 icon-accent" />
+                <Plus className="w-7 h-7 text-[color:var(--color-accent-fg)]" />
                 <h3 className="text-base font-bold text-theme">创建你的第一条片段</h3>
                 <p className="text-xs text-theme-muted">设置简短好记的 Key 标识，并填入要粘贴的内容</p>
               </VStack>
 
-              <Card padding="md">
-                <VStack gap="sm">
-                  <TextInput
-                    label="Key (检索标识)"
-                    value={demoKey}
-                    onChange={e => setDemoKey(e.target.value)}
-                    mono
-                  />
-                  <TextInput
-                    label="标题"
-                    value={demoTitle}
-                    onChange={e => setDemoTitle(e.target.value)}
-                  />
-                  <TextArea
-                    label="文本内容"
-                    value={demoContent}
-                    onChange={e => setDemoContent(e.target.value)}
-                    rows={3}
-                  />
-                </VStack>
+              <Card>
+                <CardContent className="space-y-4">
+                  <VStack gap="xs">
+                    <Label htmlFor="demo-key">Key (检索标识)</Label>
+                    <Input id="demo-key" value={demoKey} onChange={e => setDemoKey(e.target.value)} className="font-mono" />
+                  </VStack>
+                  <VStack gap="xs">
+                    <Label htmlFor="demo-title">标题</Label>
+                    <Input id="demo-title" value={demoTitle} onChange={e => setDemoTitle(e.target.value)} />
+                  </VStack>
+                  <VStack gap="xs">
+                    <Label htmlFor="demo-content">文本内容</Label>
+                    <Textarea id="demo-content" value={demoContent} onChange={e => setDemoContent(e.target.value)} rows={3} />
+                  </VStack>
+                </CardContent>
               </Card>
             </VStack>
           )}
@@ -232,15 +237,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 </p>
               </VStack>
 
-              <Card className="w-full" padding="md">
-                <VStack gap="sm">
-                  <input
+              <Card className="w-full">
+                <CardContent className="space-y-4">
+                  <Input
                     type="text"
                     value={testInput}
                     onChange={e => setTestInput(e.target.value)}
                     onKeyDown={handleTestKeyDown}
                     placeholder={`输入 ${demoKey} 后按回车...`}
-                    className="input-theme w-full px-3 py-2 rounded-lg text-xs font-mono text-center"
+                    className="font-mono text-center"
                   />
 
                   {testSuccess && (
@@ -254,7 +259,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       </VStack>
                     </Box>
                   )}
-                </VStack>
+                </CardContent>
               </Card>
             </VStack>
           )}
@@ -278,31 +283,30 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         <Box paddingX="lg" paddingY="md" background="titlebar" border="top">
           <HStack align="center" justify="space-between">
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               disabled={step === 1}
-              icon={<ArrowLeft className="w-4 h-4" />}
               onClick={prevStep}
             >
+              <ArrowLeft className="size-4" />
               上一步
             </Button>
 
             {step < 6 ? (
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
-                icon={<ArrowRight className="w-4 h-4" />}
                 onClick={nextStep}
               >
                 下一步
+                <ArrowRight className="size-4" />
               </Button>
             ) : (
               <Button
-                variant="success"
-                size="md"
-                icon={<CornerDownLeft className="w-4 h-4" />}
+                variant="default"
                 onClick={onComplete}
               >
+                <CornerDownLeft className="size-4" />
                 进入 Searchis 主程序
               </Button>
             )}

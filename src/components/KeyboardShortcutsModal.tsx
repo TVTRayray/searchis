@@ -1,15 +1,14 @@
 import React from 'react';
-import { X, Keyboard } from 'lucide-react';
+import { Keyboard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
 import {
-  Box,
-  VStack,
-  HStack,
-  IconButton,
-  Button,
-  Kbd,
-  List,
-  ListItem,
-} from './astryx';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -20,8 +19,6 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   const shortcuts = [
     { key: '⌥ + Space', desc: '全局呼出 / 隐藏 Searchis 快速检索窗口' },
     { key: '↑ / ↓ 或 J / K', desc: '在匹配结果列表中上下移动选中项' },
@@ -35,59 +32,33 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   ];
 
   return (
-    <Box
-      padding="md"
-      className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-xs select-none"
-      onClick={onClose}
-    >
-      <Box
-        width="100%"
-        width-max="512px"
-        radius="xl"
-        shadow="window"
-        background="surface"
-        border="all"
-        overflow="hidden"
-        className="raycast-window max-w-lg animate-pop-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Title bar */}
-        <Box paddingX="lg" paddingY="md" background="titlebar" border="bottom">
-          <HStack align="center" justify="space-between">
-            <HStack align="center" gap="xs">
-              <Keyboard className="w-4 h-4 icon-accent" />
-              <span className="text-sm font-bold text-theme">Searchis 核心键盘交互速查表</span>
-            </HStack>
-            <IconButton
-              icon={<X className="w-4 h-4" />}
-              ariaLabel="关闭速查表"
-              onClick={onClose}
-            />
-          </HStack>
-        </Box>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-lg gap-0 p-0 overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b text-left">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Keyboard className="size-4 text-[color:var(--color-accent-fg)]" />
+            Searchis 核心键盘交互速查表
+          </DialogTitle>
+        </DialogHeader>
 
-        {/* Shortcuts list using Astryx List */}
-        <Box padding="md" overflow="auto" className="max-h-[460px]">
-          <List divided>
-            {shortcuts.map((item) => (
-              <ListItem
-                key={item.key}
-                title={<span className="text-xs text-theme-secondary font-medium">{item.desc}</span>}
-                extra={<Kbd>{item.key}</Kbd>}
-              />
-            ))}
-          </List>
-        </Box>
+        <div className="max-h-[460px] overflow-y-auto px-2 py-2">
+          {shortcuts.map((item) => (
+            <div
+              key={item.key}
+              className="flex items-center justify-between gap-4 rounded-lg px-3 py-2 transition-[color,background-color] hover:bg-accent/50"
+            >
+              <span className="text-xs text-theme-secondary font-medium">{item.desc}</span>
+              <Kbd>{item.key}</Kbd>
+            </div>
+          ))}
+        </div>
 
-        {/* Footer */}
-        <Box paddingX="lg" paddingY="md" background="titlebar" border="top">
-          <HStack justify="flex-end">
-            <Button variant="primary" size="sm" onClick={onClose}>
-              知道了 (Esc)
-            </Button>
-          </HStack>
-        </Box>
-      </Box>
-    </Box>
+        <DialogFooter className="px-6 py-3 border-t">
+          <Button onClick={onClose}>
+            知道了 (Esc)
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

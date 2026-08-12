@@ -2,7 +2,7 @@
 
 ## 基本信息
 
-- 当前状态：`todo`（Gate 0 已完成，Next Owner：Coder）
+- 当前状态：`done`
 - 当前责任角色：`Coder`
 - 关联 PRD：`FR-SCH-01~04`、`FR-PCK-01~04`、`AC-01/03/04/05/08/12/13/14/20`、`NFR-PERF-01~03`、`NFR 11.4`
 - 前置 Spec：`SPEC-02/03/11`（done）

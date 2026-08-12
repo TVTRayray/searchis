@@ -22,6 +22,8 @@ export type SortOption = 'updated' | 'usage' | 'alpha' | 'key';
 
 export type SidebarFilter = 'all' | 'pinned' | 'recent' | 'trash' | string;
 
+export type AccentMode = 'coral' | 'cyan' | 'amber';
+
 export interface SearchMatchResult {
   snippet: Snippet;
   score: number;
