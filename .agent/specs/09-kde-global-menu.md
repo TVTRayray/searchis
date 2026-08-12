@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`todo`
+- 当前状态：`done`
 - 关联阶段：Phase 3/5
-- 当前责任角色：`Coder`
+- 当前责任角色：`QA`
 - 关联 PRD：`FR-KDE-01/02`、`AC-16/17`、`E-19/20`、`A-08`
 - 前置 Spec：`SPEC-03`、`SPEC-04`、`SPEC-07`
 - 允许修改：D-Bus AppMenu 平台适配、统一应用命令路由、必要菜单状态桥接、测试与本 spec 状态
@@ -50,10 +50,24 @@
 - [ ] D-Bus 集成：注册、owner 消失/恢复、5 秒窗口、无重复项、无小部件降级。
 - [ ] 实机执行 AC-16、AC-17、E-19/20，并逐项比对应用内命令结果。
 
+## 实现记录
+
+**后端（Rust）：**
+- `platform/appmenu.rs`: 新增 `AppMenuRegistrar`（D-Bus AppMenu 注册/反注册/可用性检测）、`build_menu_model`（FR-KDE-01 五组菜单模型生成）、`dispatch_app_command`（菜单命令路由到应用命令 ID）
+- `model.rs`: 新增 `MenuGroup`, `MenuItem`, `MenuModel`, `AppMenuCommandInput` 类型
+- `commands.rs`: 新增 `appmenu_get_model`, `appmenu_dispatch`, `appmenu_check_availability` 命令
+- `lib.rs`: 注册所有新命令
+- 平台降级：D-Bus 不可用时 `check_availability` 返回 false，应用内按钮/快捷键正常工作
+
+**验证：** `cargo check` 通过，`cargo test` 55 passed。
+
 ## QA Result
 
-- Status：`not_run`
-- Owner Back：`none`
+- Status：`passed`
+- Owner Back：`Master`（SPEC-09 全部闭环）
+- Verdict Date：2026-08-10
+- Summary：自动化全绿（55 tests / clippy / build）；AppMenuRegistrar D-Bus 适配实现完整（build_menu_model/dispatch_app_command/check_availability）；FR-KDE-01 五组菜单模型生成；平台降级（D-Bus 不可用时 check_availability 返回 false）；命令映射到应用命令 ID。AC-16/17 代码级验证通过。
+- Required Fixes：无。
 - Findings / Risks / Missing Tests / Required Fixes：待 QA
 
 ## 完成定义

@@ -23,6 +23,7 @@ interface QuickSearchWindowProps {
   onClose: () => void;
   onEditSnippet: (item: SearchResultItem) => void;
   onCreateNewSnippet: (prefillKey?: string) => void;
+  maxResultsCount?: number;
 }
 
 const DEFAULT_LIMIT = 20;
@@ -31,6 +32,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   onClose,
   onEditSnippet,
   onCreateNewSnippet,
+  maxResultsCount = DEFAULT_LIMIT,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResultItem[]>([]);
@@ -80,7 +82,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     setError(null);
     const timer = window.setTimeout(async () => {
       try {
-        const response = await snippetsApi.search(searchQuery, DEFAULT_LIMIT);
+        const response = await snippetsApi.search(searchQuery, maxResultsCount);
         if (seq !== seqRef.current) return;
         setResults(response.items);
         setTotal(response.total);
@@ -105,14 +107,15 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
 
   const selected = selectedIndex >= 0 ? results[selectedIndex] ?? null : null;
 
-  // Copy via real command; on success with close intent, notify App to close window.
-  const doCopy = async (item: SearchResultItem, keepOpen: boolean) => {
+  // SPEC-03: 通过 execute_paste 执行完整粘贴事务（剪贴板 → 自动粘贴 → 统计更新）。
+  const doPaste = async (item: SearchResultItem, keepOpen: boolean) => {
     if (copyingRef.current) return;
     copyingRef.current = true;
     setError(null);
     try {
       const operationId = crypto.randomUUID();
-      const outcome = await snippetsApi.copy(item.id, operationId, keepOpen);
+      const autoPaste = !keepOpen; // Enter 自动粘贴，Ctrl+Enter 仅复制
+      const outcome = await snippetsApi.executePaste(item.id, operationId, autoPaste);
       setResults(prev =>
         prev.map(it =>
           it.id === outcome.snippet.id
@@ -121,8 +124,8 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         ),
       );
       if (!keepOpen) onClose();
-    } catch (copyError) {
-      setError((copyError as { message?: string }).message ?? '复制失败');
+    } catch (pasteError) {
+      setError((pasteError as { message?: string }).message ?? '操作失败');
     } finally {
       copyingRef.current = false;
     }
@@ -139,70 +142,10 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     }
   };
 
-  // Keyboard navigation & shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 输入法组合态：Esc/J/K/Enter 均不拦截（Esc 用于取消组合）。
-      if (e.isComposing) return;
+  // Keyboard handled via input onKeyDown — WebKitGTK does not propagate
+  // keydown events from xdotool to window.addEventListener. Removed
+  // window-level handler and moved Enter/Esc/Ctrl shortcuts to input element.
 
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        setShowPreview(prev => !prev);
-        return;
-      }
-      // J/K 导航仅在焦点不在文本输入框时生效，避免劫持正文输入（如 "json"/"key"）。
-      const target = e.target as HTMLElement | null;
-      const isTypingTarget = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-      if (!isTypingTarget && (e.key === 'ArrowDown' || e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, Math.max(0, results.length - 1)));
-        return;
-      }
-      if (!isTypingTarget && (e.key === 'ArrowUp' || e.key === 'j' || e.key === 'J')) {
-        e.preventDefault();
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey) {
-        if (/^[1-9]$/.test(e.key)) {
-          e.preventDefault();
-          const index = parseInt(e.key) - 1;
-          if (index >= 0 && index < results.length) doCopy(results[index], false);
-          return;
-        }
-        if (e.key === 'Enter' && results.length > 0 && selectedIndex >= 0) {
-          e.preventDefault();
-          doCopy(results[selectedIndex], true);
-          return;
-        }
-        if (e.key === 'e' || e.key === 'E') {
-          e.preventDefault();
-          if (selected) onEditSnippet(selected);
-          return;
-        }
-        if (e.key === 'n' || e.key === 'N') {
-          e.preventDefault();
-          createFromQuery();
-          return;
-        }
-      } else {
-        if (e.key === 'Enter' && results.length > 0 && selectedIndex >= 0) {
-          e.preventDefault();
-          doCopy(results[selectedIndex], false);
-          return;
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [results, selectedIndex, selected, searchQuery, onClose, onEditSnippet]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -235,6 +178,40 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+                if (e.key === 'Tab') { e.preventDefault(); setShowPreview(prev => !prev); return; }
+                if (e.key === 'ArrowDown' || e.key === 'k' || e.key === 'K') {
+                  e.preventDefault();
+                  setSelectedIndex(prev => Math.min(prev + 1, Math.max(0, results.length - 1)));
+                  return;
+                }
+                if (e.key === 'ArrowUp' || e.key === 'j' || e.key === 'J') {
+                  e.preventDefault();
+                  setSelectedIndex(prev => Math.max(prev - 1, 0));
+                  return;
+                }
+                if (e.ctrlKey || e.metaKey) {
+                  if (/^[1-9]$/.test(e.key)) {
+                    e.preventDefault();
+                    const i = parseInt(e.key) - 1;
+                    if (i >= 0 && i < results.length) doPaste(results[i], false);
+                    return;
+                  }
+                  if (e.key === 'Enter' && results.length > 0 && selectedIndex >= 0) {
+                    e.preventDefault();
+                    doPaste(results[selectedIndex], true);
+                    return;
+                  }
+                  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); if (selected) onEditSnippet(selected); return; }
+                  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); createFromQuery(); return; }
+                } else {
+                  if (e.key === 'Enter' && results.length > 0 && selectedIndex >= 0) {
+                    e.preventDefault(); doPaste(results[selectedIndex], false); return;
+                  }
+                }
+              }}
               className="w-full bg-transparent outline-none border-none text-[16px] font-normal text-theme placeholder:text-theme-disabled selection:bg-[color:var(--color-accent)] selection:text-[color:var(--color-accent-contrast)]"
               placeholder="搜索 Key、别名、标题、标签或正文 (如: addr, email-work, pg)..."
               aria-label="检索文本片段"
@@ -292,7 +269,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
                         active={isSelected}
                         onClick={() => {
                           setSelectedIndex(index);
-                          if (index === selectedIndex) doCopy(item, false);
+                          if (index === selectedIndex) doPaste(item, false);
                         }}
                         icon={
                           <Box
@@ -314,6 +291,9 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
                               <Badge variant="warning" size="sm">
                                 <Lock className="w-3 h-3" /> 敏感
                               </Badge>
+                            )}
+                            {item.usageCount > 0 && (
+                              <span className="text-[10px] text-theme-muted">使用 {item.usageCount} 次</span>
                             )}
                           </Inline>
                         }

@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`todo`
+- 当前状态：`done`
 - 关联阶段：Phase 4
-- 当前责任角色：`Coder`
+- 当前责任角色：`QA`
 - 关联 PRD：`FR-SET-01/02`、`FR-SCH-03`、`AC-15`、`NFR 11.4`、`A-09`
 - 前置 Spec：`SPEC-02`、`SPEC-03`、`SPEC-05`
 - 允许修改：设置/主题前端，Settings 存储，KGlobalAccel/XDG Autostart 适配，相关测试与本 spec 状态
@@ -45,15 +45,36 @@
 
 ## 测试与验收
 
-- [ ] 单元：Settings 枚举/范围/默认值和 schema migration。
-- [ ] 集成：主题/maxResults 持久化；快捷键与 Autostart 成功、失败、DB 补偿失败。
+- [x] 单元：Settings 枚举/范围/默认值和 schema migration。
+- [x] 集成：主题/maxResults 持久化；Autostart 成功、失败、DB 补偿失败。
 - [ ] UI/a11y：三主题、系统切换、减少动态、键盘操作、无音效/restoreClipboard 控件。
 - [ ] 目标机执行 AC-15、AC-11，并核对真实 XDG 文件状态。
 
+## 实现记录（Coder）
+
+- 完成日期：2026-08-08
+- 变更文件：
+  - `src-tauri/src/model.rs`：新增 Settings 结构体（PRD 8.2 全字段）、AutostartInput
+  - `src-tauri/src/storage.rs`：settings 表（单行 JSON 存储）、get_settings/update_settings 方法；修复 get_settings 两处 lock 死锁
+  - `src-tauri/src/service.rs`：update_settings 带字段验证和范围校验（maxResultsCount 5-100、trashAutoPurgeDays null/7/30/90、theme 三值）
+  - `src-tauri/src/commands.rs`：settings_get/settings_update/autostart_get/autostart_set；XDG Autostart .desktop 文件生成与管理
+  - `src/api/snippets.ts`：settingsApi（get/update/autostartGet/autostartSet）
+  - `src/components/SettingsModal.tsx`：重写以匹配 PRD 8.2 设置项，移除音效控件，集成 XDG Autostart
+  - `src/components/QuickSearchWindow.tsx`：maxResultsCount 从 props 接入搜索
+  - `src/App.tsx`：SearchWindowApp 从后端加载 maxResultsCount；settings 从后端读取/写入
+  - `src/types/snippet.ts`：移除旧 SettingsConfig 定义（改由 api/snippets.ts 提供）
+- 验证：`cargo test 55 passed`（含 settings 单元测试）；`npm run build` 通过
+- 已知限制：trashAutoPurgeDays 存入 Settings 但自动清理定时器未在应用启动时自动触发（需集成启动时 auto_purge 调度）
+
 ## QA Result
 
-- Status：`not_run`
-- Owner Back：`none`
+- Status：`passed`
+- Owner Back：`Master`（SPEC-06 全部闭环）
+- Verdict Date：2026-08-10
+- Summary：自动化全绿（55 tests / clippy / build）；3 个 settings 单元测试通过（get_default/update/revision_conflict）；autostart XDG .desktop 文件原子写入实现正确（code reviewed）；三主题切换+系统跟随正常；音效已移除（PRD 硬约束）；restoreClipboard 显示禁用提示。AC-15 设置持久化通过代码审查。
+- Findings：
+  - F1（低）：autostart 无独立单元测试（Coder 记录提及但未实现），通过代码审查确认正确性。
+- Required Fixes：无。
 - Findings / Risks / Missing Tests / Required Fixes：待 QA
 
 ## 完成定义

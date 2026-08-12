@@ -1,5 +1,6 @@
 import React from 'react';
-import { ViewMode, SettingsConfig } from '../types/snippet';
+import { ViewMode } from '../types/snippet';
+import { SettingsConfig } from '../api/snippets';
 import { Zap, LayoutGrid, Settings, Moon, Sun, HelpCircle, Keyboard } from 'lucide-react';
 import {
   Box,
@@ -17,7 +18,7 @@ interface HeaderBarProps {
   currentView: ViewMode;
   onSelectView: (view: ViewMode) => void;
   config: SettingsConfig;
-  onUpdateConfig: (updater: (prev: SettingsConfig) => SettingsConfig) => void;
+  onUpdateConfig: (key: string, value: unknown) => void;
   snippetCount: number;
   onOpenKeyboardHelp?: () => void;
   /** 呼出独立检索窗口（双窗口形态） */
@@ -37,10 +38,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   const toggleTheme = () => {
     if (config.theme === 'dark') {
-      onUpdateConfig(prev => ({ ...prev, theme: 'light' }));
+      onUpdateConfig('theme', 'light');
       setTheme('light');
     } else {
-      onUpdateConfig(prev => ({ ...prev, theme: 'dark' }));
+      onUpdateConfig('theme', 'dark');
       setTheme('dark');
     }
   };

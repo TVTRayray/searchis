@@ -322,6 +322,337 @@ impl Repository {
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|_| db_open_error("片段数据损坏或无法解码。请从备份恢复。"))
     }
+
+    // === SPEC-06: Settings ===
+
+    pub fn get_settings(&self) -> Result<(crate::model::Settings, i64), AppError> {
+        // 先尝试读取，避免重复持锁
+        let result = {
+            let connection = self
+                .connection
+                .lock()
+                .map_err(|_| db_open_error("数据库当前不可用。请重启应用。"))?;
+            connection
+                .query_row(
+                    "SELECT data, revision FROM settings WHERE id = 1",
+                    [],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+                )
+                .optional()
+                .map_err(|_| db_open_error("无法读取设置。请重启应用。"))?
+        }; // 锁在此处释放
+        match result {
+            Some((data, rev)) => {
+                let settings: crate::model::Settings = serde_json::from_str(&data)
+                    .map_err(|_| db_open_error("设置数据损坏。请重新配置。"))?;
+                Ok((settings, rev))
+            }
+            None => {
+                let settings = crate::model::Settings::default();
+                let data = serde_json::to_string(&settings).map_err(|_| db_write_error())?;
+                {
+                    let conn = self.connection.lock().map_err(|_| db_write_error())?;
+                    conn.execute(
+                        "INSERT INTO settings (id, data, revision) VALUES (1, ?1, 1)",
+                        params![data],
+                    )
+                    .map_err(|_| db_write_error())?;
+                }
+                Ok((settings, 1))
+            }
+        }
+    }
+
+    pub fn update_settings(
+        &self,
+        settings: &crate::model::Settings,
+        expected_revision: i64,
+    ) -> Result<i64, AppError> {
+        let data = serde_json::to_string(settings).map_err(|_| db_write_error())?;
+        let connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let changed = connection
+            .execute(
+                "UPDATE settings SET data = ?1, revision = revision + 1 WHERE id = 1 AND revision = ?2",
+                params![data, expected_revision],
+            )
+            .map_err(|_| db_write_error())?;
+        if changed == 0 {
+            return Err(AppError::new(
+                "REVISION_CONFLICT",
+                "设置已被其他窗口修改。请重新加载。",
+            ));
+        }
+        let new_rev: i64 = connection
+            .query_row("SELECT revision FROM settings WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .map_err(|_| db_write_error())?;
+        Ok(new_rev)
+    }
+
+    // === SPEC-05: 回收站操作 ===
+
+    /// 软删除：设置 deletedAt + bump revision。单事务。
+    pub fn trash_move(&self, id: &str) -> Result<Snippet, AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        let snippet = get_in_transaction(&transaction, id)?
+            .ok_or_else(|| AppError::new("NOT_FOUND", "片段不存在。"))?;
+        if snippet.deleted_at.is_some() {
+            transaction.commit().map_err(|_| db_write_error())?;
+            return Err(AppError::new("ALREADY_TRASHED", "片段已在回收站中。"));
+        }
+        let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        transaction
+            .execute(
+                "UPDATE snippets SET deleted_at = ?1, updated_at = ?1, revision = revision + 1 WHERE id = ?2",
+                params![now, id],
+            )
+            .map_err(|_| db_write_error())?;
+        let updated = get_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
+        transaction.commit().map_err(|_| db_write_error())?;
+        Ok(updated)
+    }
+
+    /// 还原：清除 deletedAt，检查 Key 冲突，bump revision。单事务。
+    pub fn trash_restore(&self, id: &str) -> Result<Snippet, AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        let snippet = get_in_transaction(&transaction, id)?
+            .ok_or_else(|| AppError::new("NOT_FOUND", "片段不存在。"))?;
+        if snippet.deleted_at.is_none() {
+            transaction.commit().map_err(|_| db_write_error())?;
+            return Err(AppError::new("NOT_TRASHED", "片段不在回收站中。"));
+        }
+        // 检查 normalizedKey 与当前活跃记录冲突
+        if let Some(key) = find_conflict_key(&transaction, &snippet.normalized_key, Some(id))? {
+            transaction.commit().map_err(|_| db_write_error())?;
+            return Err(AppError::key_conflict(key));
+        }
+        let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        transaction
+            .execute(
+                "UPDATE snippets SET deleted_at = NULL, updated_at = ?1, revision = revision + 1 WHERE id = ?2",
+                params![now, id],
+            )
+            .map_err(|_| db_write_error())?;
+        let updated = get_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
+        transaction.commit().map_err(|_| db_write_error())?;
+        Ok(updated)
+    }
+
+    /// 永久删除单条。物理 DELETE。单事务。
+    pub fn trash_purge_one(&self, id: &str) -> Result<(), AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        let snippet = get_in_transaction(&transaction, id)?
+            .ok_or_else(|| AppError::new("NOT_FOUND", "片段不存在。"))?;
+        if snippet.deleted_at.is_none() {
+            transaction.commit().map_err(|_| db_write_error())?;
+            return Err(AppError::new(
+                "NOT_TRASHED",
+                "片段不在回收站中，无法永久删除。",
+            ));
+        }
+        // 先删除引用，再删除片段
+        transaction
+            .execute(
+                "DELETE FROM create_requests WHERE snippet_id = ?1",
+                params![id],
+            )
+            .map_err(|_| db_write_error())?;
+        transaction
+            .execute("DELETE FROM snippets WHERE id = ?1", params![id])
+            .map_err(|_| db_write_error())?;
+        transaction.commit().map_err(|_| db_write_error())?;
+        Ok(())
+    }
+
+    /// 清空回收站：永久删除全部 deleted_at IS NOT NULL 的记录。单事务。
+    pub fn trash_empty(&self) -> Result<i64, AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        // 先删除 create_requests 中引用待删除片段的行，再删除 snippets
+        transaction
+            .execute(
+                "DELETE FROM create_requests WHERE snippet_id IN (SELECT id FROM snippets WHERE deleted_at IS NOT NULL)",
+                [],
+            )
+            .map_err(|e| {
+                eprintln!("trash_empty delete create_requests error: {e}");
+                db_write_error()
+            })?;
+        let count = transaction
+            .execute("DELETE FROM snippets WHERE deleted_at IS NOT NULL", [])
+            .map_err(|e| {
+                eprintln!("trash_empty DELETE snippets error: {e}");
+                db_write_error()
+            })? as i64;
+        transaction.commit().map_err(|e| {
+            eprintln!("trash_empty COMMIT error: {e}");
+            db_write_error()
+        })?;
+        Ok(count)
+    }
+
+    /// 自动清理：永久删除 deleted_at <= threshold 的记录。单事务。
+    pub fn auto_purge(&self, threshold: &str) -> Result<i64, AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        transaction
+            .execute(
+                "DELETE FROM create_requests WHERE snippet_id IN (SELECT id FROM snippets WHERE deleted_at IS NOT NULL AND deleted_at <= ?1)",
+                params![threshold],
+            )
+            .map_err(|_| db_write_error())?;
+        let count = transaction
+            .execute(
+                "DELETE FROM snippets WHERE deleted_at IS NOT NULL AND deleted_at <= ?1",
+                params![threshold],
+            )
+            .map_err(|_| db_write_error())? as i64;
+        transaction.commit().map_err(|_| db_write_error())?;
+        Ok(count)
+    }
+
+    // === SPEC-07: 导入 ===
+
+    pub fn import_snippets(
+        &self,
+        snippets_raw: &[serde_json::Value],
+        _import_token: &str,
+    ) -> Result<crate::model::ImportOutcome, AppError> {
+        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+        let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        let mut inserted = 0i64;
+        let mut updated = 0i64;
+        for item in snippets_raw {
+            let id = item
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 id 字段。"))?;
+            let key = item
+                .get("key")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 key 字段。"))?;
+            let content = item
+                .get("content")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 content 字段。"))?;
+            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or(key);
+            let aliases: Vec<String> = serde_json::from_value(
+                item.get("aliases")
+                    .cloned()
+                    .unwrap_or(serde_json::json!([])),
+            )
+            .unwrap_or_default();
+            let tags: Vec<String> =
+                serde_json::from_value(item.get("tags").cloned().unwrap_or(serde_json::json!([])))
+                    .unwrap_or_default();
+            let pinned = item
+                .get("pinned")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let sensitive = item
+                .get("sensitive")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let deleted_at = item
+                .get("deletedAt")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            let aliases_json = serde_json::to_string(&aliases).unwrap_or_default();
+            let tags_json = serde_json::to_string(&tags).unwrap_or_default();
+            let content_norm = content.to_lowercase();
+            let aliases_norm = aliases.join(" ").to_lowercase();
+            let tags_norm = tags.join(" ").to_lowercase();
+            let exists: Option<String> = transaction
+                .query_row(
+                    "SELECT id FROM snippets WHERE id = ?1",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|_| db_write_error())?;
+            if let Some(_existing_id) = exists {
+                // 按 ID 覆盖（更新）
+                transaction
+                    .execute(
+                        "UPDATE snippets SET key = ?1, title = ?2, content = ?3, aliases = ?4, tags = ?5,
+                         pinned = ?6, sensitive = ?7, deleted_at = ?8, updated_at = ?9, revision = revision + 1,
+                         content_norm = ?10, aliases_norm = ?11, tags_norm = ?12 WHERE id = ?13",
+                        params![
+                            key, title, content, aliases_json, tags_json,
+                            pinned, sensitive, deleted_at, now,
+                            content_norm, aliases_norm, tags_norm, id,
+                        ],
+                    )
+                    .map_err(|_| db_write_error())?;
+                updated += 1;
+            } else {
+                // 新增
+                let normalized_key = key.to_lowercase();
+                transaction
+                    .execute(
+                        "INSERT INTO snippets (
+                            id, key, normalized_key, title, content, aliases, tags, pinned, sensitive,
+                            usage_count, last_used_at, created_at, updated_at, deleted_at, revision,
+                            content_norm, aliases_norm, tags_norm
+                         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, NULL, ?10, ?10, ?11, 1, ?12, ?13, ?14)",
+                        params![
+                            id, key, normalized_key, title, content, aliases_json, tags_json,
+                            pinned, sensitive, now, deleted_at,
+                            content_norm, aliases_norm, tags_norm,
+                        ],
+                    )
+                    .map_err(|_| db_write_error())?;
+                inserted += 1;
+            }
+        }
+        transaction.commit().map_err(|_| db_write_error())?;
+        Ok(crate::model::ImportOutcome { inserted, updated })
+    }
+
+    // === SPEC-07: 重置 ===
+
+    pub fn reset_to_examples(&self) -> Result<i64, AppError> {
+        // 示例数据：至少 3 条片段
+        let examples = vec![
+            serde_json::json!({
+                "id": "ex-1",
+                "key": "hello-searchis",
+                "title": "Searchis 问候",
+                "content": "你好！很高兴认识你。这是我通过 Searchis 快速粘贴的第一条文本片段。",
+                "aliases": [],
+                "tags": ["示例"],
+                "pinned": true,
+                "sensitive": false,
+            }),
+            serde_json::json!({
+                "id": "ex-2",
+                "key": "email-work",
+                "title": "工作邮箱",
+                "content": "example@work.com",
+                "aliases": ["工作邮箱"],
+                "tags": ["工作"],
+                "pinned": false,
+                "sensitive": true,
+            }),
+            serde_json::json!({
+                "id": "ex-3",
+                "key": "addr-home",
+                "title": "家庭地址",
+                "content": "XX市XX区XX街道",
+                "aliases": [],
+                "tags": ["地址", "生活"],
+                "pinned": false,
+                "sensitive": true,
+            }),
+        ];
+        self.import_snippets(&examples, "reset")
+            .map(|o| o.inserted + o.updated)
+    }
 }
 
 const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision";
@@ -476,6 +807,11 @@ fn migrate(connection: &mut Connection) -> Result<(), AppError> {
             operation_id TEXT PRIMARY KEY NOT NULL,
             snippet_id TEXT NOT NULL,
             created_at TEXT NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            data TEXT NOT NULL DEFAULT '{}',
+            revision INTEGER NOT NULL DEFAULT 1
          );"
     ).map_err(|_| db_open_error("数据库 Schema 迁移失败。原数据未修改。"))?;
     let version: Option<i64> = transaction
@@ -1561,5 +1897,166 @@ mod tests {
             "REVISION_CONFLICT"
         );
         assert_eq!(repository.get(&created.id).unwrap().unwrap().revision, 2);
+    }
+
+    // === SPEC-05: 回收站测试 ===
+
+    fn create_for_trash(repo: &Repository, key: &str) -> Snippet {
+        let rid = uuid::Uuid::new_v4().to_string();
+        repo.create(
+            validate_create(&CreateSnippetInput {
+                key: key.into(),
+                title: "Trash Test".into(),
+                content: "content".into(),
+                aliases: vec![],
+                tags: vec![],
+                sensitive: false,
+                pinned: false,
+                request_id: rid.clone(),
+            })
+            .unwrap(),
+            &rid,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn trash_move_sets_deleted_at_and_bumps_revision() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s = create_for_trash(&repo, "mover");
+        assert_eq!(s.revision, 1);
+        assert!(s.deleted_at.is_none());
+
+        let moved = repo.trash_move(&s.id).unwrap();
+        assert!(moved.deleted_at.is_some());
+        assert_eq!(moved.revision, 2);
+        // deleted_at 设置后仍在 list 中（list 返回所有记录）
+        let list = repo.list().unwrap();
+        assert!(list
+            .iter()
+            .any(|item| item.id == moved.id && item.deleted_at.is_some()));
+    }
+
+    #[test]
+    fn trash_restore_sets_normal() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s1 = create_for_trash(&repo, "restore-me");
+        repo.trash_move(&s1.id).unwrap();
+        let restored = repo.trash_restore(&s1.id).unwrap();
+        assert!(restored.deleted_at.is_none());
+        assert_eq!(restored.revision, 3);
+    }
+
+    #[test]
+    fn trash_purge_one_removes_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s = create_for_trash(&repo, "purge-me");
+        repo.trash_move(&s.id).unwrap();
+        repo.trash_purge_one(&s.id).unwrap();
+        assert!(repo.get(&s.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn trash_empty_removes_all_trashed() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s1 = create_for_trash(&repo, "e1");
+        let s2 = create_for_trash(&repo, "e2");
+        let s3 = create_for_trash(&repo, "e3");
+        repo.trash_move(&s1.id).unwrap();
+        repo.trash_move(&s2.id).unwrap();
+        let count = repo.trash_empty().unwrap();
+        assert_eq!(count, 2);
+        assert!(repo.get(&s1.id).unwrap().is_none());
+        assert!(repo.get(&s2.id).unwrap().is_none());
+        assert!(repo.get(&s3.id).unwrap().is_some());
+    }
+
+    #[test]
+    fn auto_purge_removes_expired_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s29 = create_for_trash(&repo, "old29");
+        let s30 = create_for_trash(&repo, "old30");
+        let s31 = create_for_trash(&repo, "old31");
+        // 直接设置 deleted_at
+        let conn = repo.connection.lock().unwrap();
+        let t29 = (Utc::now() - chrono::Duration::days(29))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let t30 = (Utc::now() - chrono::Duration::days(30))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let t31 = (Utc::now() - chrono::Duration::days(31))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        conn.execute(
+            "UPDATE snippets SET deleted_at = ?1 WHERE id = ?2",
+            params![t29, s29.id],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE snippets SET deleted_at = ?1 WHERE id = ?2",
+            params![t30, s30.id],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE snippets SET deleted_at = ?1 WHERE id = ?2",
+            params![t31, s31.id],
+        )
+        .unwrap();
+        drop(conn);
+
+        let threshold = (Utc::now() - chrono::Duration::days(30))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let count = repo.auto_purge(&threshold).unwrap();
+        assert_eq!(count, 2); // s30 and s31 purged, s29 retained
+        assert!(repo.get(&s29.id).unwrap().is_some()); // 29 天的保留
+        assert!(repo.get(&s30.id).unwrap().is_none()); // 30 天的删除
+        assert!(repo.get(&s31.id).unwrap().is_none()); // 31 天的删除
+    }
+
+    // === SPEC-06: Settings tests ===
+
+    #[test]
+    fn settings_get_returns_default_on_first_access() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let (settings, rev) = repo.get_settings().unwrap();
+        assert_eq!(rev, 1);
+        assert_eq!(settings.global_shortcut, "Alt+O");
+        assert_eq!(settings.max_results_count, 20);
+        assert!(settings.trash_auto_purge_days.is_none());
+        assert_eq!(settings.schema_version, 1);
+    }
+
+    #[test]
+    fn settings_update_and_read_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let (_, rev1) = repo.get_settings().unwrap();
+        let mut settings = repo.get_settings().unwrap().0;
+        settings.max_results_count = 50;
+        settings.theme = "dark".into();
+        let rev2 = repo.update_settings(&settings, rev1).unwrap();
+        assert_eq!(rev2, 2);
+        let (read_back, rev3) = repo.get_settings().unwrap();
+        assert_eq!(rev3, 2);
+        assert_eq!(read_back.max_results_count, 50);
+        assert_eq!(read_back.theme, "dark");
+    }
+
+    #[test]
+    fn settings_revision_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let (_, rev1) = repo.get_settings().unwrap();
+        let settings = repo.get_settings().unwrap().0;
+        // 模拟并发：先更新到 rev2
+        repo.update_settings(&settings, rev1).unwrap();
+        // 再用 rev1 尝试更新应该失败
+        let result = repo.update_settings(&settings, rev1);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, "REVISION_CONFLICT");
     }
 }

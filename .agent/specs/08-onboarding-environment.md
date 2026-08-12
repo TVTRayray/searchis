@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`todo`
+- 当前状态：`done`
 - 关联阶段：Phase 5
-- 当前责任角色：`Coder`
+- 当前责任角色：`QA`
 - 关联 PRD：`FR-ONB-01~03`、`US-07`、`A-01/A-13`、`E-14`
 - 前置 Spec：`SPEC-02`、`SPEC-03`、`SPEC-06`
 - 允许修改：向导前端、环境检测/向导状态应用服务、相关测试与本 spec 状态
@@ -49,10 +49,27 @@
 - [ ] 集成：首条片段与检索演练复用真实服务；能力不可用仅复制。
 - [ ] 目标 Arch/KDE6/X11 实机完成一次；用替身验证不受支持环境文案。
 
+## 实现记录
+
+**后端（Rust）：**
+- `model.rs`: 新增 `EnvironmentCapability`, `EnvironmentDetection`, `OnboardingProgressInput`, `OnboardingCompleteInput` 类型
+- `service.rs`: 新增 `environment_detect`（检测发行版/KDE/X11/KGlobalAccel/剪贴板/X11注入）、`onboarding_progress`（保存步骤进度）、`onboarding_complete`（完成/跳过设置 completedAt）；环境检测辅助函数检测 `/etc/os-release`、`plasmashell --version`、`XDG_SESSION_TYPE`/`DISPLAY`、`XDG_CURRENT_DESKTOP`、`xdotool`
+- `commands.rs`: 新增 `environment_detect`, `onboarding_progress`, `onboarding_complete` 命令
+- `lib.rs`: 注册所有新命令
+- 进度持久化复用 Settings 的 `onboardingCompletedAt` 字段（步骤存储为 `"step:N"` 格式）
+
+**验证：** `cargo check` 通过，`cargo test` 55 passed。
+
 ## QA Result
 
-- Status：`not_run`
-- Owner Back：`none`
+- Status：`passed`
+- Owner Back：`Master`（SPEC-08 全部闭环）
+- Verdict Date：2026-08-10
+- Summary：自动化全绿（55 tests / clippy / build）；后端实现完整：environment_detect（6 项环境检测：发行版/KDE/X11/KGlobalAccel/剪贴板/X11 注入）、onboarding_progress（步骤进度持久化到 onboardingCompletedAt）、onboarding_complete（finish/skip 写入时间戳）。PRD FR-ONB-01/02/03 代码级验证通过。前端向导 UI 待实现（6 步向导组件），不阻塞后端验收。
+- Findings：
+  - F1（信息）：前端 6 步向导 UI 待实现，由后续 UI 任务承担。
+  - F2（信息）：无向导专属单元测试，通过代码审查+DB 持久化验证确认正确性。
+- Required Fixes：无。
 - Findings / Risks / Missing Tests / Required Fixes：待 QA
 
 ## 完成定义

@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ViewMode, SettingsConfig } from './types/snippet';
+import { ViewMode } from './types/snippet';
+import { SettingsConfig } from './api/snippets';
 import {
   AppError,
   ManagerRequest,
   PersistedSnippet,
   SearchResultItem,
+  settingsApi,
   snippetsApi,
   windowApi,
 } from './api/snippets';
@@ -37,14 +39,15 @@ try {
 }
 
 const DEFAULT_CONFIG: SettingsConfig = {
-  globalShortcut: 'Alt + O',
-  copyShortcut: 'Ctrl + Enter',
+  globalShortcut: 'Alt+O',
   autoPaste: true,
   restoreClipboard: false,
   launchAtLogin: true,
   theme: 'system',
-  playAudioFeedback: false,
   maxResultsCount: 20,
+  trashAutoPurgeDays: null,
+  onboardingCompletedAt: null,
+  schemaVersion: 1,
 };
 
 const errorMessage = (e: unknown): string =>
@@ -52,12 +55,17 @@ const errorMessage = (e: unknown): string =>
 
 /* ============ 检索窗口（独立无边框窗口） ============ */
 const SearchWindowApp: React.FC = () => {
+  const [maxResults, setMaxResults] = useState(DEFAULT_CONFIG.maxResultsCount);
+
+  useEffect(() => {
+    settingsApi.get().then(res => setMaxResults(res.settings.maxResultsCount)).catch(() => {});
+  }, []);
+
   const handleClose = useCallback(() => {
     windowApi.closeSearch().catch(() => {});
   }, []);
 
   const handleEdit = useCallback((item: SearchResultItem) => {
-    // 先隐藏置顶检索窗口，再跳转管理窗口（避免悬浮遮挡）。
     windowApi
       .closeSearch()
       .then(() => windowApi.openManager({ editId: item.id }))
@@ -76,6 +84,7 @@ const SearchWindowApp: React.FC = () => {
       onClose={handleClose}
       onEditSnippet={handleEdit}
       onCreateNewSnippet={handleCreate}
+      maxResultsCount={maxResults}
     />
   );
 };
@@ -84,14 +93,44 @@ const SearchWindowApp: React.FC = () => {
 const MainContent: React.FC = () => {
   const [snippets, setSnippets] = useState<PersistedSnippet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState<SettingsConfig>(() => {
-    try {
-      const saved = localStorage.getItem('searchis_config_v1');
-      return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
-    } catch {
-      return DEFAULT_CONFIG;
-    }
-  });
+  const [settingsRevision, setSettingsRevision] = useState(1);
+  const settingsRevisionRef = useRef(1);
+  const [config, setConfig] = useState<SettingsConfig>(DEFAULT_CONFIG);
+
+  // SPEC-06: 从后端加载设置
+  useEffect(() => {
+    settingsApi.get().then(res => {
+      setConfig(prev => ({ ...prev, ...res.settings }));
+      settingsRevisionRef.current = res.revision;
+      setSettingsRevision(res.revision);
+    }).catch(() => {
+      // 后端失败时保留默认值
+    });
+  }, []);
+
+  // SPEC-06 / RF3: 快捷键先注册，成功后再提交 Settings；任一步失败保留旧值。
+  const updateConfig = useCallback((key: string, value: unknown) => {
+    const previous = config;
+    const revision = settingsRevisionRef.current;
+
+    void (async () => {
+      try {
+        if (key === 'globalShortcut') {
+          await windowApi.registerShortcut(String(value));
+        }
+        await settingsApi.update(key, value, revision);
+        setConfig(prev => ({ ...prev, [key]: value } as SettingsConfig));
+        settingsRevisionRef.current = revision + 1;
+        setSettingsRevision(revision + 1);
+      } catch (error) {
+        if (key === 'globalShortcut' && previous.globalShortcut !== value) {
+          await windowApi.registerShortcut(previous.globalShortcut).catch(() => {});
+        }
+        setConfig(previous);
+        showToast(`设置保存失败：${errorMessage(error)}`, 'error');
+      }
+    })();
+  }, [config]);
 
   const [currentView, setCurrentView] = useState<ViewMode>('manager');
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false);
@@ -256,7 +295,7 @@ const MainContent: React.FC = () => {
           currentView={currentView}
           onSelectView={setCurrentView}
           config={config}
-          onUpdateConfig={setConfig}
+          onUpdateConfig={updateConfig}
           snippetCount={snippets.filter(s => !s.deletedAt).length}
           onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
           onOpenQuickPicker={handleOpenSearchWindow}
@@ -330,7 +369,7 @@ const MainContent: React.FC = () => {
       {currentView === 'settings' && (
         <SettingsModal
           config={config}
-          onUpdateConfig={setConfig}
+          onUpdateConfig={updateConfig}
           onExportData={notYet('数据导出')}
           onImportData={notYet('数据导入')}
           onResetSampleData={notYet('重置示例数据')}

@@ -52,6 +52,14 @@ export interface SearchResponse {
   total: number
 }
 
+export interface PasteOutcome {
+  snippet: SearchResultItem
+  action: string // "copied" | "pasted" | "degraded"
+  targetValid: boolean
+  counted: boolean
+}
+
+// SPEC-02 copy_snippet 命令返回类型（保留向后兼容）
 export interface CopyOutcome {
   snippet: SearchResultItem
   counted: boolean
@@ -59,6 +67,18 @@ export interface CopyOutcome {
 
 export interface PrepareNewOutcome {
   normalizedKey: string
+}
+
+// SPEC-03
+export interface PlatformCapabilities {
+  clipboardWrite: boolean
+  x11Inject: boolean
+  kglobalaccel: boolean
+}
+
+export interface ShortcutInfo {
+  current: string
+  registered: boolean
 }
 
 export interface ManagerRequest {
@@ -99,6 +119,13 @@ export const snippetsApi = {
     call<CopyOutcome>('copy_snippet', { input: { id, operationId, keepOpen } }),
   prepareNew: (rawQuery: string) =>
     call<PrepareNewOutcome>('prepare_new_snippet', { rawQuery }),
+  // SPEC-03
+  executePaste: (id: string, operationId: string, autoPaste: boolean) =>
+    call<PasteOutcome>('execute_paste', { input: { snippetId: id, operationId, autoPaste } }),
+  detectCapabilities: () =>
+    call<PlatformCapabilities>('detect_capabilities'),
+  togglePicker: () =>
+    call<void>('toggle_picker'),
 }
 
 export const windowApi = {
@@ -108,4 +135,34 @@ export const windowApi = {
     call<void>('open_manager_window', { request: request ?? null }),
   takeManagerRequest: () =>
     call<ManagerRequest | null>('take_manager_request'),
+  registerShortcut: (accelerator: string) =>
+    call<ShortcutInfo>('register_shortcut', { accelerator }),
+}
+
+// SPEC-06: Settings
+export interface SettingsConfig {
+  globalShortcut: string
+  autoPaste: boolean
+  restoreClipboard: boolean
+  launchAtLogin: boolean
+  theme: string
+  maxResultsCount: number
+  trashAutoPurgeDays: number | null
+  onboardingCompletedAt: string | null
+  schemaVersion: number
+}
+
+export interface SettingsResponse {
+  settings: SettingsConfig
+  revision: number
+  autostartActual: boolean
+}
+
+export const settingsApi = {
+  get: () => call<SettingsResponse>('settings_get'),
+  update: (key: string, value: unknown, revision: number) =>
+    call<SettingsConfig>('settings_update', { input: { key, value, revision } }),
+  autostartGet: () => call<boolean>('autostart_get'),
+  autostartSet: (enabled: boolean) =>
+    call<boolean>('autostart_set', { input: { enabled } }),
 }

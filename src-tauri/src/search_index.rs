@@ -208,3 +208,308 @@ fn to_search_item(item: &IndexedSnippet) -> SearchResultItem {
         last_used_at: item.last_used_at.clone(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Snippet;
+
+    #[allow(clippy::too_many_arguments)]
+    fn make_snippet(
+        id: &str,
+        key: &str,
+        title: &str,
+        content: &str,
+        tags: Vec<&str>,
+        pinned: bool,
+        sensitive: bool,
+        usage: i64,
+        last_used_at: Option<&str>,
+        updated_at: &str,
+    ) -> Snippet {
+        Snippet {
+            id: id.into(),
+            key: key.into(),
+            normalized_key: key.into(),
+            title: title.into(),
+            content: content.into(),
+            aliases: vec![],
+            tags: tags.into_iter().map(String::from).collect(),
+            pinned,
+            sensitive,
+            usage_count: usage,
+            last_used_at: last_used_at.map(String::from),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: updated_at.into(),
+            deleted_at: None,
+            revision: 1,
+        }
+    }
+
+    fn build_index() -> (SearchIndex, Vec<Snippet>) {
+        let items = vec![
+            make_snippet(
+                "1",
+                "alpha",
+                "Alpha",
+                "content alpha",
+                vec![],
+                true,
+                false,
+                10,
+                Some("2026-06-01"),
+                "2026-07-01",
+            ),
+            make_snippet(
+                "2",
+                "beta",
+                "Beta",
+                "content beta",
+                vec!["work"],
+                false,
+                true,
+                5,
+                Some("2026-05-01"),
+                "2026-06-01",
+            ),
+            make_snippet(
+                "3",
+                "gamma",
+                "Gamma",
+                "content gamma",
+                vec!["home"],
+                false,
+                false,
+                0,
+                None,
+                "2026-05-01",
+            ),
+            make_snippet(
+                "4",
+                "delta",
+                "Delta",
+                "secret-content",
+                vec!["work"],
+                false,
+                false,
+                8,
+                Some("2026-06-01"),
+                "2026-07-01",
+            ),
+            make_snippet(
+                "5",
+                "deleted",
+                "Deleted",
+                "x",
+                vec![],
+                false,
+                false,
+                0,
+                None,
+                "2026-01-01",
+            )
+            .deleted("2026-01-01"),
+        ];
+        let mut index = SearchIndex::default();
+        for s in &items {
+            index.upsert(s);
+        }
+        (index, items)
+    }
+
+    impl Snippet {
+        fn deleted(self, at: &str) -> Self {
+            Self {
+                deleted_at: Some(at.into()),
+                ..self
+            }
+        }
+    }
+
+    #[test]
+    fn filter_pinned_view_returns_only_pinned() {
+        let (index, _) = build_index();
+        let resp = index.search("", 20);
+        let pinned: Vec<&str> = resp
+            .items
+            .iter()
+            .filter(|i| i.pinned)
+            .map(|i| i.key.as_str())
+            .collect();
+        assert_eq!(pinned, vec!["alpha"]);
+    }
+
+    #[test]
+    fn filter_recent_view_returns_only_with_last_used() {
+        let (index, _) = build_index();
+        // 空查询返回非删除行，按 updated_at 排序。recent 是客户端视图。
+        let resp = index.search("", 20);
+        let has_recent: Vec<&str> = resp
+            .items
+            .iter()
+            .filter(|i| i.last_used_at.is_some())
+            .map(|i| i.key.as_str())
+            .collect();
+        assert!(has_recent.contains(&"alpha"));
+        assert!(has_recent.contains(&"beta"));
+        assert!(has_recent.contains(&"delta"));
+        assert!(!has_recent.contains(&"gamma"));
+    }
+
+    #[test]
+    fn filter_by_tag_returns_matching_only() {
+        let (index, _) = build_index();
+        let resp = index.search("work", 20);
+        let keys: Vec<&str> = resp.items.iter().map(|i| i.key.as_str()).collect();
+        assert!(keys.contains(&"beta"));
+        assert!(keys.contains(&"delta"));
+        assert_eq!(resp.total, 2);
+    }
+
+    #[test]
+    fn sort_by_updated_desc() {
+        let (index, _) = build_index();
+        let resp = index.search("", 20);
+        let keys: Vec<&str> = resp.items.iter().map(|i| i.key.as_str()).collect();
+        // alpha(07-01) > delta(07-01) > beta(06-01) >= gamma(06-01) by key asc tiebreak
+        assert_eq!(resp.total, 4);
+        assert!(keys[0] == "alpha" || keys[0] == "delta");
+    }
+
+    #[test]
+    fn sort_by_usage_desc_tiebreak_key_asc() {
+        let (index, _) = build_index();
+        // 空查询按 pinned DESC, usage DESC, lastUsed DESC, updated DESC, key ASC
+        let resp = index.search("", 20);
+        let items = &resp.items;
+        // alpha(pinned=true,usage=10), delta(usage=8), beta(usage=5), gamma(usage=0)
+        assert!(
+            items[0].key == "alpha",
+            "first should be alpha, got {}",
+            items[0].key
+        );
+        assert!(
+            items[1].key == "delta",
+            "second should be delta, got {}",
+            items[1].key
+        );
+        assert!(
+            items[2].key == "beta",
+            "third should be beta, got {}",
+            items[2].key
+        );
+        assert!(
+            items[3].key == "gamma",
+            "fourth should be gamma, got {}",
+            items[3].key
+        );
+    }
+
+    #[test]
+    fn search_excludes_deleted() {
+        let (index, _) = build_index();
+        let resp = index.search("deleted", 20);
+        assert_eq!(resp.total, 0);
+        assert!(resp.items.is_empty());
+    }
+
+    #[test]
+    fn sensitive_items_return_no_content() {
+        let (index, _) = build_index();
+        let resp = index.search("beta", 20);
+        // beta is sensitive=true; SearchResultItem has no content field
+        assert_eq!(resp.items.len(), 1);
+        assert!(resp.items[0].sensitive);
+        // SearchResultItem does NOT have content field — static guarantee
+    }
+
+    #[test]
+    fn search_across_aliases() {
+        let mut index = SearchIndex::default();
+        let s = make_snippet(
+            "a",
+            "a",
+            "Test",
+            "body",
+            vec![],
+            false,
+            false,
+            0,
+            None,
+            "2026-01-01",
+        );
+        let s = Snippet {
+            aliases: vec!["alias1".into(), "alias2".into()],
+            ..s
+        };
+        index.upsert(&s);
+        let resp = index.search("alias1", 20);
+        assert_eq!(resp.total, 1);
+    }
+
+    #[test]
+    fn search_across_content() {
+        let mut index = SearchIndex::default();
+        let s = make_snippet(
+            "c",
+            "c",
+            "T",
+            "needle in haystack",
+            vec![],
+            false,
+            false,
+            0,
+            None,
+            "2026-01-01",
+        );
+        index.upsert(&s);
+        assert_eq!(index.search("needle", 20).total, 1);
+        assert_eq!(index.search("hay", 20).total, 1);
+        assert_eq!(index.search("missing", 20).total, 0);
+    }
+
+    #[test]
+    fn key_exact_match_ranks_first() {
+        let mut index = SearchIndex::default();
+        index.upsert(&make_snippet(
+            "1",
+            "needle",
+            "X",
+            "needle",
+            vec![],
+            false,
+            false,
+            0,
+            None,
+            "2026-01-01",
+        ));
+        index.upsert(&make_snippet(
+            "2",
+            "prefix-needle",
+            "Y",
+            "needle",
+            vec![],
+            false,
+            false,
+            0,
+            None,
+            "2026-01-01",
+        ));
+        index.upsert(&make_snippet(
+            "3",
+            "sub-needle-xx",
+            "Z",
+            "needle",
+            vec![],
+            false,
+            false,
+            0,
+            None,
+            "2026-01-01",
+        ));
+        let resp = index.search("needle", 20);
+        assert_eq!(resp.items[0].key, "needle");
+        assert_eq!(resp.items[1].key, "prefix-needle");
+        assert_eq!(resp.items[2].key, "sub-needle-xx");
+    }
+}

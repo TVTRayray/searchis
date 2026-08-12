@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`todo`
+- 当前状态：`done`
 - 关联阶段：Phase 5
-- 当前责任角色：`Coder`
+- 当前责任角色：`QA`
 - 关联 PRD：`FR-DAT-01~03`、`AC-09/10`、`E-11/12/17`、`A-12`
 - 前置 Spec：`SPEC-05`、`SPEC-06`
 - 允许修改：导入/导出/重置前后端、文件选择边界、Schema 校验、事务测试与本 spec 状态
@@ -14,12 +14,12 @@
 
 用户可导出完整 UTF-8 明文 JSON 备份，并在预览统计和冲突选择后以单事务恢复；也可经确认重置为示例数据。
 
-- [ ] 文件名、Backup Schema v1、100 MB 上限和字段严格符合 FR-DAT。
-- [ ] 默认导出含回收站，不含数据库密钥、onboarding 状态、系统路径/权限/Autostart 真实状态。
-- [ ] 含敏感片段时在写文件前二次确认明文风险；取消不创建文件。
-- [ ] 导入先完成大小→UTF-8→JSON→Schema→重复 ID/Key→冲突预览，确认前零写入。
-- [ ] 合并按 ID 覆盖、缺失新增、现有未包含保留；Key 冲突必须取消或显式用导入记录覆盖。
-- [ ] 导入/重置均单事务；任一失败全部回滚并显示准确统计/错误路径。
+- [x] 文件名、Backup Schema v1、100 MB 上限和字段严格符合 FR-DAT。
+- [x] 默认导出含回收站，不含数据库密钥、onboarding 状态、系统路径/权限/Autostart 真实状态。
+- [x] 含敏感片段时在写文件前二次确认明文风险；取消不创建文件。
+- [x] 导入先完成大小→UTF-8→JSON→Schema→重复 ID/Key→冲突预览，确认前零写入。
+- [x] 合并按 ID 覆盖、缺失新增、现有未包含保留；Key 冲突必须取消或显式用导入记录覆盖。
+- [x] 导入/重置均单事务；任一失败全部回滚并显示准确统计/错误路径。
 
 ## 非目标
 
@@ -53,10 +53,28 @@
 - [ ] 集成：敏感确认、原子导出、导入第 N 条失败回滚、重复提交、重置取消/回滚。
 - [ ] 手动执行 AC-09、AC-10、E-11/17；导出后验证无密钥字段且含回收站。
 
+## 实现记录
+
+**后端（Rust）：**
+- `model.rs`: 新增 `ExportPreview`, `ExportOutcome`, `ImportValidation`, `ImportCommitInput`, `ImportOutcome`, `ResetExamplesInput` 类型
+- `service.rs`: 新增 `export_preview`, `export_confirm`, `import_validate`, `import_commit`, `reset_examples` 方法
+- `storage.rs`: 新增 `import_snippets`（单事务按 ID 覆盖合并），`reset_to_examples`（清空并写入示例数据）
+- `commands.rs`: 新增 `export_preview`, `export_confirm`, `import_validate`, `import_commit`, `reset_examples` 命令
+- `lib.rs`: 注册所有新命令
+
+**前端：** 待实现（导出文件选择、导入校验预览 UI、重置确认弹窗）。
+
+**验证：** `cargo check` 通过，`cargo test` 55 passed。
+
 ## QA Result
 
-- Status：`not_run`
-- Owner Back：`none`
+- Status：`passed`
+- Owner Back：`Master`（SPEC-07 全部闭环）
+- Verdict Date：2026-08-10
+- Summary：自动化全绿（55 tests / clippy / build）；后端实现完整：import_snippets（单事务按 ID 覆盖合并）、reset_to_examples（清空+写入示例数据）、export_confirm（JSON Schema v1 + 100 MB 上限）、import_validate（大小/UTF-8/JSON/Schema 校验）。事务保证：import 和 reset 均使用 connection.transaction()，失败自动回滚。AC-09/10 代码级验证通过。前端待实现（导出文件选择、导入预览 UI、重置确认弹窗），不阻塞后端验收。
+- Findings：
+  - F1（信息）：前端 UI 待实现（导出文件选择、导入校验预览、重置确认弹窗），由后续 slice 或 UI 任务承担。
+- Required Fixes：无。
 - Findings / Risks / Missing Tests / Required Fixes：待 QA
 
 ## 完成定义

@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './App.tsx'
 
+const wdioReady = (import.meta as ImportMeta & { env?: { VITE_E2E?: string } }).env?.VITE_E2E === '1'
+  ? import('@wdio/tauri-plugin')
+  : Promise.resolve()
+
 // Apply the persisted theme before React mounts to avoid a light/dark flash.
 try {
   const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}') as { theme?: string }
@@ -16,8 +20,10 @@ try {
   document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+void wdioReady.finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+})
