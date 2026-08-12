@@ -2,7 +2,7 @@
 
 ## 基本信息
 
-- 当前状态：`done`
+- 当前状态：`qa_failed`（Master 审计：流程与行为回归，退回 Coder）
 - 当前责任角色：`Coder`
 - 关联 PRD：`FR-SCH-01~04`、`FR-PCK-01~04`、`AC-01/03/04/05/08/12/13/14/20`、`NFR-PERF-01~03`、`NFR 11.4`
 - 前置 Spec：`SPEC-02/03/11`（done）
@@ -49,8 +49,17 @@
 
 ## QA Result
 
-- Status：`not_run`
-- Findings / Risks / Missing Tests / Required Fixes：待 QA
+- Status：`failed`（2026-08-12 Master 复核）
+- Findings：
+  - F1：原 `匹配片段结果 / 展示 N / 总数 M` 表头被删除；`total` 仍被读取但未展示，违反 FR-SCH-03，用户已实机确认表头缺失。
+  - F2：Ctrl+Enter 调用 `executePaste(..., true)` 并关闭窗口，与“仅复制并保留窗口”契约相反。
+  - F3：Ctrl+N/空态新建直接传原始 query，绕过 `prepareNew` 规范化，AC-13 `work addr -> work-addr` 可能回归。
+  - F4：移除了窗口重新显示时清空查询并聚焦的 `onFocusChanged` 逻辑，只保留首次 mount autofocus。
+  - F5：SPEC-12 与 SPEC-13/14 被合并为单个 commit，未按顺序独立验收；本 spec 11 个验收项均未勾选却标记 done。
+- Risks：cmdk 全局 capture 键盘处理改变了已验收快捷键语义；E2E 仍失败，无法证明无回归。
+- Missing Tests：`npm run test:e2e` 未通过；无实机两主题/reduced-motion/IME/a11y 记录；QA 未执行。
+- Required Fixes：恢复 FR-SCH-03 表头；恢复 Ctrl+Enter/Enter/Ctrl+N/窗口重开契约；补齐并记录本 spec 全部验证；不得顺带修 SPEC-13/14。
+- Retest Criteria：build + cargo test + 可用 E2E/等价可靠 UI 自动化 + 实机独立搜索窗口完整键盘流程；QA `passed` 后才能转 done。
 
 ## 完成定义
 

@@ -2,8 +2,8 @@
 
 ## 基本信息
 
-- 当前状态：`done`
-- 当前责任角色：`Coder`
+- 当前状态：`todo`（前置 SPEC-13 未完成；commit `2406c41` 的实现不作为验收完成）
+- 当前责任角色：`Master`（等待 SPEC-13 done 后再交 Coder）
 - 关联 PRD：`FR-ONB-01~03`、`FR-KDE-01/02`、`A-09/A-13`、`NFR 11.4`、发布门槛 14.2
 - 前置 Spec：`SPEC-13`（done）
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
@@ -41,8 +41,11 @@
 
 ## QA Result
 
-- Status：`not_run`
-- Findings / Risks / Missing Tests / Required Fixes：待 QA
+- Status：`not_run`（禁止在前置 SPEC-13 未完成时标 done）
+- Findings：预审发现 Option/Cmd/⌘ 文案、音效字段与 canvas-confetti 依赖仍存在，明确违反本 spec 成功标准。
+- Risks：向导和快捷键帮助向 Arch/KDE/X11 用户展示错误平台语义。
+- Missing Tests：全部验收项未执行；E2E 未通过；无差异清单。
+- Required Fixes：等待 SPEC-13 passed；按本 spec 白名单重新实施与验收。
 
 ## 完成定义
 
