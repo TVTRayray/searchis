@@ -2,8 +2,8 @@
 
 ## 基本信息
 
-- 当前状态：`todo`（前置 SPEC-12 未通过；commit `2406c41` 的实现不作为验收完成）
-- 当前责任角色：`Master`（等待 SPEC-12 done 后再交 Coder）
+- 当前状态：`todo`
+- 当前责任角色：`Coder`
 - 关联 PRD：`FR-SNP-01~04`、`FR-MGT-01~05`、`FR-SET-01/02`、`AC-02/06/07/08/11/15/18/19`
 - 前置 Spec：`SPEC-12`（done）
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
@@ -41,11 +41,8 @@
 
 ## QA Result
 
-- Status：`not_run`（禁止在前置 SPEC-12 failed 时标 done）
-- Findings：预审发现外部视觉逻辑越界并入：音效开关、Cmd+V/Option 键位、未受后端支持的 accent/playAudioFeedback 设置字段；需在 SPEC-13 正式启动时清理并独立验收。
-- Risks：点击 accent 或 playAudioFeedback 会调用 Rust 不支持的 settings key，产生确定的 validation 前端错误。
-- Missing Tests：全部成功标准与验收项均未记录。
-- Required Fixes：等待 SPEC-12 passed；恢复 PRD 设置契约和 Linux/KDE 文案；不得修改领域类型迎合视觉组件。
+- Status：`not_run`
+- Findings / Risks / Missing Tests / Required Fixes：待 QA
 
 ## 完成定义
 

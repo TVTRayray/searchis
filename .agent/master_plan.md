@@ -14,10 +14,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置、向导和 KDE AppMenu 契约。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/12-quick-search-visual-refactor.md`
-- 当前状态：`qa_failed`（commit `2406c41` 流程违规且存在功能回归）
-- 当前责任角色：`Coder`（只修 SPEC-12 Required Fixes）
-- QA Status：`failed`
-- 下一步：Coder 仅修复 SPEC-12；SPEC-13/14 恢复 todo，禁止并行或越序
+- 当前状态：`todo`（Gate 0 complete）
+- 当前责任角色：`Coder`
+- QA Status：`not_run`
+- 下一步：Coder 实现 SPEC-12；只按白名单移植快速检索视觉，不整目录覆盖
 
 ## 技术决策
 
@@ -47,17 +47,15 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 08 | [六步首次使用向导](specs/08-onboarding-environment.md) | 首次启动完成环境检测、首条片段与检索演练，可续接/跳过 | 02、03、06 | `done` |
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
-| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `qa_failed`（active） |
-| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `todo`（blocked by 12） |
-| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo`（blocked by 13） |
+| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `todo`（active） |
+| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `todo` |
+| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo` |
 
 ## 看板
 
 ### In Progress
 
-- [ ] SPEC-12：QA failed，退回 Coder 仅处理 Required Fixes。
-
-> 流程审计：commit `2406c41` 把 SPEC-12/13/14 一次性合并，且三份 spec 均在 QA `not_run`、验收项全未勾选时标记 done；违反单活跃 spec、顺序依赖和 done 定义。SPEC-13/14 的该次实现不作为验收完成。
+- [ ] 无（SPEC-12 待 Coder 接手）
 
 ### QA Queue
 
@@ -65,12 +63,11 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-12：恢复搜索结果表头/总数、Ctrl+Enter 仅复制保留窗口、Ctrl+N 规范化、重开清空/聚焦，并补齐可靠 UI 验收。
+- [ ] 无
 
 ### Blocked
 
-- [ ] SPEC-13 blocked by SPEC-12 QA passed。
-- [ ] SPEC-14 blocked by SPEC-13 QA passed。
+- [ ] 无
 
 ### Gate 0 验证记录
 
@@ -135,16 +132,14 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - **依赖与键盘风险**：cmdk/radix 可能接管键盘事件；必须以现有 Esc/Enter/Ctrl/IME E2E 为验收真相。
 - **源漂移风险**：外部工作树可能继续变化；本轮只认 commit `0b28f05c230a544266eb508d52a66c9bf390d029`。
 - **E2E 基础设施风险**：当前 `@wdio/tauri-service` 无法稳定绑定 Tauri 多窗口，debug build 与窗口渲染正常但 native WebDriver 会话产生 stale/undefined elementId。后续 slice 不得把该失败当业务通过；需先修复测试会话或改用可靠等价方案。
-- **流程失守风险（已发生）**：Coder 将 SPEC-12/13/14 合并为单个 commit，并在 QA not_run 时标 done；QA 未形成 findings/required fixes 即放行到提交。缓解：Master 已重置真实状态，后续严格单 spec Coder→QA→done。
-- **确定回归（commit 2406c41）**：搜索结果表头/总数消失；Ctrl+Enter 语义错误；Ctrl+N 绕过规范化；音效与 macOS 键位回归；accent/playAudioFeedback 调用后端未知字段会报错。
 
 ## 当前活跃 Spec 状态卡
 
 - Spec：`SPEC-12`
-- 状态：`qa_failed`
-- Next Owner：`Coder`（仅 SPEC-12）
-- QA Status：`failed`
+- 状态：`todo`
+- Next Owner：`Coder`
+- QA Status：`not_run`
 - Blocking Issue：无
-- Required Fixes：见 SPEC-12 QA Result（F1~F5）
-- Retest Required：`yes`
-- Last Updated：2026-08-12 Master audit
+- Required Fixes：先解决或替换 native 多窗口 E2E 会话策略，再以 E2E 作为验收门
+- Retest Required：`yes`（SPEC-12 完成后完整 UI 回归）
+- Last Updated：Gate 0 完成

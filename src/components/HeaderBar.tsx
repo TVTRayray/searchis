@@ -1,17 +1,18 @@
 import React from 'react';
 import { ViewMode } from '../types/snippet';
-import type { SettingsConfig } from '../api/snippets';
-import { Zap, LayoutGrid, Settings, HelpCircle, Keyboard, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { SettingsConfig } from '../api/snippets';
+import { Zap, LayoutGrid, Settings, Moon, Sun, HelpCircle, Keyboard } from 'lucide-react';
 import {
   Box,
   VStack,
   HStack,
   Inline,
-} from './layout';
-import { useTheme } from '../components/ThemeProvider';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Kbd } from '@/components/ui/kbd';
+  Button,
+  IconButton,
+  useTheme,
+  StatusDot,
+  Badge,
+} from './astryx';
 
 interface HeaderBarProps {
   currentView: ViewMode;
@@ -20,15 +21,9 @@ interface HeaderBarProps {
   onUpdateConfig: (key: string, value: unknown) => void;
   snippetCount: number;
   onOpenKeyboardHelp?: () => void;
+  /** 呼出独立检索窗口（双窗口形态） */
   onOpenQuickPicker?: () => void;
 }
-
-const NAV_ITEMS: { view: ViewMode; label: string; icon: React.ReactNode }[] = [
-  { view: 'quick-picker', label: '快速检索', icon: <Zap className="size-3.5" /> },
-  { view: 'manager', label: '片段管理', icon: <LayoutGrid className="size-3.5" /> },
-  { view: 'onboarding', label: '使用引导', icon: <HelpCircle className="size-3.5" /> },
-  { view: 'settings', label: '设置', icon: <Settings className="size-3.5" /> },
-];
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   currentView,
@@ -42,66 +37,119 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const { theme, effectiveTheme, setTheme } = useTheme();
 
   const toggleTheme = () => {
-    const newTheme = config.theme === 'dark' ? 'light' : 'dark';
-    onUpdateConfig('theme', newTheme);
-    setTheme(newTheme);
+    if (config.theme === 'dark') {
+      onUpdateConfig('theme', 'light');
+      setTheme('light');
+    } else {
+      onUpdateConfig('theme', 'dark');
+      setTheme('dark');
+    }
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-xl select-none bg-background/80 border-b">
-      <HStack align="center" justify="space-between" className="max-w-7xl mx-auto px-4 h-14 gap-4">
-        <HStack align="center" gap="sm" className="shrink-0">
+    <Box
+      as="header"
+      background="surface"
+      border="bottom"
+      paddingX="lg"
+      paddingY="sm"
+      shadow="subtle"
+      className="sticky top-0 z-40 w-full backdrop-blur-xl select-none"
+    >
+      <HStack align="center" justify="space-between" className="max-w-7xl mx-auto">
+        {/* Product Brand Title */}
+        <HStack align="center" gap="sm">
           <Box className="brand-mark flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm">
             S
           </Box>
           <VStack gap="2xs">
             <HStack align="center" gap="xs">
-              <span className="font-bold text-sm tracking-tight text-theme">Searchis</span>
-              <Badge variant="secondary" className="rounded-full">{snippetCount} 条片段</Badge>
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-success)]" aria-hidden />
+              <span className="font-bold text-sm tracking-tight text-theme">
+                Searchis
+              </span>
+              <Badge variant="accent" size="sm">{snippetCount} 条片段</Badge>
+              <StatusDot status="active" size="sm" />
             </HStack>
-            <p className="text-xs text-theme-muted font-normal">Arch Linux 本机文本片段检索与粘贴工具</p>
+            <p className="text-xs text-theme-muted font-normal">
+              Arch Linux 本机文本片段检索与粘贴工具
+            </p>
           </VStack>
         </HStack>
 
-        <Inline gap="2xs" className="p-1 rounded-lg bg-muted">
-          {NAV_ITEMS.map(item => (
-            <Button
-              key={item.view}
-              type="button"
-              size="sm"
-              variant={currentView === item.view ? 'secondary' : 'ghost'}
-              className="h-8 px-3 gap-1.5 rounded-md text-xs"
-              onClick={() => onSelectView(item.view)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </Button>
-          ))}
+        {/* View Navigation Switcher */}
+        <Inline gap="2xs" className="p-1 rounded-xl theme-surface-subtle border theme-divider">
+          <button
+            type="button"
+            onClick={() => onOpenQuickPicker?.()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              currentView === 'quick-picker'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 icon-accent" />
+            <span>快速检索</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelectView('manager')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              currentView === 'manager'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>片段管理</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelectView('onboarding')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              currentView === 'onboarding'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
+            }`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>使用引导</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelectView('settings')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              currentView === 'settings'
+                ? 'nav-active shadow-xs'
+                : 'interactive-muted'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>设置</span>
+          </button>
         </Inline>
 
-        <HStack align="center" gap="xs" className="shrink-0">
-          <Badge variant="outline" className="hidden md:inline-flex gap-1.5 text-[11px] font-normal text-theme-muted rounded-full">
-            <ShieldCheck className="size-3.5 text-[color:var(--color-success)]" />
-            SQLCipher 加密数据库就绪
-          </Badge>
+        {/* Theme & Keyboard Help Actions */}
+        <HStack align="center" gap="xs">
           {onOpenKeyboardHelp && (
-            <Button variant="ghost" size="icon" aria-label="键盘快捷键速查" onClick={onOpenKeyboardHelp}>
-              <Keyboard className="size-4" />
-            </Button>
+            <IconButton
+              icon={<Keyboard className="w-4 h-4" />}
+              ariaLabel="键盘快捷键速查"
+              onClick={onOpenKeyboardHelp}
+              variant="ghost"
+            />
           )}
-          <Button variant="ghost" size="icon" aria-label={`切换主题`} onClick={toggleTheme}>
-            {effectiveTheme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-          {onOpenQuickPicker && (
-            <Button variant="default" size="sm" className="gap-1.5" onClick={onOpenQuickPicker}>
-              <Zap className="size-3.5" />
-              呼出快速窗口
-              <Kbd className="ml-0.5">Ctrl+O</Kbd>
-            </Button>
-          )}
+
+          <IconButton
+            icon={effectiveTheme === 'dark' ? <Sun className="w-4 h-4 icon-accent" /> : <Moon className="w-4 h-4 icon-accent" />}
+            ariaLabel={`切换深浅色主题 (当前: ${effectiveTheme === 'dark' ? '深色' : '浅色'})`}
+            onClick={toggleTheme}
+            variant="ghost"
+          />
         </HStack>
       </HStack>
-    </header>
+    </Box>
   );
 };

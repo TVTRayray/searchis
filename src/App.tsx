@@ -12,16 +12,15 @@ import {
   windowApi,
 } from './api/snippets';
 import {
-  Button,
-  Kbd,
-} from './components/ui';
-import {
+  ThemeProvider,
+  AppShell,
   Box,
   VStack,
   HStack,
-} from './components/layout';
-import { AppShell } from './components/AppShell';
-import { ThemeProvider, useTheme } from './components/ThemeProvider';
+  Button,
+  Kbd,
+  useTheme,
+} from './components/astryx';
 import { HeaderBar } from './components/HeaderBar';
 import { QuickSearchWindow } from './components/QuickSearchWindow';
 import { ManagerWindow } from './components/ManagerWindow';
@@ -288,17 +287,31 @@ const MainContent: React.FC = () => {
   }
 
   return (
-    <AppShell>
-      <HeaderBar
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        config={config}
-        onUpdateConfig={updateConfig}
-        snippetCount={snippets.filter(s => !s.deletedAt).length}
-        onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
-        onOpenQuickPicker={handleOpenSearchWindow}
-      />
-      <div className="p-4 h-[calc(100vh-56px)]">
+    <AppShell
+      title="Searchis"
+      subtitle={`Arch Linux 本机文本片段工具 (${effectiveTheme === 'dark' ? '深色' : '浅色'}主题)`}
+      nav={
+        <HeaderBar
+          currentView={currentView}
+          onSelectView={setCurrentView}
+          config={config}
+          onUpdateConfig={updateConfig}
+          snippetCount={snippets.filter(s => !s.deletedAt).length}
+          onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+          onOpenQuickPicker={handleOpenSearchWindow}
+        />
+      }
+      actions={
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Zap className="w-3.5 h-3.5" />}
+          onClick={handleOpenSearchWindow}
+        >
+          呼出快速窗口 <Kbd>Alt+O</Kbd>
+        </Button>
+      }
+    >
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-pop-in">
@@ -369,7 +382,6 @@ const MainContent: React.FC = () => {
         isOpen={isKeyboardHelpOpen}
         onClose={() => setIsKeyboardHelpOpen(false)}
       />
-      </div>
     </AppShell>
   );
 };

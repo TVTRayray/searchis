@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AccentMode } from '../types/snippet';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -7,9 +6,7 @@ interface ThemeContextType {
   theme: ThemeMode;
   effectiveTheme: 'light' | 'dark';
   isDark: boolean;
-  accent?: AccentMode;
   setTheme: (theme: ThemeMode) => void;
-  setAccent: (accent?: AccentMode) => void;
   toggleTheme: () => void;
 }
 
@@ -25,15 +22,6 @@ export const ThemeProvider: React.FC<{
       return saved.theme || initialTheme;
     } catch {
       return initialTheme;
-    }
-  });
-
-  const [accent, setAccentState] = useState<AccentMode | undefined>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}') as { accent?: AccentMode };
-      return saved.accent;
-    } catch {
-      return undefined;
     }
   });
 
@@ -74,32 +62,11 @@ export const ThemeProvider: React.FC<{
     };
   }, [theme]);
 
-  // Apply accent attribute whenever it changes
-  useEffect(() => {
-    const root = document.documentElement;
-    if (accent) root.setAttribute('data-accent', accent);
-    else root.removeAttribute('data-accent');
-  }, [accent]);
-
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
     try {
       const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}');
       localStorage.setItem('searchis_config_v1', JSON.stringify({ ...saved, theme: newTheme }));
-    } catch {
-      // ignore
-    }
-  };
-
-  const setAccent = (newAccent?: AccentMode) => {
-    setAccentState(newAccent);
-    try {
-      const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}');
-      if (newAccent) localStorage.setItem('searchis_config_v1', JSON.stringify({ ...saved, accent: newAccent }));
-      else {
-        const { accent: _drop, ...rest } = saved;
-        localStorage.setItem('searchis_config_v1', JSON.stringify(rest));
-      }
     } catch {
       // ignore
     }
@@ -111,7 +78,7 @@ export const ThemeProvider: React.FC<{
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, effectiveTheme, isDark: effectiveTheme === 'dark', accent, setTheme, setAccent, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, effectiveTheme, isDark: effectiveTheme === 'dark', setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

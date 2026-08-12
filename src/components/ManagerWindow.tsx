@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Snippet, SidebarFilter, SortOption } from '../types/snippet';
 import {
   Layers,
@@ -13,9 +13,10 @@ import {
   Check,
   Save,
   RotateCcw,
+  AlertCircle,
   Shield,
   Eye,
-  EyeOff,
+  EyeOff
 } from 'lucide-react';
 import {
   Box,
@@ -24,18 +25,23 @@ import {
   Inline,
   Layout,
   LayoutPanel,
+  SideNav,
+  SideNavItem,
+  List,
+  ListItem,
+  Badge,
+  Token,
+  StatusDot,
+  StatusToken,
+  Button,
+  IconButton,
+  TextInput,
+  TextArea,
+  Switch,
+  Card,
   Grid,
-} from './layout';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Kbd } from '@/components/ui/kbd';
+  Kbd,
+} from './astryx';
 
 interface ManagerWindowProps {
   snippets: Snippet[];
@@ -46,16 +52,13 @@ interface ManagerWindowProps {
   onCopySnippet: (snippet: Snippet) => void;
   onPasteSnippet: (snippet: Snippet) => void;
   onOpenSettings: () => void;
+  /** 检索窗口 Ctrl+E 跳转：编辑指定片段 */
   editRequestId?: string | null;
+  /** 检索窗口 Ctrl+N 跳转：以该 Key 预填新建 */
   prefillCreateKey?: string;
+  /** 请求消费完成后通知 App 清除 */
   onRequestHandled?: () => void;
 }
-
-const statusTokenConfig: Record<string, { color: string; label: string }> = {
-  active: { color: 'var(--color-accent)', label: '新建模式' },
-  success: { color: 'var(--color-success)', label: '已加密保存' },
-  danger: { color: 'var(--color-danger)', label: '已删除' },
-};
 
 export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   snippets,
@@ -108,22 +111,14 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   // 检索窗口 Ctrl+N：预填 Key 新建
   React.useEffect(() => {
     if (prefillCreateKey) {
-      setSelectedSnippetId(null);
-      setIsCreatingNew(true);
+      handleStartCreateNew();
       setKeyInput(prefillCreateKey);
-      setTitleInput('');
-      setContentInput('');
-      setAliasesInput('');
-      setTagsInput('');
-      setIsSensitive(false);
-      setIsPinned(false);
-      setSensitiveRevealed(true);
-      setKeyError('');
       onRequestHandled?.();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillCreateKey]);
 
-  // 检索窗口 Ctrl+E：定位并选中指定片段
+  // 检索窗口 Ctrl+E：定位并选中指定片段（snippets 异步加载完成后重试）
   React.useEffect(() => {
     if (!editRequestId) return;
     const target = snippets.find(s => s.id === editRequestId);
@@ -132,7 +127,15 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       setIsCreatingNew(false);
       onRequestHandled?.();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequestId, snippets]);
+
+  // 异步保存（App 经 IPC 创建后返回真实 UUID）后，临时 id 失效时回退到首项
+  React.useEffect(() => {
+    if (!isCreatingNew && selectedSnippetId && !snippets.some(s => s.id === selectedSnippetId)) {
+      setSelectedSnippetId(snippets[0]?.id ?? null);
+    }
+  }, [snippets, selectedSnippetId, isCreatingNew]);
 
   // Extract unique tags and count map
   const { allTags, tagCounts, pinnedCount, deletedCount } = useMemo(() => {
@@ -239,11 +242,11 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       pinned: isPinned,
       sensitive: isSensitive,
       usageCount: selectedSnippet ? selectedSnippet.usageCount : 0,
-      lastUsedAt: selectedSnippet?.lastUsedAt ?? null,
+      lastUsedAt: selectedSnippet ? selectedSnippet.lastUsedAt : null,
       createdAt: selectedSnippet ? selectedSnippet.createdAt : now,
       updatedAt: now,
-      deletedAt: selectedSnippet?.deletedAt ?? null,
-      revision: selectedSnippet?.revision ?? 0,
+      deletedAt: selectedSnippet ? selectedSnippet.deletedAt : null,
+      revision: selectedSnippet ? selectedSnippet.revision : 0,
     };
 
     onSaveSnippet(updatedSnippet);
@@ -258,159 +261,118 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  // ⌘S / Ctrl+S saves the form (keyboard-first)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        if (!selectedSnippet && !isCreatingNew) return;
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSave, selectedSnippet, isCreatingNew]);
-
-  const navItem = (
-    active: boolean,
-    onClick: () => void,
-    icon: React.ReactNode,
-    label: string,
-    badge?: React.ReactNode,
-  ) => (
-    <Button
-      type="button"
-      variant={active ? 'secondary' : 'ghost'}
-      className="w-full justify-start gap-2 rounded-lg px-3 py-2 text-xs font-medium"
-      onClick={onClick}
-    >
-      {icon}
-      <span className="flex-1 text-left">{label}</span>
-      {badge}
-    </Button>
-  );
-
   return (
     <Layout direction="row" height="100%">
-      {/* 1. Left Sidebar Navigation */}
-      <Box as="nav" width="220px" border="right" background="subtle" className="flex flex-col gap-0.5 p-2 shrink-0">
-        <HStack align="center" justify="space-between" className="px-1 pb-1">
-          <span className="text-xs font-medium text-[color:var(--color-fg-muted)]">分类目录</span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="打开系统设置"
-            title="打开系统设置"
-            onClick={onOpenSettings}
-          >
-            <Settings className="size-3.5" />
-          </Button>
-        </HStack>
+      {/* 1. Left Sidebar Navigation using Astryx SideNav */}
+      <SideNav
+        width="220px"
+        header={
+          <HStack align="center" justify="space-between" className="px-1 py-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-theme-muted">
+              分类目录
+            </span>
+            <IconButton
+              icon={<Settings className="w-3.5 h-3.5" />}
+              ariaLabel="打开系统设置"
+              onClick={onOpenSettings}
+              size="sm"
+            />
+          </HStack>
+        }
+      >
+        <SideNavItem
+          active={activeFilter === 'all'}
+          onClick={() => setActiveFilter('all')}
+          icon={<Layers className="w-4 h-4 icon-accent" />}
+          badge={<Badge size="sm">{snippets.filter(s => !s.deletedAt).length}</Badge>}
+        >
+          全部片段
+        </SideNavItem>
 
-        {navItem(
-          activeFilter === 'all',
-          () => setActiveFilter('all'),
-          <Layers className="size-4 text-[color:var(--color-accent-fg)]" />,
-          '全部片段',
-          <Badge variant="secondary" className="ml-auto rounded-full px-1.5 text-[10px]">
-            {snippets.filter(s => !s.deletedAt).length}
-          </Badge>,
-        )}
-        {navItem(
-          activeFilter === 'pinned',
-          () => setActiveFilter('pinned'),
-          <Star className="size-4 text-[color:var(--color-warning)]" />,
-          '固定片段',
-          pinnedCount > 0 ? (
-            <Badge variant="secondary" className="ml-auto rounded-full px-1.5 text-[10px] text-[color:var(--color-warning)]">
-              {pinnedCount}
-            </Badge>
-          ) : undefined,
-        )}
-        {navItem(
-          activeFilter === 'recent',
-          () => setActiveFilter('recent'),
-          <Clock className="size-4 text-[color:var(--color-fg-muted)]" />,
-          '最近使用',
-        )}
+        <SideNavItem
+          active={activeFilter === 'pinned'}
+          onClick={() => setActiveFilter('pinned')}
+          icon={<Star className="w-4 h-4 text-warning" />}
+          badge={<Badge variant="warning" size="sm">{pinnedCount}</Badge>}
+        >
+          固定片段
+        </SideNavItem>
+
+        <SideNavItem
+          active={activeFilter === 'recent'}
+          onClick={() => setActiveFilter('recent')}
+          icon={<Clock className="w-4 h-4 text-theme-muted" />}
+        >
+          最近使用
+        </SideNavItem>
 
         <Box paddingY="xs" margin="xs" border="top" />
 
-        <span className="px-3 pb-1 pt-2 text-xs font-medium text-[color:var(--color-fg-muted)]">标签分类</span>
+        <Box paddingX="xs" paddingY="2xs" className="text-[10px] font-bold uppercase text-theme-muted tracking-wider">
+          标签分类
+        </Box>
         {allTags.map(tag => (
-          <div key={tag}>
-            {navItem(
-              activeFilter === tag,
-              () => setActiveFilter(tag),
-              <Tag className="size-3.5 text-[color:var(--color-fg-muted)]" />,
-              tag,
-              <Badge variant="secondary" className="ml-auto rounded-full px-1.5 text-[10px]">
-                {tagCounts[tag]}
-              </Badge>,
-            )}
-          </div>
+          <SideNavItem
+            key={tag}
+            active={activeFilter === tag}
+            onClick={() => setActiveFilter(tag)}
+            icon={<Tag className="w-3.5 h-3.5 text-theme-muted" />}
+            badge={<Badge variant="neutral" size="sm">{tagCounts[tag]}</Badge>}
+          >
+            {tag}
+          </SideNavItem>
         ))}
 
         <Box paddingY="xs" margin="xs" border="top" />
 
-        {navItem(
-          activeFilter === 'trash',
-          () => setActiveFilter('trash'),
-          <Trash2 className="size-4 text-[color:var(--color-danger)]" />,
-          '回收站',
-          deletedCount > 0 ? (
-            <Badge variant="secondary" className="ml-auto rounded-full px-1.5 text-[10px] text-[color:var(--color-danger)]">
-              {deletedCount}
-            </Badge>
-          ) : undefined,
-        )}
-      </Box>
+        <SideNavItem
+          active={activeFilter === 'trash'}
+          onClick={() => setActiveFilter('trash')}
+          icon={<Trash2 className="w-4 h-4 text-danger" />}
+          badge={deletedCount > 0 ? <Badge variant="danger" size="sm">{deletedCount}</Badge> : undefined}
+        >
+          回收站
+        </SideNavItem>
+      </SideNav>
 
-      {/* 2. Middle Dense Snippet List */}
-      <LayoutPanel width="384px" minWidth="320px" border="right" background="subtle" className="flex flex-col">
+      {/* 2. Middle Dense Snippet List using Astryx LayoutPanel & List */}
+      <LayoutPanel width="320px" minWidth="280px" border="right" background="subtle" className="flex flex-col">
         <Box padding="sm" border="bottom" background="sunken">
           <VStack gap="xs">
-            <HStack align="center" gap="xs">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[color:var(--color-fg-muted)] pointer-events-none" />
-                <Input
-                  placeholder="过滤片段..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="h-8 pl-8"
-                />
-              </div>
-              <Button
-                variant="default"
-                size="icon"
-                aria-label="新建片段"
-                title="新建片段"
+            <HStack align="center" justify="space-between">
+              <TextInput
+                placeholder="过滤片段..."
+                leftIcon={<Search className="w-3.5 h-3.5" />}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <IconButton
+                icon={<Plus className="w-4 h-4" />}
+                ariaLabel="新建片段"
+                variant="primary"
                 onClick={handleStartCreateNew}
-              >
-                <Plus className="size-4" />
-              </Button>
+                size="md"
+              />
             </HStack>
-            <HStack align="center" justify="space-between" className="px-1 text-[11px] text-[color:var(--color-fg-muted)]">
+            <HStack align="center" justify="space-between" className="px-1 text-[11px] text-theme-muted">
               <span>排序方式:</span>
-              <NativeSelect
-                size="sm"
+              <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as SortOption)}
-                className="h-8 w-28 text-xs"
-                aria-label="排序方式"
+                className="bg-transparent border-none text-theme font-medium outline-none cursor-pointer"
               >
-                <NativeSelectOption value="updated">更新时间</NativeSelectOption>
-                <NativeSelectOption value="usage">使用频率</NativeSelectOption>
-                <NativeSelectOption value="alpha">名称首字母</NativeSelectOption>
-                <NativeSelectOption value="key">Key 字母</NativeSelectOption>
-              </NativeSelect>
+                <option value="updated">更新时间</option>
+                <option value="usage">使用频率</option>
+                <option value="alpha">名称首字母</option>
+                <option value="key">Key 字母</option>
+              </select>
             </HStack>
           </VStack>
         </Box>
 
         <Box flex="1" overflow="auto" padding="2xs">
           {filteredSnippets.length === 0 ? (
-            <VStack align="center" justify="center" gap="xs" className="py-12 px-4 text-center text-[color:var(--color-fg-muted)] text-xs">
+            <VStack align="center" justify="center" gap="xs" className="py-12 px-4 text-center text-theme-muted text-xs">
               <span>暂无匹配的文本片段</span>
               {activeFilter === 'trash' ? (
                 <span>回收站为空</span>
@@ -421,302 +383,234 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
               )}
             </VStack>
           ) : (
-            <VStack gap="2xs" className="p-1.5">
+            <List divided={false}>
               {filteredSnippets.map(snippet => {
                 const isSelected = snippet.id === selectedSnippetId;
                 return (
-                  <button
+                  <ListItem
                     key={snippet.id}
-                    type="button"
+                    active={isSelected}
                     onClick={() => {
                       setSelectedSnippetId(snippet.id);
                       setIsCreatingNew(false);
                     }}
-                    className={`relative w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left cursor-default transition-[color,background-color] ${
-                      isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
-                    }`}
-                  >
-                    {isSelected && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-0.5 rounded-full bg-primary" aria-hidden />
-                    )}
-                    <Box
-                      width="32px"
-                      height="32px"
-                      radius="md"
-                      className={`flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
-                        isSelected ? 'brand-mark' : 'badge-accent'
-                      }`}
-                    >
-                      {snippet.pinned ? <Star className="size-3.5 fill-current" /> : snippet.key.slice(0, 2).toUpperCase()}
-                    </Box>
-                    <VStack gap="2xs" className="min-w-0 flex-1">
-                      <span className="text-[13px] font-semibold truncate">{snippet.title}</span>
-                      <HStack align="center" gap="xs">
-                        <span className="font-mono text-[11px] text-[color:var(--color-fg-muted)] truncate">{snippet.key}</span>
-                        <span className="text-[11px] text-[color:var(--color-fg-muted)] tabular-nums shrink-0">
-                          更新于 {new Date(snippet.updatedAt).toLocaleDateString()}
-                        </span>
-                      </HStack>
-                    </VStack>
-                    {snippet.sensitive && (
-                      <span className="size-1.5 rounded-full bg-[color:var(--color-warning)] shrink-0" aria-label="敏感内容" />
-                    )}
-                  </button>
+                    icon={
+                      <Box
+                        width="26px"
+                        height="26px"
+                        radius="sm"
+                        className={`flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                          isSelected ? 'brand-mark' : 'badge-accent'
+                        }`}
+                      >
+                        {snippet.pinned ? <Star className="w-3 h-3 fill-current" /> : snippet.key.slice(0, 2).toUpperCase()}
+                      </Box>
+                    }
+                    title={snippet.title}
+                    meta={<Token size="sm">{snippet.key}</Token>}
+                    subtitle={`更新于 ${new Date(snippet.updatedAt).toLocaleDateString()}`}
+                    extra={
+                      snippet.sensitive ? <StatusDot status="warning" size="sm" label="" /> : undefined
+                    }
+                  />
                 );
               })}
-            </VStack>
+            </List>
           )}
         </Box>
       </LayoutPanel>
 
-      {/* 3. Right Editor / Detail View */}
-      <LayoutPanel flex="1" background="surface" padding="lg" overflow="auto">
+      {/* 3. Right Editor / Detail View using Astryx LayoutPanel */}
+      <LayoutPanel flex="1" background="surface" padding="xl" overflow="auto">
         {selectedSnippet || isCreatingNew ? (
-          <VStack gap="md" className="max-w-2xl mx-auto py-2">
-            {/* Slim toolbar: status + title left, actions right */}
-            <HStack align="center" justify="space-between" gap="sm" className="border-b pb-3">
-              <HStack align="center" gap="sm" className="min-w-0">
-                <span
-                  className="size-2 rounded-full shrink-0"
-                  style={{ background: statusTokenConfig[isCreatingNew ? 'active' : selectedSnippet?.deletedAt ? 'danger' : 'success'].color }}
-                  aria-hidden
+          <VStack gap="lg" className="max-w-3xl mx-auto">
+            {/* Header Toolbar */}
+            <Box border="bottom" paddingY="md">
+              <HStack align="center" justify="space-between">
+                <HStack align="center" gap="sm">
+                <StatusToken
+                  status={isCreatingNew ? 'active' : selectedSnippet?.deletedAt ? 'danger' : 'success'}
+                  label={isCreatingNew ? '新建模式' : selectedSnippet?.deletedAt ? '已删除' : '已加密保存'}
                 />
-                <h2 className="text-base font-bold text-theme truncate">
-                  {isCreatingNew ? '创建新文本片段' : selectedSnippet?.title}
+                <h2 className="text-base font-bold text-theme">
+                  {isCreatingNew ? '创建新文本片段' : `编辑片段: ${selectedSnippet?.title}`}
                 </h2>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {statusTokenConfig[isCreatingNew ? 'active' : selectedSnippet?.deletedAt ? 'danger' : 'success'].label}
-                </span>
               </HStack>
 
-              <HStack align="center" gap="xs" className="shrink-0">
-                  {selectedSnippet && !isCreatingNew && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCopy(selectedSnippet)}
-                      >
-                        {copiedId === selectedSnippet.id ? (
-                          <Check className="size-3.5 text-[color:var(--color-success)]" />
-                        ) : (
-                          <Copy className="size-3.5" />
-                        )}
-                        {copiedId === selectedSnippet.id ? '已复制' : '仅复制'}
-                      </Button>
+              <HStack align="center" gap="xs">
+                {selectedSnippet && !isCreatingNew && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={copiedId === selectedSnippet.id ? <Check className="w-3.5 h-3.5 icon-success" /> : <Copy className="w-3.5 h-3.5" />}
+                      onClick={() => handleCopy(selectedSnippet)}
+                    >
+                      {copiedId === selectedSnippet.id ? '已复制' : '仅复制'}
+                    </Button>
 
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => onPasteSnippet(selectedSnippet)}
-                      >
-                        快速粘贴
-                      </Button>
-                    </>
-                  )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => onPasteSnippet(selectedSnippet)}
+                    >
+                      快速粘贴
+                    </Button>
+                  </>
+                )}
 
-                  {selectedSnippet?.deletedAt ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRestoreSnippet(selectedSnippet.id)}
-                      >
-                        <RotateCcw className="size-3.5" />
-                        恢复
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => onPermanentDeleteSnippet(selectedSnippet.id)}
-                      >
-                        <Trash2 className="size-3.5" />
-                        彻底删除
-                      </Button>
-                    </>
-                  ) : selectedSnippet && !isCreatingNew ? (
+                {selectedSnippet?.deletedAt ? (
+                  <>
+                    <Button
+                      variant="success"
+                      size="sm"
+                      icon={<RotateCcw className="w-3.5 h-3.5" />}
+                      onClick={() => onRestoreSnippet(selectedSnippet.id)}
+                    >
+                      恢复
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => onPermanentDeleteSnippet(selectedSnippet.id)}
+                    >
+                      彻底删除
+                    </Button>
+                  </>
+                ) : selectedSnippet && !isCreatingNew ? (
+                  <IconButton
+                    icon={<Trash2 className="w-4 h-4 text-danger" />}
+                    ariaLabel="放入回收站"
+                    onClick={() => onDeleteSnippet(selectedSnippet.id)}
+                  />
+                ) : null}
+              </HStack>
+              </HStack>
+            </Box>
+
+            {/* Editor Inputs using Astryx Form Controls */}
+            <VStack gap="md">
+              <Grid columns={2} gap="md">
+                <TextInput
+                  label="Key (唯一快速检索标识)"
+                  value={keyInput}
+                  onChange={e => {
+                    setKeyInput(e.target.value);
+                    setKeyError('');
+                  }}
+                  placeholder="例如 email-work, addr-office"
+                  mono
+                  error={keyError}
+                />
+                <TextInput
+                  label="标题 (展示名称)"
+                  value={titleInput}
+                  onChange={e => setTitleInput(e.target.value)}
+                  placeholder="例如 工作邮箱, 公司地址"
+                />
+              </Grid>
+
+              <VStack gap="xs">
+                <HStack align="center" justify="space-between">
+                  <span className="text-xs font-semibold text-theme-secondary">文本内容</span>
+                  {isSensitive && (
                     <Button
                       variant="ghost"
-                      size="icon"
-                      aria-label="放入回收站"
-                      title="放入回收站"
-                      onClick={() => onDeleteSnippet(selectedSnippet.id)}
+                      size="sm"
+                      onClick={() => setSensitiveRevealed(prev => !prev)}
                     >
-                      <Trash2 className="size-4 text-[color:var(--color-danger)]" />
-                    </Button>
-                  ) : null}
-                </HStack>
-              </HStack>
-
-            {/* Form sheet */}
-            <Card>
-              <CardContent className="space-y-6 p-6">
-                {/* 基本信息 */}
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium text-muted-foreground">基本信息</h3>
-                  <Grid columns={2} gap="md">
-                    <VStack gap="xs">
-                      <Label htmlFor="key-input">Key (唯一快速检索标识)</Label>
-                      <Input
-                        id="key-input"
-                        value={keyInput}
-                        onChange={e => {
-                          setKeyInput(e.target.value);
-                          setKeyError('');
-                        }}
-                        placeholder="例如 email-work, addr-office"
-                        className="font-mono"
-                        aria-invalid={!!keyError}
-                      />
-                      {keyError && <p className="text-xs text-destructive">{keyError}</p>}
-                    </VStack>
-                    <VStack gap="xs">
-                      <Label htmlFor="title-input">标题 (展示名称)</Label>
-                      <Input
-                        id="title-input"
-                        value={titleInput}
-                        onChange={e => setTitleInput(e.target.value)}
-                        placeholder="例如 工作邮箱, 公司地址"
-                      />
-                    </VStack>
-                  </Grid>
-                </section>
-
-                <Separator />
-
-                {/* 文本内容 */}
-                <section className="space-y-2">
-                  <HStack align="center" justify="space-between">
-                    <h3 className="text-xs font-medium text-muted-foreground">文本内容</h3>
-                    <HStack align="center" gap="sm">
-                      {isSensitive && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-[11px]"
-                          onClick={() => setSensitiveRevealed(prev => !prev)}
-                        >
-                          {sensitiveRevealed ? (
-                            <>
-                              <EyeOff className="size-3" />
-                              <span>隐蔽</span>
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="size-3" />
-                              <span>显示明文</span>
-                            </>
-                          )}
-                        </Button>
+                      {sensitiveRevealed ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>隐蔽</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>显示明文</span>
+                        </>
                       )}
-                      <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-                        {contentInput.length} 字符
-                      </span>
-                    </HStack>
-                  </HStack>
-
-                  {isSensitive && !sensitiveRevealed ? (
-                    <Box
-                      padding="xl"
-                      radius="md"
-                      background="sunken"
-                      border="all"
-                      className="text-center cursor-pointer"
-                      onClick={() => setSensitiveRevealed(true)}
-                    >
-                      <VStack align="center" justify="center" gap="xs">
-                        <Shield className="w-6 h-6 text-[color:var(--color-warning)]" />
-                        <span className="text-xs font-semibold text-theme">敏感文本正文默认已安全隐蔽</span>
-                        <span className="text-[11px] text-[color:var(--color-fg-muted)]">点击此处显示明文正文</span>
-                      </VStack>
-                    </Box>
-                  ) : (
-                    <Textarea
-                      id="content-input"
-                      value={contentInput}
-                      onChange={e => setContentInput(e.target.value)}
-                      placeholder="在此输入需要快速粘贴的任意文本片段..."
-                      className="min-h-40 font-mono text-sm leading-relaxed"
-                    />
+                    </Button>
                   )}
-                </section>
+                </HStack>
 
-                <Separator />
-
-                {/* 元信息 */}
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium text-muted-foreground">元信息</h3>
-                  <Grid columns={2} gap="md">
-                    <VStack gap="xs">
-                      <Label htmlFor="aliases-input">别名 (英文逗号分隔)</Label>
-                      <Input
-                        id="aliases-input"
-                        value={aliasesInput}
-                        onChange={e => setAliasesInput(e.target.value)}
-                        placeholder="mail, workmail, 邮箱"
-                      />
+                {isSensitive && !sensitiveRevealed ? (
+                  <Box
+                    padding="xl"
+                    radius="md"
+                    background="sunken"
+                    border="all"
+                    className="text-center cursor-pointer"
+                    onClick={() => setSensitiveRevealed(true)}
+                  >
+                    <VStack align="center" justify="center" gap="xs">
+                      <Shield className="w-6 h-6 icon-warning" />
+                      <span className="text-xs font-semibold text-theme">敏感文本正文默认已安全隐蔽</span>
+                      <span className="text-[11px] text-theme-muted">点击此处显示明文正文</span>
                     </VStack>
-                    <VStack gap="xs">
-                      <Label htmlFor="tags-input">标签 (英文逗号分隔)</Label>
-                      <Input
-                        id="tags-input"
-                        value={tagsInput}
-                        onChange={e => setTagsInput(e.target.value)}
-                        placeholder="常用, 公司, 开发"
-                      />
-                    </VStack>
-                  </Grid>
-                </section>
+                  </Box>
+                ) : (
+                  <TextArea
+                    value={contentInput}
+                    onChange={e => setContentInput(e.target.value)}
+                    placeholder="在此输入需要快速粘贴的任意文本片段..."
+                    rows={7}
+                  />
+                )}
+              </VStack>
 
-                <Separator />
+              <Grid columns={2} gap="md">
+                <TextInput
+                  label="别名 (英文逗号分隔)"
+                  value={aliasesInput}
+                  onChange={e => setAliasesInput(e.target.value)}
+                  placeholder="mail, workmail, 邮箱"
+                />
+                <TextInput
+                  label="标签 (英文逗号分隔)"
+                  value={tagsInput}
+                  onChange={e => setTagsInput(e.target.value)}
+                  placeholder="常用, 公司, 开发"
+                />
+              </Grid>
 
-                {/* 行为 */}
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium text-muted-foreground">行为</h3>
-                  <div className="flex flex-col gap-5 rounded-lg bg-muted/60 p-4 sm:flex-row sm:justify-between">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <Label htmlFor="sensitive-switch">敏感内容防护</Label>
-                        <p className="text-xs text-muted-foreground">开启后默认隐藏正文内容</p>
-                      </div>
-                      <Switch id="sensitive-switch" checked={isSensitive} onCheckedChange={setIsSensitive} />
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <Label htmlFor="pinned-switch">固定到顶部</Label>
-                        <p className="text-xs text-muted-foreground">在检索列表中优先靠前显示</p>
-                      </div>
-                      <Switch id="pinned-switch" checked={isPinned} onCheckedChange={setIsPinned} />
-                    </div>
-                  </div>
-                </section>
-              </CardContent>
-            </Card>
+              {/* Settings Card for Toggles */}
+              <Card padding="md" title="行为控制选项" subtitle="设置敏感隐私防护与置顶状态">
+                <HStack align="center" justify="space-around" className="py-1">
+                  <Switch
+                    checked={isSensitive}
+                    onChange={setIsSensitive}
+                    label="敏感内容防护"
+                    description="开启后默认隐藏正文内容"
+                  />
+                  <Switch
+                    checked={isPinned}
+                    onChange={setIsPinned}
+                    label="固定到顶部"
+                    description="在检索列表中优先靠前显示"
+                  />
+                </HStack>
+              </Card>
 
-            {/* Save bar */}
-            <HStack align="center" justify="space-between" className="border-t pt-3">
-              <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                提示：<Kbd>⌘S</Kbd> 快速保存
-              </span>
-              <HStack align="center" gap="sm">
-                <Button variant="default" onClick={handleSave}>
-                  <Save className="size-4" />
-                  保存片段
+              {/* Save Action */}
+              <HStack justify="flex-end" gap="sm" className="pt-2">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  icon={<Save className="w-4 h-4" />}
+                  onClick={handleSave}
+                >
+                  保存片段数据
                 </Button>
               </HStack>
-            </HStack>
+            </VStack>
           </VStack>
         ) : (
-          <VStack align="center" justify="center" gap="md" className="h-full px-6 text-center">
-            <Box width="52px" height="52px" radius="xl" className="brand-mark flex items-center justify-center">
-              <Layers className="size-6" />
-            </Box>
-            <VStack gap="xs">
-              <p className="text-sm font-semibold text-theme">选择一个片段开始编辑</p>
-              <p className="text-xs text-muted-foreground">或点击下方按钮创建第一条文本片段</p>
-            </VStack>
-            <Button variant="default" onClick={handleStartCreateNew}>
-              <Plus className="size-4" />
+          <VStack align="center" justify="center" className="h-full text-theme-muted text-sm space-y-3">
+            <Layers className="w-10 h-10 icon-accent" />
+            <p>请在左侧选择要查看或编辑的片段</p>
+            <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleStartCreateNew}>
               创建新片段
             </Button>
           </VStack>
