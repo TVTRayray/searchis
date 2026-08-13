@@ -11,13 +11,13 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 ## 当前阶段
 
 - 阶段名称：Phase 7 — 重构前端定向并入
-- 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置、向导和 KDE AppMenu 契约。
+- 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置和 KDE AppMenu 契约；按最新产品决策在 SPEC-14 删除前端使用引导。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/13-manager-settings-visual-refactor.md`
-- 当前状态：`qa_failed`
+- 当前状态：`qa_failed`（Orchestrator 人工视觉验收失败）
 - 当前责任角色：`Coder`
 - QA Status：`failed`
-- 下一步：Coder 接通真实回收站前端 IPC/回调并修正 K/J E2E 身份断言，再交 QA。
+- 下一步：Coder 修复 SPEC-13 浅色反主题强调色、完成新版管理视觉、精简 Header、平铺设置页；其余产品决策见 SPEC-14/AppMenu 回归。
 
 ## 技术决策
 
@@ -49,7 +49,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
 | 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `done` |
 | 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed` |
-| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo` |
+| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `todo`（blocked by 13） |
 
 ## 看板
 
@@ -63,11 +63,12 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-13：接通既有 trash IPC（删除/还原/永久删除及已有清空入口）；补真实回收站 E2E；K/J 使用稳定 snippet ID。
+- [ ] SPEC-13：修复浅色反主题 accent；管理/设置完成新版视觉；Header 仅左侧图标、右侧快捷键/主题/设置；设置内容直接平铺。
 
 ### Blocked
 
-- [ ] 无
+- [ ] SPEC-14 blocked by SPEC-13 QA passed。
+- [ ] KDE AppMenu 实机未显示：SPEC-09 回归，需单独修复/验收，阻塞最终发布。
 
 ### Gate 0 验证记录
 
@@ -140,8 +141,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 状态：`qa_failed`
 - Next Owner：`Coder`
 - QA Status：`failed`
-- Blocking Issue：管理 UI 的删除/还原/永久删除仍绑定 `notYet`，违反本 spec“真实回收站契约不变”；K/J E2E 断言不足。
-- QA Checks：build、55 Rust tests、E2E、tauri:build、diff check 已通过，但未覆盖上述缺口。
-- Required Fixes：仅补前端 trash IPC/回调和对应 E2E；不得修改 Rust、数据库、领域类型或扩大 UI 范围。
-- Retest Required：`yes`；自动门槛通过后再交 Orchestrator 人工验收。
-- Last Updated：Master 复核 conditional_pass 后退回
+- Blocking Issue：人工视觉验收发现四处反主题强调色、管理视觉仍偏旧、Header 冗余、设置页二次容器。
+- Passed Manual：CRUD、敏感信息、主题同步/切换、设置重启持久化。
+- Required Fixes：见 SPEC-13 QA Result 四项 findings；快捷键 D-Bus 不可用时须确认 UI/重启仍保留旧值。
+- Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
+- Retest Required：`yes`（定向视觉 + 快捷键失败回滚 + reduced-motion/WCAG）。
+- Last Updated：2026-08-13 Orchestrator 人工验收
