@@ -17,7 +17,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 当前状态：`qa_failed`（Orchestrator 人工视觉验收失败）
 - 当前责任角色：`Coder`
 - QA Status：`failed`
-- 下一步：Coder 修复 SPEC-13 浅色反主题强调色、完成新版管理视觉、精简 Header、平铺设置页；其余产品决策见 SPEC-14/AppMenu 回归。
+- 下一步：Coder 修复 SPEC-13 浅色反主题强调色、完成新版管理视觉、精简 Header、平铺设置页，并彻底删除快速检索 Tab 元信息功能；其余产品决策见 SPEC-14/AppMenu 回归。
 
 ## 技术决策
 
@@ -63,7 +63,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-13：修复浅色反主题 accent；管理/设置完成新版视觉；Header 仅左侧图标、右侧快捷键/主题/设置；设置内容直接平铺。
+- [ ] SPEC-13：修复浅色反主题 accent；管理/设置完成新版视觉；Header 仅左侧图标、右侧快捷键/主题/设置；设置内容直接平铺；彻底删除 Tab 元信息功能。
 
 ### Blocked
 
@@ -143,7 +143,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - QA Status：`failed`
 - Blocking Issue：人工视觉验收发现四处反主题强调色、管理视觉仍偏旧、Header 冗余、设置页二次容器。
 - Passed Manual：CRUD、敏感信息、主题同步/切换、设置重启持久化。
-- Required Fixes：见 SPEC-13 QA Result 四项 findings；快捷键 D-Bus 不可用时须确认 UI/重启仍保留旧值。
+- Required Fixes：见 SPEC-13 QA Result 四项视觉 findings；彻底删除快速检索 Tab 元信息功能；快捷键 D-Bus 不可用时须确认 UI/重启仍保留旧值。
 - Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
 - Retest Required：`yes`（定向视觉 + 快捷键失败回滚 + reduced-motion/WCAG）。
 - Last Updated：2026-08-13 Orchestrator 人工验收

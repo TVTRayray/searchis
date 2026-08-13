@@ -18,7 +18,7 @@
 
 - [ ] 删除 Header/路由中的“使用引导”入口，不再从主应用渲染 `OnboardingWizard`；删除不再使用的前端向导组件与样式。
 - [ ] 不修改 Rust onboarding API/数据契约；仅移除前端入口和死代码，避免扩大平台层范围。
-- [ ] 快捷键帮助全部为 Linux/KDE 语义，无 Option/Cmd/⌘/macOS 文案。
+- [ ] 快捷键帮助全部为 Linux/KDE 语义，无 Option/Cmd/⌘/macOS 文案；不得保留 Tab 预览快捷键或说明。
 - [ ] 无音效控件、音频资源、`playAudioFeedback`、canvas-confetti；reduced motion 完整生效。
 - [ ] `src/components/astryx/**` 无引用后删除；旧兼容主题变量与未使用 UI 依赖删除。
 - [ ] 保留 KDE AppMenu 五组菜单、双窗口、真实数据和全部 V1 行为。
@@ -37,7 +37,7 @@
 - [ ] `cargo test`、`cargo clippy --all-targets -- -D warnings`
 - [ ] `npm run test:e2e`
 - [ ] `npm run tauri:build`
-- [ ] 确认使用引导入口/渲染/前端死代码已删除；快捷键帮助、KDE AppMenu、两主题、reduced motion、键盘与 a11y 回归。
+- [ ] 确认使用引导入口/渲染/前端死代码已删除；确认 Tab 预览的状态、处理器、UI、样式、文案和测试引用均为零；快捷键帮助、KDE AppMenu、两主题、reduced motion、键盘与 a11y 回归。
 - [ ] grep 确认无 mock 数据、macOS 键位、音效字段和 astryx 引用。
 
 ## QA Result
