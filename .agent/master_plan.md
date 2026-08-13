@@ -13,11 +13,11 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段名称：Phase 7 — 重构前端定向并入
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置、向导和 KDE AppMenu 契约。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
-- 当前活跃 Spec：`.agent/specs/12-quick-search-visual-refactor.md`
-- 当前状态：`qa_failed`（人工 Gate 发现 RF1~RF3）
-- 当前责任角色：`Coder`
-- QA Status：`failed`
-- 下一步：Coder 一次性修复 SPEC-12 RF1 主题同步、RF2 窗口贴合、RF3 失焦关闭；不得扩大范围。
+- 当前活跃 Spec：无（SPEC-12 已完成，SPEC-13 待 Orchestrator 重新启动）
+- 当前状态：`idle`
+- 当前责任角色：`Master`
+- QA Status：`passed`（SPEC-12）
+- 下一步：Orchestrator 确认 SPEC-13 迁移边界后再交 Coder；当前不继续开发。
 
 ## 技术决策
 
@@ -47,7 +47,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 08 | [六步首次使用向导](specs/08-onboarding-environment.md) | 首次启动完成环境检测、首条片段与检索演练，可续接/跳过 | 02、03、06 | `done` |
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
-| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `qa_failed`（RF1~RF3） |
+| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `done` |
 | 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `todo` |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo` |
 
@@ -55,7 +55,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### In Progress
 
-- [ ] 无
+- [ ] 无（SPEC-13 已由 Orchestrator 中断，尚无业务源码修改）
 
 ### QA Queue
 
@@ -63,7 +63,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-12 RF1~RF3：同步独立窗口主题、检索 UI 填满 780×500 客户区、失焦关闭。Gate A 已通过，不得无故重做。
+- [ ] 无
 
 ### Blocked
 
@@ -137,10 +137,11 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 ## 当前活跃 Spec 状态卡
 
 - Spec：`SPEC-12`
-- 状态：`qa_failed`
-- Next Owner：`Coder`
-- QA Status：`failed`
-- Blocking Issue：无；已有具体可复现 findings 和截图。
-- Required Fixes：RF1 主题同步；RF2 窗口贴合；RF3 失焦关闭。
-- Retest Required：`yes`（自动化 + Orchestrator 仅复测 RF1~RF3）
-- Last Updated：2026-08-12 Orchestrator 人工 Gate
+- 状态：`done`
+- Next Owner：`Master`
+- QA Status：`passed`
+- Blocking Issue：无。
+- QA Checks：build、55 Rust tests、E2E、tauri:build、diff check 均通过。
+- Orchestrator 实机：Gate A、RF1、RF2、RF3 已通过。
+- Next Spec：SPEC-13 `todo`，等待 Orchestrator 重新授权。
+- Last Updated：SPEC-12 独立封存

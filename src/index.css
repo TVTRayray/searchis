@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/jetbrains-mono-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('./assets/fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
 :root, :root[data-theme="light"] {
@@ -232,6 +237,13 @@ html.dark, :root[data-theme="dark"] {
   --danger-border: var(--color-danger-border);
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-family-base);
@@ -441,3 +453,8 @@ input[type="checkbox"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* SPEC-12: scoped Aurora/Bloom search surface; manager migration remains SPEC-13. */
+.quick-search-shell { --quick-canvas: oklch(97% .010 72); --quick-surface: oklch(97% .010 72 / 88%); --quick-sunken: oklch(91% .014 68); --quick-fg: oklch(20% .022 40); --quick-muted: oklch(43% .018 58); --quick-border: oklch(76% .016 64 / 65%); --quick-accent: oklch(48% .14 35); --quick-active: oklch(56% .13 35 / 14%); --quick-warning: oklch(43% .11 75); box-sizing: border-box; display: flex; width: 100%; height: 100%; padding: 0; color: var(--quick-fg); background: var(--quick-canvas); background-image: radial-gradient(ellipse at 70% 20%, oklch(56% .13 35 / 10%), transparent 55%), radial-gradient(ellipse at 20% 90%, oklch(86% .05 75 / 12%), transparent 55%); }
+:root[data-theme="dark"] .quick-search-shell, html.dark .quick-search-shell { --quick-canvas: oklch(11% .025 200); --quick-surface: oklch(15% .028 200 / 78%); --quick-sunken: oklch(8% .02 200); --quick-fg: oklch(96% .010 200); --quick-muted: oklch(68% .018 200); --quick-border: oklch(38% .024 200 / 70%); --quick-accent: oklch(72% .170 200); --quick-active: oklch(72% .170 200 / 16%); --quick-warning: oklch(80% .12 85); }
+.quick-search-shell *, .quick-search-shell *::before, .quick-search-shell *::after { box-sizing: border-box; }.quick-search-window { display: flex; width: 100%; height: 100%; flex-direction: column; overflow: hidden; border: 1px solid var(--quick-border); background: var(--quick-surface); box-shadow: 0 12px 24px oklch(0 0 0 / 22%); backdrop-filter: blur(32px) saturate(140%); }.quick-search-window mark { border-radius: 3px; padding: 0 2px; color: var(--quick-accent); background: var(--quick-active); }.quick-key { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; flex: none; border: 1px solid var(--quick-border); border-radius: 6px; color: var(--quick-accent); background: var(--quick-active); font: 700 11px 'JetBrains Mono', var(--font-family-mono); }.quick-key-selected { color: var(--quick-canvas); background: var(--quick-accent); }.quick-tag, .quick-sensitive, .quick-usage { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--quick-border); border-radius: 999px; padding: 1px 6px; font: 500 10px 'JetBrains Mono', var(--font-family-mono); color: var(--quick-muted); }.quick-sensitive { color: var(--quick-warning); }.quick-usage { border-color: color-mix(in srgb, var(--quick-accent) 35%, var(--quick-border)); color: var(--quick-accent); }.quick-error { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--quick-border); padding: 8px 16px; color: var(--color-danger); background: var(--color-danger-subtle); font-size: 12px; }.quick-preview { width: 50%; overflow: auto; padding: 16px; background: var(--quick-sunken); }.quick-icon-button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; padding: 6px; color: var(--quick-fg); background: transparent; }.quick-icon-button:hover { background: var(--quick-active); }.quick-content-notice { display: flex; min-height: 88px; align-items: center; justify-content: center; gap: 8px; flex-direction: column; border: 1px solid var(--quick-border); border-radius: 8px; padding: 12px; color: var(--quick-muted); background: color-mix(in srgb, var(--quick-sunken) 80%, transparent); font-size: 12px; text-align: center; }.quick-content-notice small { font-size: 11px; }.quick-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--quick-border); padding: 8px 16px; color: var(--quick-muted); background: var(--quick-sunken); font-size: 11px; }.quick-footer b { color: var(--quick-fg); }.quick-search-shell .raycast-kbd { color: var(--quick-muted); border-color: var(--quick-border); background: var(--quick-surface); }.quick-search-shell :focus-visible { outline: 2px solid var(--quick-accent); outline-offset: 2px; }.quick-search-shell input[cmdk-input]:focus, .quick-search-shell input[cmdk-input]:focus-visible { border: 0; outline: none !important; box-shadow: none; } @media (prefers-reduced-motion: reduce) { .quick-search-window { backdrop-filter: none; } }

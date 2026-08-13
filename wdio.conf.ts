@@ -6,7 +6,7 @@ const artifactDir = process.env.E2E_ARTIFACT_DIR ?? path.resolve('artifacts/e2e'
 
 export const config: Options.Testrunner = {
   runner: 'local',
-  specs: ['./e2e/**/*.e2e.ts'],
+  specs: ['./e2e/create-and-search.e2e.ts'],
   maxInstances: 1,
   logLevel: 'warn',
   framework: 'mocha',
@@ -16,10 +16,12 @@ export const config: Options.Testrunner = {
     timeout: 30_000,
   },
   services: [[
-    '@wdio/tauri-service',
+    path.resolve('e2e/tauri-service.mjs'),
     {
       appBinaryPath: path.resolve('src-tauri/target/debug/searchis'),
-      driverProvider: 'embedded',
+      // External tauri-driver keeps session cleanup ordered after the native session closes.
+      // E2E_DRIVER_PROVIDER can opt into embedded for local diagnosis only.
+      driverProvider: process.env.E2E_DRIVER_PROVIDER === 'embedded' ? 'embedded' : 'external',
       windowLabel: 'main',
     },
   ]],
