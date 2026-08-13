@@ -67,7 +67,7 @@
 ### Orchestrator 定向视觉复测（2026-08-13，第二轮）
 
 - Evidence：`artifacts/manual/spec-13/dark-header-danger-layout-failures.png`（SHA-256 `182b313a4ab5aa78576c6863a92ca6f671b3c20207b6cf53a285032e7e4d5da9`）
-- Passed：此前 CRUD、敏感、设置持久化、快捷键失败回滚、Tab 删除、浅色强调色等结论继续有效，不重跑。
+- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步均已由 Orchestrator 确认通过。Coder/QA 不得再次要求验证；只有 Master 明确记录对应路径在后续被修改时才能重新开启。
 - Findings / Required Fixes：
   - RF5 Header 贴边：移除 `.manager-header-inner` 的居中最大宽度约束；品牌图标与右侧操作分别贴近 Header 左右内边距，宽屏不应收缩到 1600px 中央容器。
   - RF6 深色危险按钮：彻底删除/重置等危险操作在 Aurora 深色下使用明确的深色 danger surface、danger border 和可读前景色，不得沿用 Bloom 浅粉底；浅色危险态同时保持可读。

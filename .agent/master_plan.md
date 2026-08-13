@@ -142,8 +142,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - Next Owner：`Coder`
 - QA Status：`failed`
 - Blocking Issue：第二轮人工视觉发现 Header 未贴边、深色危险按钮为浅色、正文说明重叠、设置 Select 原生方框。
-- Passed Manual：快捷键失败回滚、CRUD、敏感、主题同步/切换、设置持久化、Tab 删除、浅色强调色继续有效，不重跑。
+- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步。仅当 Master 明确记录对应路径后续被修改时才可重新开启。
 - Required Fixes：RF5~RF8，详见 SPEC-13 QA Result。
 - Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
-- Retest Required：`yes`（RF5~RF8 + reduced-motion + WCAG/键盘焦点）。
+- Retest Required：`yes`（仅 RF5~RF8 + reduced-motion + WCAG/键盘焦点；Frozen Passed 七项禁止重测）。
 - Last Updated：2026-08-13 Orchestrator 第二轮定向视觉复测
