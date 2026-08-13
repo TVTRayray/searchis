@@ -14,10 +14,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置、向导和 KDE AppMenu 契约。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/12-quick-search-visual-refactor.md`
-- 当前状态：`in_qa`（自动验收 conditional_pass，代码冻结）
-- 当前责任角色：`Orchestrator`
-- QA Status：`conditional_pass`
-- 下一步：Orchestrator 执行 SPEC-12 人工 Gate A/B 并回报结果；Coder/QA 不再往返。
+- 当前状态：`qa_failed`（人工 Gate 发现 RF1~RF3）
+- 当前责任角色：`Coder`
+- QA Status：`failed`
+- 下一步：Coder 一次性修复 SPEC-12 RF1 主题同步、RF2 窗口贴合、RF3 失焦关闭；不得扩大范围。
 
 ## 技术决策
 
@@ -47,7 +47,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 08 | [六步首次使用向导](specs/08-onboarding-environment.md) | 首次启动完成环境检测、首条片段与检索演练，可续接/跳过 | 02、03、06 | `done` |
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
-| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `in_qa`（conditional_pass；人工 Gate） |
+| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `qa_failed`（RF1~RF3） |
 | 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `todo` |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo` |
 
@@ -55,15 +55,15 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### In Progress
 
-- [ ] SPEC-12：代码冻结，等待 Orchestrator 人工 Gate A/B。
+- [ ] 无
 
 ### QA Queue
 
-- [ ] SPEC-12：自动验收 `conditional_pass`；人工结果回报后一次性关闭或形成具体 finding。
+- [ ] 无
 
 ### Returned To Coder
 
-- [ ] 无（缺少人工桌面证据不是代码 Required Fix）。
+- [ ] SPEC-12 RF1~RF3：同步独立窗口主题、检索 UI 填满 780×500 客户区、失焦关闭。Gate A 已通过，不得无故重做。
 
 ### Blocked
 
@@ -137,10 +137,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 ## 当前活跃 Spec 状态卡
 
 - Spec：`SPEC-12`
-- 状态：`in_qa`（代码冻结）
-- Next Owner：`Orchestrator`
-- QA Status：`conditional_pass`
-- Blocking Issue：仅缺 Orchestrator 人工 Gate A/B 回报。
-- Required Fixes：`none`
-- Retest Required：`manual_only`（禁止 Coder/QA 自动操作真实全局快捷键、剪贴板和前台窗口）
-- Last Updated：Master 解除 Coder/QA 实机验收循环
+- 状态：`qa_failed`
+- Next Owner：`Coder`
+- QA Status：`failed`
+- Blocking Issue：无；已有具体可复现 findings 和截图。
+- Required Fixes：RF1 主题同步；RF2 窗口贴合；RF3 失焦关闭。
+- Retest Required：`yes`（自动化 + Orchestrator 仅复测 RF1~RF3）
+- Last Updated：2026-08-12 Orchestrator 人工 Gate
