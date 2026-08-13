@@ -14,10 +14,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置和 KDE AppMenu 契约；按最新产品决策在 SPEC-14 删除前端使用引导。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/13-manager-settings-visual-refactor.md`
-- 当前状态：`qa_failed`（Orchestrator 人工视觉验收失败）
+- 当前状态：`qa_failed`（Orchestrator 第二轮定向视觉复测失败）
 - 当前责任角色：`Coder`
 - QA Status：`failed`
-- 下一步：Coder 修复 SPEC-13 浅色反主题强调色、完成新版管理视觉、精简 Header、平铺设置页，并彻底删除快速检索 Tab 元信息功能；其余产品决策见 SPEC-14/AppMenu 回归。
+- 下一步：Coder 仅修复 SPEC-13 RF5~RF8：Header 贴边、深色危险按钮、删除重复正文说明、统一 Select 视觉。
 
 ## 技术决策
 
@@ -48,7 +48,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
 | 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `done` |
-| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed` |
+| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed`（RF5~RF8） |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `todo`（blocked by 13） |
 
 ## 看板
@@ -63,7 +63,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-13：修复浅色反主题 accent；管理/设置完成新版视觉；Header 仅左侧图标、右侧快捷键/主题/设置；设置内容直接平铺；彻底删除 Tab 元信息功能。
+- [ ] SPEC-13 RF5~RF8：Header 两侧贴边；深色 danger 语义色；删除重复正文说明；两个设置 Select 统一视觉。
 
 ### Blocked
 
@@ -141,9 +141,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 状态：`qa_failed`
 - Next Owner：`Coder`
 - QA Status：`failed`
-- Blocking Issue：人工视觉验收发现四处反主题强调色、管理视觉仍偏旧、Header 冗余、设置页二次容器。
-- Passed Manual：CRUD、敏感信息、主题同步/切换、设置重启持久化。
-- Required Fixes：见 SPEC-13 QA Result 四项视觉 findings；彻底删除快速检索 Tab 元信息功能；快捷键 D-Bus 不可用时须确认 UI/重启仍保留旧值。
+- Blocking Issue：第二轮人工视觉发现 Header 未贴边、深色危险按钮为浅色、正文说明重叠、设置 Select 原生方框。
+- Passed Manual：快捷键失败回滚、CRUD、敏感、主题同步/切换、设置持久化、Tab 删除、浅色强调色继续有效，不重跑。
+- Required Fixes：RF5~RF8，详见 SPEC-13 QA Result。
 - Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
-- Retest Required：`yes`（定向视觉 + 快捷键失败回滚 + reduced-motion/WCAG）。
-- Last Updated：2026-08-13 Orchestrator 人工验收
+- Retest Required：`yes`（RF5~RF8 + reduced-motion + WCAG/键盘焦点）。
+- Last Updated：2026-08-13 Orchestrator 第二轮定向视觉复测

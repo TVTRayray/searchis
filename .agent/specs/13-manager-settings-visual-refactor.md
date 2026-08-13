@@ -2,7 +2,7 @@
 
 ## 基本信息
 
-- 当前状态：`qa_failed`（Orchestrator 人工视觉验收失败）
+- 当前状态：`qa_failed`（Orchestrator 定向视觉复测发现 RF5~RF8）
 - 当前责任角色：`Coder`
 - 关联 PRD：`FR-SNP-01~04`、`FR-MGT-01~05`、`FR-SET-01/02`、`AC-02/06/07/08/11/15/18/19`
 - 前置 Spec：`SPEC-12`（done）
@@ -16,10 +16,10 @@
 
 ## 成功标准
 
-- [x] 管理页使用新版导航、列表、表单、卡片、toast 和主题样式；未迁移 Onboarding/KeyboardShortcuts。
+- [x] 管理页使用新版导航、列表、表单、卡片、toast 和主题样式；Onboarding 未迁移，快捷键帮助仅移除已废止的 Tab/macOS 文案。
 - [x] 全部/置顶/最近使用/标签/回收站视图与四种排序的既有本地筛选逻辑保持不变。
 - [x] 新建/编辑表单、敏感显隐、复制/粘贴和 revision 请求边界保持原行为；回收站已接通真实 IPC。
-- [x] 设置仍由 `settingsApi` 与系统真实状态驱动；未引入 external App 的 localStorage 配置/片段逻辑。
+- [x] 设置仍由 `settingsApi` 与系统真实状态驱动；未引入 external App 的 localStorage 配置/片段逻辑；快捷键注册失败回滚逻辑保留。
 - [x] 快捷键保持 Linux/KDE：Alt+O、Ctrl+Enter、Ctrl+V；目标迁移文件不含 Option/Cmd/⌘。
 - [x] 不展示或保存 `playAudioFeedback`；`restoreClipboard` 保持 false 且无可操作开关。
 - [x] 成功提示节制、错误明确；新增管理/设置默认文本不含正文。
@@ -29,40 +29,51 @@
 1. 外部 `App.tsx` 只作为视觉参考，禁止整文件覆盖；保留当前窗口标签路由、真实 API 状态与错误处理。
 2. 外部 mock CRUD/localStorage/初始数据/假系统状态一律不并入。
 3. 组件 props 应适配当前 PersistedSnippet/Settings 契约，不反向修改领域类型迎合视觉组件。
-4. 本 slice 不处理 OnboardingWizard/KeyboardShortcutsModal，留给 SPEC-14。
+4. 本 slice 不处理 OnboardingWizard；KeyboardShortcutsModal 仅按本次 Required Fix 删除已废止的 Tab/macOS 文案，完整清理由 SPEC-14 完成。
 
 ## 验收
 
 - [x] `npm run build`、`cargo test --manifest-path src-tauri/Cargo.toml`、`npm run test:e2e`、`npm run tauri:build`、`git diff --check`
-- [ ] 实机 CRUD：新建/编辑/删除/恢复/永久删除，重启后状态一致。
+- [x] 实机 CRUD：新建/编辑/删除/恢复/永久删除，重启后状态一致（上轮 Orchestrator 已通过，本轮不重跑）。
+- [ ] 定向视觉复测：浅色 Bloom accent 与按钮/Switch、管理新版视觉、精简 Header、设置页平铺。
 - [x] E2E 覆盖真实删除→回收站→还原、永久删除确认，以及 K/J 的 `data-snippet-id` 选中变化。
 - [x] 自动化覆盖新建、真实检索、敏感遮挡、双窗口路由；管理/设置导航和主题选择器已覆盖。
-- [ ] AC-08 敏感遮挡与 a11y 人工检查。
-- [ ] AC-11 快捷键失败回滚、AC-15 设置重启持久化、AC-18/19 回收站人工检查。
+- [x] AC-08 敏感遮挡人工检查（a11y 另列为剩余人工 Gate）。
+- [x] AC-11 快捷键失败回滚、AC-15 设置重启持久化、AC-18/19 回收站人工检查（上轮 Orchestrator 已通过，本轮不重跑）。
 - [x] 浅/深/跟随系统：管理窗口自动化验证主题应用、后端持久化和 system 跟随。
-- [ ] reduced motion + WCAG AA 人工检查。
+- [ ] reduced motion + WCAG AA + 键盘焦点人工检查。
 
 ## QA Result
 
-- Status：`failed`（Orchestrator 人工验收，2026-08-13）
-- Coder Implementation：新增 `snippetsApi.trashMove/trashRestore/trashPurgeOne`；App 删除/还原/永久删除改走真实 IPC，成功刷新列表并保留错误 toast。
-- Confirmation：永久删除使用主窗口内 `role="alertdialog"`，仅点击“确认永久删除”后调用 `trash_purge_one`；取消不写库。
-- Theme Evidence：保留既有管理设置页浅色、深色、system 自动化证据。
-- Checks：`npm run build` passed；`cargo test --manifest-path src-tauri/Cargo.toml` 55 passed；`npm run test:e2e` passed（1 test，8.5s）；`npm run tauri:build` passed；`git diff --check` passed。
-- E2E Evidence：真实删除→回收站→还原、删除→确认永久删除、真实列表状态校验；K/J/ArrowDown 统一读取 `data-snippet-id`。
-- Scope Review：未修改 `src-tauri/**`、`src/types/snippet.ts`、数据库、领域类型、双窗口路由或 astryx；`src/api/snippets.ts` 仅新增现有命令调用。
+- Status：`failed`（Orchestrator 定向视觉复测）
+- Owner Back：`Coder`
+- Verdict Date：2026-08-13
+- Summary：当前磁盘审查与自动检查通过，无 Required Fix；代码冻结并转 Orchestrator，仅保留定向视觉、reduced-motion、WCAG/键盘焦点人工 Gate。
+- Coder Implementation：`snippetsApi.trashMove/trashRestore/trashPurgeOne` 已接现有 IPC；App 删除/还原/永久删除均走真实调用，成功刷新列表并保留错误 toast。
+- Trash Wiring：删除调用 `trash_move`，回收站恢复调用 `trash_restore`；永久删除先显示主窗口 `role="alertdialog"`，仅确认按钮调用 `trash_purge_one`，取消不写库；回收站路径不使用 `notYet`。
+- Confirmation：永久删除确认令牌由 App 生成并传给 `trashPurgeOne`，目标必须仍为已删除片段。
+- Theme Evidence：统一 token 为 Bloom（浅色）/Aurora（深色）；当前 E2E 通过浅色 accent、按钮/Switch 计算样式及三主题同步断言。
+- Checks：`npm run build` passed；`cargo test --manifest-path src-tauri/Cargo.toml` passed（55 passed, 0 failed）；`npm run test:e2e` passed（1 passing, 10.6s）；`npm run tauri:build` passed；`git diff --check` passed。
+- E2E Evidence：当前测试通过真实创建/检索、敏感 DTO 保护、主题与管理设置导航、双窗口键盘契约及真实回收站生命周期；K/J/ArrowDown 读取 `data-snippet-id`。
+- Tab Cleanup：`QuickSearchWindow` 无 Tab 状态/处理/UI；旧 `quick-preview`、`quick-content-notice` CSS 与快捷键帮助条目已删除；当前 `src/` 与 E2E 无 `Tab`/`预览` 引用。QA 同步移除了 E2E 中已废止的 Tab/预览禁词断言；`SearchResultItem` 仍不携带正文。
+- Scope Review：当前 diff 未修改 `src-tauri/**`、`src/types/snippet.ts`、数据库、领域类型、双窗口路由、AppMenu 或 astryx；`src/api/snippets.ts` 仅接入既有 trash IPC 命令。
 - Known Backend Limitation：被禁止修改的 Rust 检索索引在 `trash_move` 后不会即时更新；回收站 E2E 使用真实 `snippet_list` 验证持久状态，不以旧索引作为 Required Fix 证明。
-- Orchestrator Results：主题同步/切换通过；CRUD 通过；敏感信息通过；设置重启持久化通过；快捷键修改在目标机因 KGlobalAccel D-Bus 不可用而正确报错（需保留旧值并由后续复测确认）。
-- Evidence：
-  - `artifacts/manual/spec-13/light-theme-inverse-actions.png`（浅色模式四处反主题强调按钮）
-  - `artifacts/manual/spec-13/light-theme-inverse-switches.png`（浅色模式开关使用近黑色强调态）
-- Findings：
-  1. 浅色主题的新增、呼出快速窗口、快速粘贴、保存和 Switch 使用近黑色 accent，形成明显反主题色；根因是浅色主题 accent token 策略，不得逐个硬编码覆盖。
-  2. 管理窗口仍明显沿用旧 Astryx 中性视觉，没有达到与 SPEC-12 Aurora/Bloom 新视觉体系一致的管理主题；SPEC-13 的“新版管理/设置视觉可观察”未满足。
-  3. Header 信息冗余：Orchestrator 要求左侧仅软件图标，移除中间标签页导航；右侧仅重排快捷键帮助、主题切换、设置。快速检索入口由既有全局快捷键/其他入口保留。
-  4. 设置页仍为页面内再嵌套带标题栏卡片；要求移除二次标题容器，设置内容直接铺在设置页面。
-- Required Fixes：统一调整浅/深强调色 token；完成管理/设置新视觉而非仅主题变量换色；按上述要求精简 Header 与平铺设置页；**彻底删除快速检索 Tab 元信息功能**（状态、键盘处理、面板、CSS、footer/帮助文案及 E2E），保留“搜索 DTO 永不携带正文”的安全约束；补浅色视觉/对比度 E2E 或可计算断言并复跑现有门槛。
-- Retest Criteria：Coder/QA 自动门槛通过后，Orchestrator 只复测四项视觉 finding、快捷键失败后旧值回滚、reduced-motion/WCAG；CRUD/敏感/设置重启已通过无需重跑，除非相关路径被改动。
+- Orchestrator Results（上轮）：主题同步/切换、CRUD、敏感信息、设置重启持久化、快捷键失败回滚均已通过，本轮不要求重跑。
+- Required Fixes：无；Aurora/Bloom token、管理/设置新版视觉、精简 Header、设置平铺、Tab 预览功能清理均已完成。
+- Header：左侧仅软件图标；右侧仅快捷键帮助、主题切换、设置；Alt+O 仍由主窗口监听有效。
+- Deferred Manual Checks：四项定向视觉复测（浅色 Bloom accent/控件、管理视觉、Header、设置平铺）、`prefers-reduced-motion`、WCAG AA 与键盘焦点；快捷键回滚等已通过项目不重跑。
+- Retest Criteria：Orchestrator 完成上述人工 Gate 且无具体 finding 后，QA 结论可升级为 `passed`，Spec 再转 `done`。
+
+### Orchestrator 定向视觉复测（2026-08-13，第二轮）
+
+- Evidence：`artifacts/manual/spec-13/dark-header-danger-layout-failures.png`（SHA-256 `182b313a4ab5aa78576c6863a92ca6f671b3c20207b6cf53a285032e7e4d5da9`）
+- Passed：此前 CRUD、敏感、设置持久化、快捷键失败回滚、Tab 删除、浅色强调色等结论继续有效，不重跑。
+- Findings / Required Fixes：
+  - RF5 Header 贴边：移除 `.manager-header-inner` 的居中最大宽度约束；品牌图标与右侧操作分别贴近 Header 左右内边距，宽屏不应收缩到 1600px 中央容器。
+  - RF6 深色危险按钮：彻底删除/重置等危险操作在 Aurora 深色下使用明确的深色 danger surface、danger border 和可读前景色，不得沿用 Bloom 浅粉底；浅色危险态同时保持可读。
+  - RF7 删除重复说明：删除正文区“正文只保存在本地加密数据库。”文案，保留“文本内容”标签与字符数，避免主题切换/布局时重叠。
+  - RF8 Select 视觉：最大结果数、回收站自动清理不再呈现浏览器默认方形 select；用现有 CSS/native select 做统一圆角、主题背景/边框、箭头、hover/focus-visible，保持原生键盘与无障碍语义，不引入新依赖。
+- Retest Criteria：自动门槛通过后，Orchestrator 只复测 RF5~RF8、reduced-motion、WCAG/键盘焦点；其余路径不重跑。
 
 ## 完成定义
 
