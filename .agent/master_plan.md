@@ -14,10 +14,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置、向导和 KDE AppMenu 契约。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/12-quick-search-visual-refactor.md`
-- 当前状态：`todo`（Gate 0 complete）
-- 当前责任角色：`Coder`
-- QA Status：`not_run`
-- 下一步：Coder 实现 SPEC-12；只按白名单移植快速检索视觉，不整目录覆盖
+- 当前状态：`in_qa`（自动验收 conditional_pass，代码冻结）
+- 当前责任角色：`Orchestrator`
+- QA Status：`conditional_pass`
+- 下一步：Orchestrator 执行 SPEC-12 人工 Gate A/B 并回报结果；Coder/QA 不再往返。
 
 ## 技术决策
 
@@ -47,7 +47,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 08 | [六步首次使用向导](specs/08-onboarding-environment.md) | 首次启动完成环境检测、首条片段与检索演练，可续接/跳过 | 02、03、06 | `done` |
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
-| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `todo`（active） |
+| 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `in_qa`（conditional_pass；人工 Gate） |
 | 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `todo` |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 新版向导/帮助，清理 astryx，完成发布级回归 | 13 | `todo` |
 
@@ -55,15 +55,15 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### In Progress
 
-- [ ] 无（SPEC-12 待 Coder 接手）
+- [ ] SPEC-12：代码冻结，等待 Orchestrator 人工 Gate A/B。
 
 ### QA Queue
 
-- [ ] 无
+- [ ] SPEC-12：自动验收 `conditional_pass`；人工结果回报后一次性关闭或形成具体 finding。
 
 ### Returned To Coder
 
-- [ ] 无
+- [ ] 无（缺少人工桌面证据不是代码 Required Fix）。
 
 ### Blocked
 
@@ -75,7 +75,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - `npm run build`：passed（1621 modules）。
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`：passed。
 - `npm run tauri:build`：passed；产物 `src-tauri/target/release/searchis`。
-- `npm run test:e2e`：**not passed**。E2E debug build 成功，应用主窗口正常渲染（失败截图已检查）；`@wdio/tauri-service` 在 embedded/external provider 均无法稳定绑定多窗口会话，产生 stale/undefined elementId，未进入可靠业务断言。已安装 `tauri-driver 2.0.6` 后复测仍失败。该限制不得在后续报告中写成通过，SPEC-12~14 必须修复/替换测试会话策略后再以 E2E 作为验收门。
+- `npm run test:e2e`：Gate 0 时未通过；SPEC-12 默认 external `tauri-driver`，并通过 custom Tauri service 在 session 已被 WDIO 删除时跳过 upstream 二次清理；默认 external 与 `E2E_DRIVER_PROVIDER=embedded` 复跑均 1 passed，无窗口标题/stale/undefined elementId 或 mock-store 清理警告。真实剪贴板/前台自动粘贴和目标机视觉仍须人工验收。
 
 ### Done
 
@@ -115,6 +115,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-01：采用单活跃 spec、按用户可观察闭环推进；基础设施必须随所属 vertical slice 一并验收，不单列“纯脚手架”任务。
 - 2026-08-01：前端位于仓库根目录 `src/`（原 `front-baseline/` 已并入根目录），逐 slice 替换 mock 数据和 macOS 语义；音效能力只删除、不迁移。
 - 2026-08-03：确认 `conditional_pass` 仅用于 QA 阶段结论；Spec 仍保持 `in_qa`，直到人工验收完成后才可转为 `done`。
+- 2026-08-12：人工桌面 Gate 的缺失证据不构成 Coder Required Fix。自动检查通过且无具体 finding 时，QA 应给 `conditional_pass`、冻结代码并转 Orchestrator；只有人工 Gate 报告具体失败后才能退回 Coder。
 - 2026-08-07：SPEC-02 在目标 Arch/KDE/X11 实机完成 MT1（真实剪贴板）与 MT2（键盘交互）验收，QA 升级为 `passed`；同日确认发布构建必须走 `npm run tauri:build`（纯 `cargo build --release` 不嵌入前端资源，烟测需验证 UI 渲染而非仅进程存活）。
 - 2026-08-08：确认 PRD 双窗口形态（独立无边框置顶检索窗口 + 单独管理窗口，rofi/krunner 式）为需求本意；SPEC-01/02 的单窗口视图切换为过渡形态，由 SPEC-11 落地正式形态。
 - 2026-08-08：重建前端覆盖决策——只覆盖前端层（`src/**`、`index.html`、`package*.json`），`src-tauri/**` 保留已验收 Rust 成果；重建前端为 mock 形态（searchEngine/initialSnippets），接入与适配全部由 SPEC-11 的 Coder 承担。
@@ -131,15 +132,15 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - **覆盖回退风险**：外部目录含单窗口 tauri.conf、旧 Rust、mock/localStorage 业务逻辑；全量复制会回退 V1。缓解：只按 spec 白名单移植视觉文件。
 - **依赖与键盘风险**：cmdk/radix 可能接管键盘事件；必须以现有 Esc/Enter/Ctrl/IME E2E 为验收真相。
 - **源漂移风险**：外部工作树可能继续变化；本轮只认 commit `0b28f05c230a544266eb508d52a66c9bf390d029`。
-- **E2E 基础设施风险**：当前 `@wdio/tauri-service` 无法稳定绑定 Tauri 多窗口，debug build 与窗口渲染正常但 native WebDriver 会话产生 stale/undefined elementId。后续 slice 不得把该失败当业务通过；需先修复测试会话或改用可靠等价方案。
+- **E2E 基础设施风险**：SPEC-12 默认使用已安装的 external `tauri-driver`，并通过 `browser.tauri.execute(..., withExecuteOptions({ windowLabel }))` 按 Tauri label 定向操作；默认及显式 external 复跑均通过且未出现窗口标题/stale/undefined elementId 或 mock-store 清理警告。`E2E_DRIVER_PROVIDER=embedded` 仅保留诊断用途；目标 Arch/KDE/X11 实机仍需 QA 验证。
 
 ## 当前活跃 Spec 状态卡
 
 - Spec：`SPEC-12`
-- 状态：`todo`
-- Next Owner：`Coder`
-- QA Status：`not_run`
-- Blocking Issue：无
-- Required Fixes：先解决或替换 native 多窗口 E2E 会话策略，再以 E2E 作为验收门
-- Retest Required：`yes`（SPEC-12 完成后完整 UI 回归）
-- Last Updated：Gate 0 完成
+- 状态：`in_qa`（代码冻结）
+- Next Owner：`Orchestrator`
+- QA Status：`conditional_pass`
+- Blocking Issue：仅缺 Orchestrator 人工 Gate A/B 回报。
+- Required Fixes：`none`
+- Retest Required：`manual_only`（禁止 Coder/QA 自动操作真实全局快捷键、剪贴板和前台窗口）
+- Last Updated：Master 解除 Coder/QA 实机验收循环
