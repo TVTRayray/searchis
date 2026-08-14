@@ -14,6 +14,7 @@
 - [ ] 快速窗口透明生效：KWin 下无黑闪，圆角 22px 与 CSS 一致
 - [ ] 窗口拖拽/失焦关闭行为与 Gate 0 基线一致
 - [ ] 管理窗口为选择性玻璃（Header/侧栏），正文区实色
+- [ ] 主窗口保留 KDE 原生标题栏（decorations 未禁用，无 data-tauri-drag-region 自绘区）
 - [ ] prefers-reduced-transparency 下玻璃降级实色，布局无位移
 
 ## 亮壁纸对比度（实机必测）
