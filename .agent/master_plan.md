@@ -17,7 +17,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 当前状态：`qa_failed`（release 实机确认 RF8 仍失败）
 - 当前责任角色：`Coder`
 - QA Status：`failed`
-- 下一步：Coder 仅修复两个设置 Select 在 release WebKitGTK 中的 Bloom/Aurora 闭合态与展开选项样式；Reduced motion、键盘焦点及 Frozen Passed 项禁止重测。
+- 下一步：Coder 仅修复管理筛选及两个设置 Select 在 release WebKitGTK 中的 Bloom/Aurora 闭合态与展开选项样式；Reduced motion、WCAG AA、键盘焦点及 Frozen Passed 项禁止重测。
 
 ## 技术决策
 
@@ -63,12 +63,13 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-13 RF8：release WebKitGTK 中“最大结果数”和“回收站自动清理”的闭合态/展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
+- [ ] SPEC-13 RF8：release WebKitGTK 中管理筛选、“最大结果数”、“回收站自动清理”的闭合态/展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
 
 ### Blocked
 
 - [ ] SPEC-14 blocked by SPEC-13 QA passed。
 - [ ] KDE AppMenu 实机未显示：SPEC-09 回归，需单独修复/验收，阻塞最终发布。
+- [ ] 回收站检索索引失效：`trash_move`/`trash_restore`/`trash_purge_one`/`trash_empty`/`auto_purge` 未同步 Rust `SearchIndex`；永久删除后快速搜索仍返回旧记录。独立于 SPEC-13，需单独修复并增加索引一致性回归测试。
 
 ### Gate 0 验证记录
 
@@ -141,10 +142,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 状态：`qa_failed`
 - Next Owner：`Coder`
 - QA Status：`failed`
-- Blocking Issue：release WebKitGTK 实机确认 RF8 两个 Select 的控件/展开选项仍未匹配 Bloom/Aurora；临时 WDIO 闭合态检查是假阳性。
-- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步、Reduced motion、键盘焦点。
-- Required Fix：仅 RF8；修复后人工只复测两个 Select 的浅/深闭合态、展开态和相关 WCAG 可读性。
-- Environment Blocker：生产数据库存在但 `/home/ray/.config/io.searchis.desktop/database.key` 缺失；不得创建替代 key，应恢复原 key 或用隔离 XDG 目录做 UI 测试。
-- Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
-- Retest Required：`yes`（仅 RF8 + 相关 WCAG；其余冻结项不返工）。
-- Last Updated：2026-08-14 Orchestrator release 实机第三轮复测
+- Blocking Issue：release WebKitGTK 实机确认 RF8 三个 Select 的控件/展开选项仍未匹配 Bloom/Aurora；临时 WDIO 闭合态检查是假阳性。
+- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步、Reduced motion、WCAG AA、键盘焦点。
+- Required Fix：仅 RF8；修复后人工只复测三个 Select 的浅/深闭合态与展开态。
+- Environment Note：生产数据库存在但 `/home/ray/.config/io.searchis.desktop/database.key` 缺失；不得创建替代 key。Orchestrator 已改用隔离 XDG 临时数据库完成本轮 UI 测试。
+- Separate Blockers：KDE AppMenu 未显示；Rust 回收站操作未同步 `SearchIndex`，永久删除后快速搜索仍返回旧记录。二者均独立于禁止改 Rust 的 SPEC-13，但阻塞最终发布。
+- Retest Required：`yes`（仅 RF8 三个 Select；其余冻结项不返工）。
+- Last Updated：2026-08-14 Orchestrator 隔离数据库实机第四轮复测

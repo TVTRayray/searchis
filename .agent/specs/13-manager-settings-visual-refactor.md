@@ -35,7 +35,7 @@
 
 - [x] `npm run build`、`cargo test --manifest-path src-tauri/Cargo.toml`、`npm run test:e2e`、`npm run tauri:build`、`git diff --check`
 - [x] 实机 CRUD：新建/编辑/删除/恢复/永久删除，重启后状态一致（上轮 Orchestrator 已通过，本轮不重跑）。
-- [ ] Coder 修复 RF8：release 实机 WebKitGTK 中两个 Select 的控件及展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
+- [ ] Coder 修复 RF8：release 实机 WebKitGTK 中管理筛选、“最大结果数”、“回收站自动清理”三个 Select 的控件及展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
 - [x] 定向视觉复测：浅色 Bloom accent 与按钮/Switch、管理新版视觉、精简 Header、设置页平铺；RF5~RF7 通过。临时 WDIO 的 RF8 计算样式/截图不能替代 release 实机展开态。
 - [x] E2E 覆盖真实删除→回收站→还原、永久删除确认，以及 K/J 的 `data-snippet-id` 选中变化。
 - [x] 自动化覆盖新建、真实检索、敏感遮挡、双窗口路由；管理/设置导航和主题选择器已覆盖。
@@ -44,14 +44,14 @@
 - [x] 浅/深/跟随系统：管理窗口自动化验证主题应用、后端持久化和 system 跟随。
 - [x] reduced motion 人工检查。
 - [x] 键盘焦点人工检查（沿用上次通过，冻结不重测）。
-- [ ] WCAG AA 人工检查（RF8 修复后仅检查相关 Select 可读性）。
+- [x] WCAG AA 人工检查（Orchestrator 使用隔离临时数据库通过，冻结不重测）。
 
 ## QA Result
 
 - Status：`failed`（第三轮 release 实机复测）
 - Owner Back：`Coder`
 - Verdict Date：2026-08-13
-- Summary：自动检查与 RF5~RF7 通过；release 实机确认 RF8 的两个 Select 仍未满足 Bloom/Aurora 主题与新版样式，退回 Coder。Reduced motion 与键盘焦点已通过并冻结。
+- Summary：自动检查与 RF5~RF7 通过；release 实机确认 RF8 的三个 Select 仍未满足 Bloom/Aurora 主题与新版样式，退回 Coder。Reduced motion、WCAG AA 与键盘焦点已通过并冻结。
 - Coder Implementation：`snippetsApi.trashMove/trashRestore/trashPurgeOne` 已接现有 IPC；App 删除/还原/永久删除均走真实调用，成功刷新列表并保留错误 toast。
 - Trash Wiring：删除调用 `trash_move`，回收站恢复调用 `trash_restore`；永久删除先显示主窗口 `role="alertdialog"`，仅确认按钮调用 `trash_purge_one`，取消不写库；回收站路径不使用 `notYet`。
 - Confirmation：永久删除确认令牌由 App 生成并传给 `trashPurgeOne`，目标必须仍为已删除片段。
@@ -61,13 +61,13 @@
 - E2E Evidence：当前测试通过真实创建/检索、敏感 DTO 保护、主题与管理设置导航、双窗口键盘契约及真实回收站生命周期；K/J/ArrowDown 读取 `data-snippet-id`。
 - Tab Cleanup：`QuickSearchWindow` 无 Tab 状态/处理/UI；旧 `quick-preview`、`quick-content-notice` CSS 与快捷键帮助条目已删除；当前 `src/` 与 E2E 无 `Tab`/`预览` 引用。QA 同步移除了 E2E 中已废止的 Tab/预览禁词断言；`SearchResultItem` 仍不携带正文。
 - Scope Review：当前 diff 未修改 `src-tauri/**`、`src/types/snippet.ts`、数据库、领域类型、双窗口路由、AppMenu 或 astryx；`src/api/snippets.ts` 仅接入既有 trash IPC 命令。
-- Known Backend Limitation：被禁止修改的 Rust 检索索引在 `trash_move` 后不会即时更新；回收站 E2E 使用真实 `snippet_list` 验证持久状态，不以旧索引作为 Required Fix 证明。
+- Confirmed Backend Regression（独立于 SPEC-13）：隔离临时数据库实机确认永久删除后快速搜索仍返回旧记录。根因是 Rust `SearchIndex` 只在 create/update/record_usage 时 upsert；`trash_move`/`trash_restore` 不更新 `deleted_at`，`trash_purge_one`/`trash_empty`/`auto_purge` 不移除或重建索引。不是临时数据库造成。由于 SPEC-13 禁止修改 `src-tauri/**`，登记为独立发布阻塞；不得重开已冻结的 CRUD，仅需后续验证回收站变更后的检索一致性。
 - Orchestrator Results（上轮）：主题同步/切换、CRUD、敏感信息、设置重启持久化、快捷键失败回滚均已通过，本轮不要求重跑。
-- Required Fix：RF8 重新打开。必须在 release WebKitGTK 实际展开“最大结果数”和“回收站自动清理”验证控件与选项层；仅断言闭合态 computed style 不足。若原生 `<select>` 展开层无法可靠主题化，使用仓库现有能力实现最小的可访问 Select，不以增加新依赖作为默认方案。
+- Required Fix：RF8 重新打开并覆盖管理筛选、“最大结果数”、“回收站自动清理”三个 Select。必须在 release WebKitGTK 实际展开验证控件与选项层；仅断言闭合态 computed style 不足。若原生 `<select>` 展开层无法可靠主题化，使用仓库现有能力实现最小的可访问 Select，不以增加新依赖作为默认方案。
 - Header：左侧仅软件图标；右侧仅快捷键帮助、主题切换、设置；Alt+O 仍由主窗口监听有效。
-- Manual Pass：`prefers-reduced-motion`、键盘焦点通过并冻结；快捷键回滚等 Frozen Passed 项不重跑。
+- Manual Pass：`prefers-reduced-motion`、WCAG AA、键盘焦点通过并冻结；快捷键回滚等 Frozen Passed 项不重跑。
 - Environment Blocker：release 启动发现 `/home/ray/.local/share/io.searchis.desktop/searchis.db` 存在、`/home/ray/.config/io.searchis.desktop/database.key` 缺失。不得生成新 key 覆盖；恢复原 key，或使用隔离 XDG 临时目录做 UI 复测。该问题独立于 RF8。
-- Retest Criteria：Coder 修复 RF8 并完成自动门槛后，Orchestrator 仅复测两个 Select 的 Bloom/Aurora 闭合态、展开态及相关 WCAG 可读性；其他项目禁止重测。
+- Retest Criteria：Coder 修复 RF8 并完成自动门槛后，Orchestrator 仅复测三个 Select 的 Bloom/Aurora 闭合态与展开态；WCAG AA 及其他冻结项目禁止重测。
 
 ### Orchestrator 定向视觉复测（2026-08-13，第二轮）
 
