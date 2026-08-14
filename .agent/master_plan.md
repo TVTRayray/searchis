@@ -14,10 +14,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置和 KDE AppMenu 契约；按最新产品决策在 SPEC-14 删除前端使用引导。
 - 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
 - 当前活跃 Spec：`.agent/specs/13-manager-settings-visual-refactor.md`
-- 当前状态：`qa_failed`（Orchestrator 第二轮定向视觉复测失败）
+- 当前状态：`qa_failed`（release 实机确认 RF8 仍失败）
 - 当前责任角色：`Coder`
 - QA Status：`failed`
-- 下一步：Coder 仅修复 SPEC-13 RF5~RF8：Header 贴边、深色危险按钮、删除重复正文说明、统一 Select 视觉。
+- 下一步：Coder 仅修复两个设置 Select 在 release WebKitGTK 中的 Bloom/Aurora 闭合态与展开选项样式；Reduced motion、键盘焦点及 Frozen Passed 项禁止重测。
 
 ## 技术决策
 
@@ -48,7 +48,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
 | 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `done` |
-| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed`（RF5~RF8） |
+| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed`（RF8） |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `todo`（blocked by 13） |
 
 ## 看板
@@ -63,7 +63,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### Returned To Coder
 
-- [ ] SPEC-13 RF5~RF8：Header 两侧贴边；深色 danger 语义色；删除重复正文说明；两个设置 Select 统一视觉。
+- [ ] SPEC-13 RF8：release WebKitGTK 中“最大结果数”和“回收站自动清理”的闭合态/展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
 
 ### Blocked
 
@@ -141,9 +141,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 状态：`qa_failed`
 - Next Owner：`Coder`
 - QA Status：`failed`
-- Blocking Issue：第二轮人工视觉发现 Header 未贴边、深色危险按钮为浅色、正文说明重叠、设置 Select 原生方框。
-- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步。仅当 Master 明确记录对应路径后续被修改时才可重新开启。
-- Required Fixes：RF5~RF8，详见 SPEC-13 QA Result。
+- Blocking Issue：release WebKitGTK 实机确认 RF8 两个 Select 的控件/展开选项仍未匹配 Bloom/Aurora；临时 WDIO 闭合态检查是假阳性。
+- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步、Reduced motion、键盘焦点。
+- Required Fix：仅 RF8；修复后人工只复测两个 Select 的浅/深闭合态、展开态和相关 WCAG 可读性。
+- Environment Blocker：生产数据库存在但 `/home/ray/.config/io.searchis.desktop/database.key` 缺失；不得创建替代 key，应恢复原 key 或用隔离 XDG 目录做 UI 测试。
 - Separate Blocker：KDE AppMenu 未显示，作为 SPEC-09 回归单独处理。
-- Retest Required：`yes`（仅 RF5~RF8 + reduced-motion + WCAG/键盘焦点；Frozen Passed 七项禁止重测）。
-- Last Updated：2026-08-13 Orchestrator 第二轮定向视觉复测
+- Retest Required：`yes`（仅 RF8 + 相关 WCAG；其余冻结项不返工）。
+- Last Updated：2026-08-14 Orchestrator release 实机第三轮复测
