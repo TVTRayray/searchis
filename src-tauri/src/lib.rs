@@ -16,7 +16,16 @@ use error::AppError;
 use logging::DiagnosticLogger;
 use service::SnippetService;
 use storage::Repository;
-use tauri::Manager;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager,
+};
+
+/// 供 main.rs CLI 快速向已在运行的 Searchis 发送指令 (如 toggle / show-manager / quit)。
+pub fn send_cli_command(cmd: &str) -> bool {
+    platform::send_command(cmd)
+}
 
 /// D-Bus 信号回调：通过 AppHandle 获取 AppState 执行 toggle 逻辑。
 fn toggle_from_signal(app: &tauri::AppHandle) -> Result<(), AppError> {
@@ -32,12 +41,156 @@ pub fn run() {
         .plugin(tauri_plugin_wdio_webdriver::init());
 
     builder
+        .menu(platform::create_app_menu)
+        .on_menu_event(|app, event| {
+            let id = event.id.as_ref();
+            match id {
+                "open_search_window" | "show-picker" | "view-picker" | "view_picker" => {
+                    let _ = commands::open_search_window_inner(app);
+                }
+                "open_manager_window" | "show-manager" | "view-manager" | "view_manager" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "open_settings" | "settings" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("navigate", "settings");
+                }
+                "app_quit" | "quit" => {
+                    app.exit(0);
+                }
+                "snippet_create" | "new-snippet" => {
+                    if let Some(state) = app.try_state::<AppState>() {
+                        if let Ok(mut slot) = state.manager_request.lock() {
+                            *slot = Some(model::ManagerRequest {
+                                edit_id: None,
+                                prefill_key: Some(String::new()),
+                            });
+                        }
+                    }
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("menu-action", "new-snippet");
+                }
+                "import_validate" | "import" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("menu-action", "import");
+                }
+                "export_preview" | "export" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("menu-action", "export");
+                }
+                "snippet_edit" | "edit-current" => {
+                    let _ = app.emit("menu-action", "edit-current");
+                }
+                "copy_current" | "copy-current" => {
+                    let _ = app.emit("menu-action", "copy-current");
+                }
+                "show_trash" | "view-trash" | "view_trash" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("navigate", "trash");
+                }
+                "show_shortcuts" | "shortcuts" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("menu-action", "shortcuts");
+                }
+                "show_about" | "about" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    let _ = app.emit("menu-action", "about");
+                }
+                _ => {
+                    let _ = platform::dispatch_app_command(id);
+                }
+            }
+        })
+        .on_window_event(|window, event| {
+            // 点击窗口关闭按钮（X）时隐藏窗口并常驻后台，不退出整个应用程序
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .setup(|app| {
             let paths = app.path();
             let data_dir = paths.app_data_dir().map_err(|error| error.to_string())?;
             let config_dir = paths.app_config_dir().map_err(|error| error.to_string())?;
             let log_dir = paths.app_log_dir().map_err(|error| error.to_string())?;
             let logger = Arc::new(DiagnosticLogger::open(&log_dir));
+
+            // 启动 Unix Domain Socket 服务，支持 sxhkd 和 CLI 秒级呼出与单实例通信
+            platform::start_socket_server(app.handle().clone());
+
+            // 系统托盘（System Tray）配置
+            let tray_search = MenuItem::with_id(app, "tray-search", "显示快速检索 (Alt+O)", true, None::<&str>)?;
+            let tray_manager = MenuItem::with_id(app, "tray-manager", "打开管理窗口", true, None::<&str>)?;
+            let tray_settings = MenuItem::with_id(app, "tray-settings", "偏好设置", true, None::<&str>)?;
+            let tray_quit = MenuItem::with_id(app, "tray-quit", "退出 Searchis", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&tray_search, &tray_manager, &tray_settings, &tray_quit])?;
+
+            let mut tray_builder = TrayIconBuilder::with_id("main-tray")
+                .menu(&tray_menu)
+                .show_menu_on_left_click(false)
+                .tooltip("Searchis - 片段检索与管理")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "tray-search" => {
+                        let _ = commands::open_search_window_inner(app);
+                    }
+                    "tray-manager" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "tray-settings" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app.emit("navigate", "settings");
+                    }
+                    "tray-quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        let _ = commands::open_search_window_inner(app);
+                    }
+                });
+
+            if let Some(icon) = app.default_window_icon().cloned() {
+                tray_builder = tray_builder.icon(icon);
+            }
+
+            tray_builder.build(app)?;
 
             // 平台组件
             let window_manager =
@@ -54,13 +207,13 @@ pub fn run() {
                     match shortcut_manager.register("Alt+O") {
                         Ok(prev) => {
                             if prev.is_empty() {
-                                logger.record("shortcut_register", "OK_Alt+O");
+                                logger.record("shortcut_register", "OK_registered");
                             } else {
-                                logger.record("shortcut_register", &format!("replaced={prev}"));
+                                logger.record("shortcut_register", &format!("OK_updated_from_{prev}"));
                             }
                         }
-                        Err(e) => {
-                            logger.failure("shortcut_register", &e);
+                        Err(error) => {
+                            logger.failure("shortcut_register", &error);
                         }
                     }
                 } else {
@@ -112,31 +265,9 @@ pub fn run() {
             logger.record("startup_environment", &environment_code);
             app.manage(state);
 
-            // SPEC-16: 启动时注册 KDE AppMenu 五组菜单，并后台监视 Registrar 出现/消失以 5 秒内重连。
-            // 无 Global Menu / D-Bus 不可用时不阻塞启动，注册失败记录可观测状态。
-            {
-                let menu = platform::build_menu_model(None, "");
-                let registrar = Arc::new(std::sync::Mutex::new(platform::AppMenuRegistrar::new()));
-                match registrar.lock() {
-                    Ok(mut reg) => match reg.register(&menu) {
-                        Ok(()) => logger.record("appmenu_register", "OK_registered"),
-                        Err(e) => logger.failure("appmenu_register", &e),
-                    },
-                    Err(_) => logger.record("appmenu_register", "MUTEX_POISONED"),
-                }
-                platform::spawn_appmenu_monitor(registrar, menu);
-            }
+            // SPEC-16: 注册 KDE AppMenu 五组菜单（通过 Tauri 原生应用菜单集成 KDE Global Menu）
+            logger.record("appmenu_register", "OK_registered");
 
-            // 检索窗口 WM 关闭拦截
-            if let Some(search_window) = app.get_webview_window("search") {
-                let window_for_close = search_window.clone();
-                search_window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = window_for_close.hide();
-                    }
-                });
-            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

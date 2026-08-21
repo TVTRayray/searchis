@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Check,
   Clock,
@@ -8,7 +8,6 @@ import {
   Layers,
   Plus,
   RotateCcw,
-  Save,
   Search,
   Settings,
   Shield,
@@ -35,6 +34,10 @@ interface ManagerWindowProps {
   prefillCreateKey?: string;
   /** 请求消费完成后通知 App 清除 */
   onRequestHandled?: () => void;
+  /** 菜单触发动作 (新建 / 编辑 / 复制) */
+  triggerAction?: { type: string; timestamp: number } | null;
+  /** 外部指定的初始分类 (如回收站) */
+  initialFilter?: SidebarFilter;
 }
 
 const sortOptions: Array<[SortOption, string]> = [
@@ -43,6 +46,86 @@ const sortOptions: Array<[SortOption, string]> = [
   ['alpha', '名称首字母'],
   ['key', 'Key 字母'],
 ];
+
+/**
+ * 撤销/重做支持 hook：为文本输入框提供可靠的 Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z 历史记录
+ */
+function useUndoableInput(initialValue: string = '') {
+  const [history, setHistory] = useState<{
+    past: string[];
+    present: string;
+    future: string[];
+  }>({
+    past: [],
+    present: initialValue,
+    future: [],
+  });
+
+  const setValue = useCallback((valOrFn: string | ((prev: string) => string)) => {
+    setHistory(curr => {
+      const nextVal = typeof valOrFn === 'function' ? valOrFn(curr.present) : valOrFn;
+      if (nextVal === curr.present) return curr;
+      return {
+        past: [...curr.past.slice(-60), curr.present],
+        present: nextVal,
+        future: [],
+      };
+    });
+  }, []);
+
+  const resetValue = useCallback((newVal: string) => {
+    setHistory({
+      past: [],
+      present: newVal,
+      future: [],
+    });
+  }, []);
+
+  const undo = useCallback(() => {
+    setHistory(curr => {
+      if (curr.past.length === 0) return curr;
+      const previous = curr.past[curr.past.length - 1];
+      const newPast = curr.past.slice(0, curr.past.length - 1);
+      return {
+        past: newPast,
+        present: previous,
+        future: [curr.present, ...curr.future],
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setHistory(curr => {
+      if (curr.future.length === 0) return curr;
+      const next = curr.future[0];
+      const newFuture = curr.future.slice(1);
+      return {
+        past: [...curr.past, curr.present],
+        present: next,
+        future: newFuture,
+      };
+    });
+  }, []);
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      if (e.key === 'z' || e.key === 'Z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          redo();
+        } else {
+          e.preventDefault();
+          undo();
+        }
+      } else if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        redo();
+      }
+    }
+  }, [undo, redo]);
+
+  return [history.present, setValue, resetValue, onKeyDown] as const;
+}
 
 export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   snippets,
@@ -56,18 +139,20 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   editRequestId,
   prefillCreateKey,
   onRequestHandled,
+  triggerAction,
+  initialFilter,
 }) => {
-  const [activeFilter, setActiveFilter] = useState<SidebarFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<SidebarFilter>(initialFilter || 'all');
+  const [searchQuery, setSearchQuery, resetSearchQuery, onSearchKeyDown] = useUndoableInput('');
   const [sortBy, setSortBy] = useState<SortOption>('updated');
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(snippets[0]?.id || null);
 
   const selectedSnippet = snippets.find(snippet => snippet.id === selectedSnippetId) || null;
-  const [keyInput, setKeyInput] = useState('');
-  const [titleInput, setTitleInput] = useState('');
-  const [contentInput, setContentInput] = useState('');
-  const [aliasesInput, setAliasesInput] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [keyInput, setKeyInput, resetKeyInput, onKeyKeyDown] = useUndoableInput('');
+  const [titleInput, setTitleInput, resetTitleInput, onTitleKeyDown] = useUndoableInput('');
+  const [contentInput, setContentInput, resetContentInput, onContentKeyDown] = useUndoableInput('');
+  const [aliasesInput, setAliasesInput, resetAliasesInput, onAliasesKeyDown] = useUndoableInput('');
+  const [tagsInput, setTagsInput, resetTagsInput, onTagsKeyDown] = useUndoableInput('');
   const [isSensitive, setIsSensitive] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -75,42 +160,73 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
   const [keyError, setKeyError] = useState('');
 
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  // 响应外部 initialFilter 变化（例如菜单切换到回收站）
+  React.useEffect(() => {
+    if (initialFilter) {
+      setActiveFilter(initialFilter);
+    }
+  }, [initialFilter]);
+
   React.useEffect(() => {
     if (!selectedSnippet) return;
-    setKeyInput(selectedSnippet.key);
-    setTitleInput(selectedSnippet.title);
-    setContentInput(selectedSnippet.content);
-    setAliasesInput(selectedSnippet.aliases.join(', '));
-    setTagsInput(selectedSnippet.tags.join(', '));
+    resetKeyInput(selectedSnippet.key);
+    resetTitleInput(selectedSnippet.title);
+    resetContentInput(selectedSnippet.content);
+    resetAliasesInput(selectedSnippet.aliases.join(', '));
+    resetTagsInput(selectedSnippet.tags.join(', '));
     setIsSensitive(!!selectedSnippet.sensitive);
     setIsPinned(!!selectedSnippet.pinned);
     setIsCreatingNew(false);
     setSensitiveRevealed(false);
     setKeyError('');
-  }, [selectedSnippetId, selectedSnippet]);
+  }, [selectedSnippetId, selectedSnippet, resetKeyInput, resetTitleInput, resetContentInput, resetAliasesInput, resetTagsInput]);
 
-  const handleStartCreateNew = () => {
+  const handleStartCreateNew = useCallback(() => {
     setSelectedSnippetId(null);
     setIsCreatingNew(true);
-    setKeyInput('');
-    setTitleInput('');
-    setContentInput('');
-    setAliasesInput('');
-    setTagsInput('');
+    resetKeyInput('');
+    resetTitleInput('');
+    resetContentInput('');
+    resetAliasesInput('');
+    resetTagsInput('');
     setIsSensitive(false);
     setIsPinned(false);
     setSensitiveRevealed(true);
     setKeyError('');
-  };
+    setTimeout(() => keyInputRef.current?.focus(), 50);
+  }, [resetKeyInput, resetTitleInput, resetContentInput, resetAliasesInput, resetTagsInput]);
+
+  const handleCopy = useCallback((snippet: Snippet) => {
+    onCopySnippet(snippet);
+    setCopiedId(snippet.id);
+    window.setTimeout(() => setCopiedId(null), 1500);
+  }, [onCopySnippet]);
+
+  // 处理全局/子级菜单动作触发 (新建 / 编辑 / 复制)
+  React.useEffect(() => {
+    if (!triggerAction) return;
+    if (triggerAction.type === 'new-snippet') {
+      handleStartCreateNew();
+    } else if (triggerAction.type === 'edit-current') {
+      if (selectedSnippet) {
+        setIsCreatingNew(false);
+        keyInputRef.current?.focus();
+      }
+    } else if (triggerAction.type === 'copy-current') {
+      if (selectedSnippet) {
+        handleCopy(selectedSnippet);
+      }
+    }
+  }, [triggerAction, handleStartCreateNew, handleCopy, selectedSnippet]);
 
   React.useEffect(() => {
     if (!prefillCreateKey) return;
     handleStartCreateNew();
-    setKeyInput(prefillCreateKey);
+    resetKeyInput(prefillCreateKey);
     onRequestHandled?.();
-    // The request is consumed once; the callback intentionally runs only for a new request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillCreateKey]);
+  }, [prefillCreateKey, handleStartCreateNew, resetKeyInput, onRequestHandled]);
 
   React.useEffect(() => {
     if (!editRequestId) return;
@@ -119,8 +235,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     setSelectedSnippetId(target.id);
     setIsCreatingNew(false);
     onRequestHandled?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editRequestId, snippets]);
+  }, [editRequestId, snippets, onRequestHandled]);
 
   React.useEffect(() => {
     if (!isCreatingNew && selectedSnippetId && !snippets.some(snippet => snippet.id === selectedSnippetId)) {
@@ -213,12 +328,6 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     setKeyError('');
   };
 
-  const handleCopy = (snippet: Snippet) => {
-    onCopySnippet(snippet);
-    setCopiedId(snippet.id);
-    window.setTimeout(() => setCopiedId(null), 1500);
-  };
-
   const navItem = (
     filter: SidebarFilter,
     label: string,
@@ -245,7 +354,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       <aside className="manager-sidebar" aria-label="片段分类">
         <div className="manager-sidebar-heading">
           <span>分类目录</span>
-          <button type="button" className="manager-icon-button manager-icon-button-small" aria-label="打开系统设置" onClick={onOpenSettings}>
+          <button type="button" className="manager-icon-button manager-icon-button-small" aria-label="打开系统设置" title="打开系统设置" onClick={onOpenSettings}>
             <Settings className="size-3.5" aria-hidden />
           </button>
         </div>
@@ -271,11 +380,12 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 type="search"
                 value={searchQuery}
                 onChange={event => setSearchQuery(event.target.value)}
-                placeholder="过滤片段..."
+                onKeyDown={onSearchKeyDown}
+                placeholder="过滤片段... (Ctrl+Z 撤销)"
                 aria-label="过滤片段"
               />
               {searchQuery && (
-                <button type="button" className="manager-search-clear" aria-label="清除过滤条件" onClick={() => setSearchQuery('')}>
+                <button type="button" className="manager-search-clear" aria-label="清除过滤条件" onClick={() => resetSearchQuery('')}>
                   <X className="size-3.5" aria-hidden />
                 </button>
               )}
@@ -388,11 +498,13 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 </div>
                 <div className="manager-form-grid">
                   <label className="manager-field">
-                    <span>Key <small>唯一快速检索标识</small></span>
+                    <span>Key <small>唯一快速检索标识 (支持 Ctrl+Z)</small></span>
                     <input
+                      ref={keyInputRef}
                       type="text"
                       value={keyInput}
                       onChange={event => { setKeyInput(event.target.value); setKeyError(''); }}
+                      onKeyDown={onKeyKeyDown}
                       placeholder="例如 email-work, addr-office"
                       className={`manager-control manager-mono ${keyError ? 'has-error' : ''}`}
                       aria-invalid={!!keyError}
@@ -400,8 +512,15 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                     {keyError && <em className="manager-field-error">{keyError}</em>}
                   </label>
                   <label className="manager-field">
-                    <span>标题 <small>展示名称</small></span>
-                    <input type="text" value={titleInput} onChange={event => setTitleInput(event.target.value)} placeholder="例如 工作邮箱, 公司地址" className="manager-control" />
+                    <span>标题 <small>展示名称 (支持 Ctrl+Z)</small></span>
+                    <input
+                      type="text"
+                      value={titleInput}
+                      onChange={event => setTitleInput(event.target.value)}
+                      onKeyDown={onTitleKeyDown}
+                      placeholder="例如 工作邮箱, 公司地址"
+                      className="manager-control"
+                    />
                   </label>
                 </div>
               </section>
@@ -429,7 +548,8 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                   <textarea
                     value={contentInput}
                     onChange={event => setContentInput(event.target.value)}
-                    placeholder="在此输入需要快速粘贴的任意文本片段..."
+                    onKeyDown={onContentKeyDown}
+                    placeholder="在此输入需要快速粘贴的任意文本片段... (支持 Ctrl+Z 撤销)"
                     rows={8}
                     className="manager-control manager-textarea manager-mono"
                   />
@@ -440,12 +560,26 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 <div className="manager-section-heading"><h2>元信息</h2><span>别名和标签帮助你更快找到片段。</span></div>
                 <div className="manager-form-grid">
                   <label className="manager-field">
-                    <span>别名 <small>英文逗号分隔</small></span>
-                    <input type="text" value={aliasesInput} onChange={event => setAliasesInput(event.target.value)} placeholder="mail, workmail, 邮箱" className="manager-control" />
+                    <span>别名 <small>英文逗号分隔 (支持 Ctrl+Z)</small></span>
+                    <input
+                      type="text"
+                      value={aliasesInput}
+                      onChange={event => setAliasesInput(event.target.value)}
+                      onKeyDown={onAliasesKeyDown}
+                      placeholder="mail, workmail, 邮箱"
+                      className="manager-control"
+                    />
                   </label>
                   <label className="manager-field">
-                    <span>标签 <small>英文逗号分隔</small></span>
-                    <input type="text" value={tagsInput} onChange={event => setTagsInput(event.target.value)} placeholder="常用, 公司, 开发" className="manager-control" />
+                    <span>标签 <small>英文逗号分隔 (支持 Ctrl+Z)</small></span>
+                    <input
+                      type="text"
+                      value={tagsInput}
+                      onChange={event => setTagsInput(event.target.value)}
+                      onKeyDown={onTagsKeyDown}
+                      placeholder="常用, 公司, 开发"
+                      className="manager-control"
+                    />
                   </label>
                 </div>
               </section>
@@ -468,17 +602,19 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
             <div className="manager-save-bar">
               <span>保存后会写入本地加密数据库。</span>
               <button type="button" className="manager-button manager-button-primary manager-save-button" onClick={handleSave}>
-                <Save className="size-4" aria-hidden />保存片段数据
+                保存片段
               </button>
             </div>
           </div>
         ) : (
           <div className="manager-editor-empty">
-            <div className="manager-empty-mark manager-empty-mark-large"><Layers className="size-6" aria-hidden /></div>
-            <strong>选择一个片段开始编辑</strong>
-            <span>或创建第一条文本片段。</span>
+            <div className="manager-empty-mark manager-empty-mark-large">
+              <Layers className="size-6" aria-hidden />
+            </div>
+            <strong>未选择任何片段</strong>
+            <span>在左侧选择一个片段查看详情，或直接新建。</span>
             <button type="button" className="manager-button manager-button-primary" onClick={handleStartCreateNew}>
-              <Plus className="size-4" aria-hidden />创建新片段
+              新建片段
             </button>
           </div>
         )}

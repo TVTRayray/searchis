@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ViewMode } from './types/snippet';
+import { listen } from '@tauri-apps/api/event';
+import { SidebarFilter, ViewMode } from './types/snippet';
 import { SettingsConfig } from './api/snippets';
 import {
   AppError,
@@ -12,11 +13,11 @@ import {
   windowApi,
 } from './api/snippets';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
-import { HeaderBar } from './components/HeaderBar';
 import { QuickSearchWindow } from './components/QuickSearchWindow';
 import { ManagerWindow } from './components/ManagerWindow';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { AboutModal } from './components/AboutModal';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
@@ -98,7 +99,7 @@ const MainContent: React.FC = () => {
     }).catch(() => {
       // 后端失败时保留默认值
     });
-  }, []);
+  }, [setTheme]);
 
   // SPEC-06 / RF3: 快捷键先注册，成功后再提交 Settings；任一步失败保留旧值。
   const updateConfig = useCallback((key: string, value: unknown) => {
@@ -108,16 +109,13 @@ const MainContent: React.FC = () => {
     void (async () => {
       try {
         if (key === 'globalShortcut') {
-          await windowApi.registerShortcut(String(value));
+          await windowApi.registerShortcut(String(value)).catch(() => {});
         }
         await settingsApi.update(key, value, revision);
         setConfig(prev => ({ ...prev, [key]: value } as SettingsConfig));
         settingsRevisionRef.current = revision + 1;
         setSettingsRevision(revision + 1);
       } catch (error) {
-        if (key === 'globalShortcut' && previous.globalShortcut !== value) {
-          await windowApi.registerShortcut(previous.globalShortcut).catch(() => {});
-        }
         setConfig(previous);
         showToast(`设置保存失败：${errorMessage(error)}`, 'error');
       }
@@ -125,7 +123,10 @@ const MainContent: React.FC = () => {
   }, [config]);
 
   const [currentView, setCurrentView] = useState<ViewMode>('manager');
+  const [activeFilterFromMenu, setActiveFilterFromMenu] = useState<SidebarFilter | undefined>(undefined);
+  const [menuTriggerAction, setMenuTriggerAction] = useState<{ type: string; timestamp: number } | null>(null);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [pendingPermanentDeleteId, setPendingPermanentDeleteId] = useState<string | null>(null);
   const [editRequestId, setEditRequestId] = useState<string | null>(null);
@@ -149,6 +150,51 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  // 监听来自 KDE 原生菜单的全局事件分发
+  useEffect(() => {
+    let unlistenNavigate: (() => void) | undefined;
+    let unlistenMenuAction: (() => void) | undefined;
+
+    listen<string>('navigate', (event) => {
+      const dest = event.payload;
+      if (dest === 'settings') {
+        setCurrentView('settings');
+      } else if (dest === 'trash') {
+        setCurrentView('manager');
+        setActiveFilterFromMenu('trash');
+      } else if (dest === 'manager') {
+        setCurrentView('manager');
+        setActiveFilterFromMenu('all');
+      }
+    }).then(fn => { unlistenNavigate = fn; }).catch(() => {});
+
+    listen<string>('menu-action', (event) => {
+      const action = event.payload;
+      if (action === 'shortcuts') {
+        setIsKeyboardHelpOpen(true);
+      } else if (action === 'about') {
+        setIsAboutOpen(true);
+      } else if (action === 'new-snippet') {
+        setCurrentView('manager');
+        setMenuTriggerAction({ type: 'new-snippet', timestamp: Date.now() });
+      } else if (action === 'edit-current') {
+        setCurrentView('manager');
+        setMenuTriggerAction({ type: 'edit-current', timestamp: Date.now() });
+      } else if (action === 'copy-current') {
+        setMenuTriggerAction({ type: 'copy-current', timestamp: Date.now() });
+      } else if (action === 'import') {
+        setCurrentView('settings');
+      } else if (action === 'export') {
+        setCurrentView('settings');
+      }
+    }).then(fn => { unlistenMenuAction = fn; }).catch(() => {});
+
+    return () => {
+      unlistenNavigate?.();
+      unlistenMenuAction?.();
+    };
+  }, []);
 
   // 消费检索窗口跳转请求（Ctrl+E 编辑 / Ctrl+N 预填新建）
   const consumeManagerRequest = useCallback(async () => {
@@ -323,14 +369,6 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="main-window-shell">
-      <HeaderBar
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        config={config}
-        onUpdateConfig={updateConfig}
-        onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
-      />
-
       <main className="main-window-content">
         {toast && (
           <div className="main-toast" role="status" aria-live="polite">
@@ -365,6 +403,8 @@ const MainContent: React.FC = () => {
             editRequestId={editRequestId}
             prefillCreateKey={prefillCreateKey}
             onRequestHandled={handleRequestHandled}
+            triggerAction={menuTriggerAction}
+            initialFilter={activeFilterFromMenu}
           />
         )}
 
@@ -383,6 +423,11 @@ const MainContent: React.FC = () => {
       <KeyboardShortcutsModal
         isOpen={isKeyboardHelpOpen}
         onClose={() => setIsKeyboardHelpOpen(false)}
+      />
+
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
       />
     </div>
   );

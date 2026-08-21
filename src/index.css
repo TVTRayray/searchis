@@ -458,14 +458,48 @@ input[type="checkbox"] {
 .manager-confirm-dialog p { margin: 8px 0 18px; color: var(--color-fg-muted); font-size: 11px; line-height: 1.5; }
 .manager-confirm-actions { display: flex; justify-content: flex-end; gap: 7px; }
 
-.settings-page { width: min(100%, 920px); min-height: 100%; margin: 0 auto; overflow: auto; padding: 28px 30px 42px; }
-.settings-page-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 18px; }
-.settings-title-group { display: flex; align-items: center; gap: 10px; }
-.settings-title-icon, .settings-section-icon { display: grid; place-items: center; border: 1px solid var(--color-accent-border); border-radius: 8px; color: var(--color-accent-fg); background: var(--color-accent-subtle); }
-.settings-title-icon { width: 30px; height: 30px; }
-.settings-title-group h1 { margin: 0; color: var(--color-fg); font-size: 15px; font-weight: 750; }
-.settings-title-group p { margin: 3px 0 0; color: var(--color-fg-muted); font-size: 10px; }
-.settings-page-body { display: flex; flex-direction: column; gap: 12px; padding-top: 18px; }
+.settings-page {
+  width: min(100%, 920px);
+  min-height: 100%;
+  margin: 0 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 30px 42px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-page::-webkit-scrollbar {
+  display: none;
+}
+.settings-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 14px;
+}
+.settings-nav-title {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: 15px;
+  font-weight: 750;
+}
+.settings-back-button {
+  height: 32px;
+  padding: 0 12px;
+  gap: 6px;
+}
+.settings-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-page-body::-webkit-scrollbar {
+  display: none;
+}
 .settings-section { border: 1px solid var(--color-border); border-radius: 12px; padding: 17px; background: color-mix(in srgb, var(--color-surface) 82%, transparent); box-shadow: var(--shadow-subtle); }
 .settings-section-heading { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
 .settings-section-icon { width: 28px; height: 28px; flex: none; }

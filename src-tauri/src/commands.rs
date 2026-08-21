@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::{
     clipboard::TauriClipboardWriter,
@@ -183,10 +183,10 @@ pub fn detect_capabilities(
 pub fn register_shortcut(accelerator: String) -> Result<ShortcutInfo, AppError> {
     let manager = crate::platform::KGlobalAccelManager::new("searchis", "toggle_picker");
     if !manager.available() {
-        return Err(AppError::new(
-            "KGLOBALACCEL_UNAVAILABLE",
-            "KGlobalAccel D-Bus 服务不可用。请手动添加应用内快捷键。",
-        ));
+        return Ok(ShortcutInfo {
+            current: accelerator,
+            registered: false,
+        });
     }
     let previous = manager.register(&accelerator)?;
     Ok(ShortcutInfo {
@@ -552,11 +552,23 @@ pub fn open_search_window_inner(app: &tauri::AppHandle) -> Result<(), AppError> 
     let _ = window.unminimize();
     let _ = window.show();
     let _ = window.set_always_on_top(true);
-    let app = app.clone();
+    let _ = window.set_focus();
+    let _ = window.emit("focus-input", ());
+
+    let app_handle = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(200));
-        if let Some(window) = app.get_webview_window("search") {
-            let _ = window.set_focus();
+        for delay in [10, 40, 100, 200] {
+            std::thread::sleep(std::time::Duration::from_millis(delay));
+            if let Some(w) = app_handle.get_webview_window("search") {
+                let _ = w.set_focus();
+                let _ = w.emit("focus-input", ());
+            }
+            let _ = std::process::Command::new("wmctrl")
+                .args(["-a", "Searchis 快速检索"])
+                .output();
+            let _ = std::process::Command::new("xdotool")
+                .args(["search", "--name", "Searchis 快速检索", "windowactivate", "--sync", "windowfocus", "--sync"])
+                .output();
         }
     });
     Ok(())

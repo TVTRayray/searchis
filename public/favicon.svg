@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- 背景 -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#FFFFFF" stroke="#ECE6DE" stroke-width="2"/>
+
+  <!-- 镜圈:整枚图标只有这一个主体形状 -->
+  <circle cx="117" cy="117" r="62" fill="#FFFFFF" stroke="#D97757" stroke-width="16"/>
+
+  <!-- 镜片内的文字行: 以镜圈水平中线上下镜像对称,长-短-短对称排布 -->
+  <rect x="85" y="112" width="64" height="10" rx="5" fill="#D97757"/>
+  <rect x="93" y="92"  width="48" height="10" rx="5" fill="#D97757"/>
+  <rect x="93" y="132" width="48" height="10" rx="5" fill="#D97757"/>
+
+  <!-- 柄: 起点精确落在镜圈描边带的正中线(半径62), 圆头端点完全被描边带包住,
+       不会探出镜圈的内沿或外沿, 因此镜圈与柄之间没有接缝 -->
+  <line x1="161" y1="161" x2="202" y2="202" stroke="#D97757" stroke-width="14" stroke-linecap="round"/>
+</svg>

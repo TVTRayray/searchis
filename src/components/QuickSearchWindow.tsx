@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { AlertCircle, Lock, Star } from 'lucide-react';
 import { SearchResultItem, settingsApi, snippetsApi } from '../api/snippets';
 import { useTheme } from './ThemeProvider';
@@ -49,8 +50,6 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     backendThemeRef.current = mode;
     setTheme(mode);
     applyDomTheme(mode);
-    // ThemeProvider applies its effect after the state update; re-apply after that commit
-    // so a stale initial window theme cannot win the first visible frame.
     window.setTimeout(() => {
       if (backendThemeRef.current === mode) applyDomTheme(mode);
     }, 0);
@@ -72,16 +71,38 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
 
   useEffect(() => {
     let unlistenFocus: (() => void) | undefined;
+    let unlistenFocusEvent: (() => void) | undefined;
     let currentWindow: ReturnType<typeof getCurrentWindow> | undefined;
+    let hasBeenFocused = false;
+    let focusGraceTimer: number | undefined;
+
+    const focusInput = () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    };
+
     const activate = () => {
       closingRef.current = false;
+      hasBeenFocused = false;
+      window.clearTimeout(focusGraceTimer);
+      focusGraceTimer = window.setTimeout(() => {
+        hasBeenFocused = true;
+      }, 400);
+
       void syncTheme();
       setSearchQuery(''); setResults([]); setTotal(0); setSelectedIndex(-1); setError(null);
-      inputRef.current?.focus();
+      focusInput();
+      window.setTimeout(focusInput, 20);
+      window.setTimeout(focusInput, 60);
+      window.setTimeout(focusInput, 150);
+      window.setTimeout(focusInput, 300);
     };
+
     try { currentWindow = getCurrentWindow(); } catch { /* browser preview */ }
     activate();
-    // 主题变更即时同步：管理窗口写 localStorage 后，隐藏中的检索 WebView 通过 storage 事件立即应用。
+
     const onStorage = (event: StorageEvent) => {
       if (event.key === 'searchis_config_v1' && event.newValue) void syncTheme();
     };
@@ -92,25 +113,49 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         visibleRef.current = true;
         reconcileTheme();
         void syncTheme();
+        focusInput();
       }).catch(() => {});
     };
-    // Some WebKit/KWin paths show the pre-created hidden window without emitting a focus event.
-    // Poll visibility only to catch that transition; settings are fetched once per show.
+
     const themeTimer = window.setInterval(refreshVisibleTheme, 100);
     window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', activate);
+    window.addEventListener('click', focusInput);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') activate();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    listen('focus-input', () => {
+      activate();
+    }).then(fn => { unlistenFocusEvent = fn; }).catch(() => {});
+
     if (currentWindow) {
       currentWindow.onFocusChanged(({ payload }) => {
-        if (!payload) { close(); return; }
+        if (!payload) {
+          if (hasBeenFocused && !closingRef.current) {
+            close();
+          }
+          return;
+        }
+        hasBeenFocused = true;
         activate();
       }).then(fn => {
         unlistenFocus = fn;
         void currentWindow?.isFocused().then(focused => { if (focused) activate(); }).catch(() => {});
       }).catch(() => {});
     }
+
     return () => {
+      window.clearTimeout(focusGraceTimer);
       unlistenFocus?.();
+      unlistenFocusEvent?.();
       window.clearInterval(themeTimer);
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', activate);
+      window.removeEventListener('click', focusInput);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 
@@ -184,7 +229,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   return <main className="quick-search-shell" aria-label="快速检索">
     <section className="quick-search-window" role="dialog" aria-modal="true" aria-label="快速检索窗口">
       <Command shouldFilter={false} value={selected?.id ?? ''} onValueChange={id => setSelectedIndex(results.findIndex(item => item.id === id))}>
-        <CommandInput ref={inputRef} value={searchQuery} onValueChange={setSearchQuery} onKeyDown={onKeyDown} placeholder="搜索 Key、别名、标题、标签或正文…" aria-label="检索文本片段" />
+        <CommandInput ref={inputRef} value={searchQuery} onValueChange={setSearchQuery} onKeyDown={onKeyDown} placeholder="搜索 Key、别名、标题、标签或正文…" aria-label="检索文本片段" autoFocus />
         {error && <div className="quick-error" role="alert"><AlertCircle className="size-4" aria-hidden />{error}</div>}
         <CommandList className="min-h-0 flex-1">
           <CommandEmpty>{!loading && <div className="flex flex-col items-center justify-center gap-3 px-4 text-center"><span className="text-xs text-[color:var(--quick-muted)]">{searchQuery ? '没有匹配的片段' : '暂无片段数据'}</span>{searchQuery && <button type="button" className="btn-primary inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all px-2.5 py-1 text-xs rounded-md" onClick={() => void createFromQuery()}>以该查询词为 Key 新建片段 <kbd className="raycast-kbd">Ctrl+N</kbd></button>}</div>}</CommandEmpty>

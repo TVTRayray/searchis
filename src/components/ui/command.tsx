@@ -10,11 +10,12 @@ export const Command = ({ className, ...props }: React.ComponentProps<typeof Com
 export const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
+>(({ className, autoFocus = true, ...props }, ref) => (
   <div className="flex h-14 items-center gap-3 border-b border-[color:var(--quick-border)] px-4">
     <Search className="size-5 shrink-0 text-[color:var(--quick-muted)]" aria-hidden />
     <CommandPrimitive.Input
       ref={ref}
+      autoFocus={autoFocus}
       className={cn('h-full w-full bg-transparent text-base text-[color:var(--quick-fg)] outline-none placeholder:text-[color:var(--quick-muted)]', className)}
       {...props}
     />
