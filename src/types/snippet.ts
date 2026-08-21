@@ -16,7 +16,7 @@ export interface Snippet {
   revision: number;
 }
 
-export type ViewMode = 'quick-picker' | 'manager' | 'onboarding' | 'settings';
+export type ViewMode = 'quick-picker' | 'manager' | 'settings';
 
 export type SortOption = 'updated' | 'usage' | 'alpha' | 'key';
 

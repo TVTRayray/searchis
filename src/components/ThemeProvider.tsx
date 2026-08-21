@@ -24,7 +24,6 @@ export const ThemeProvider: React.FC<{
       return initialTheme;
     }
   });
-
   const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
@@ -36,9 +35,7 @@ export const ThemeProvider: React.FC<{
       const active = isDark ? 'dark' : 'light';
 
       setEffectiveTheme(active);
-
       document.documentElement.classList.add('theme-transition');
-      // Apply data-theme and dark class to documentElement
       document.documentElement.setAttribute('data-theme', active);
       document.documentElement.classList.toggle('dark', isDark);
 
@@ -68,14 +65,11 @@ export const ThemeProvider: React.FC<{
       const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}');
       localStorage.setItem('searchis_config_v1', JSON.stringify({ ...saved, theme: newTheme }));
     } catch {
-      // ignore
+      // Backend settings remain the source of truth when local storage is unavailable.
     }
   };
 
-  const toggleTheme = () => {
-    const next = effectiveTheme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-  };
+  const toggleTheme = () => setTheme(effectiveTheme === 'dark' ? 'light' : 'dark');
 
   return (
     <ThemeContext.Provider value={{ theme, effectiveTheme, isDark: effectiveTheme === 'dark', setTheme, toggleTheme }}>
@@ -86,8 +80,6 @@ export const ThemeProvider: React.FC<{
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
+  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
   return context;
 };

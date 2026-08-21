@@ -411,6 +411,11 @@ impl Repository {
             .map_err(|_| db_write_error())?;
         let updated = get_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
         transaction.commit().map_err(|_| db_write_error())?;
+        // 事务提交成功后定向同步索引（updated 含正确 deleted_at）。
+        self.search_index
+            .lock()
+            .map_err(|_| db_write_error())?
+            .upsert(&updated);
         Ok(updated)
     }
 
@@ -438,6 +443,11 @@ impl Repository {
             .map_err(|_| db_write_error())?;
         let updated = get_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
         transaction.commit().map_err(|_| db_write_error())?;
+        // 事务提交成功后定向同步索引（updated 含 deleted_at: None）。
+        self.search_index
+            .lock()
+            .map_err(|_| db_write_error())?
+            .upsert(&updated);
         Ok(updated)
     }
 
@@ -465,6 +475,11 @@ impl Repository {
             .execute("DELETE FROM snippets WHERE id = ?1", params![id])
             .map_err(|_| db_write_error())?;
         transaction.commit().map_err(|_| db_write_error())?;
+        // 事务提交成功后从索引定向移除该 id。
+        self.search_index
+            .lock()
+            .map_err(|_| db_write_error())?
+            .remove(id);
         Ok(())
     }
 
@@ -472,6 +487,8 @@ impl Repository {
     pub fn trash_empty(&self) -> Result<i64, AppError> {
         let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
         let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        // 提交前先收集待删除 id，供删行后定向同步索引。
+        let ids = collect_snippet_ids(&transaction, "deleted_at IS NOT NULL", params![])?;
         // 先删除 create_requests 中引用待删除片段的行，再删除 snippets
         transaction
             .execute(
@@ -492,6 +509,11 @@ impl Repository {
             eprintln!("trash_empty COMMIT error: {e}");
             db_write_error()
         })?;
+        // 事务提交成功后从索引定向移除全部实际被删 id。
+        let mut index = self.search_index.lock().map_err(|_| db_write_error())?;
+        for id in ids {
+            index.remove(&id);
+        }
         Ok(count)
     }
 
@@ -499,6 +521,12 @@ impl Repository {
     pub fn auto_purge(&self, threshold: &str) -> Result<i64, AppError> {
         let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
         let transaction = connection.transaction().map_err(|_| db_write_error())?;
+        // 提交前先收集待删除 id，供删行后定向同步索引。
+        let ids = collect_snippet_ids(
+            &transaction,
+            "deleted_at IS NOT NULL AND deleted_at <= ?1",
+            params![threshold],
+        )?;
         transaction
             .execute(
                 "DELETE FROM create_requests WHERE snippet_id IN (SELECT id FROM snippets WHERE deleted_at IS NOT NULL AND deleted_at <= ?1)",
@@ -512,6 +540,11 @@ impl Repository {
             )
             .map_err(|_| db_write_error())? as i64;
         transaction.commit().map_err(|_| db_write_error())?;
+        // 事务提交成功后从索引定向移除全部实际被删 id。
+        let mut index = self.search_index.lock().map_err(|_| db_write_error())?;
+        for id in ids {
+            index.remove(&id);
+        }
         Ok(count)
     }
 
@@ -656,6 +689,22 @@ impl Repository {
 }
 
 const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision";
+
+/// 在事务内收集按给定 WHERE 子句匹配的待删除 snippet id，供提交后定向同步索引。
+/// `condition` 从 "WHERE " 之后开始，`params` 必须与占位符一一对应。
+fn collect_snippet_ids<P: rusqlite::Params>(
+    transaction: &Transaction<'_>,
+    condition: &str,
+    params: P,
+) -> Result<Vec<String>, AppError> {
+    let sql = format!("SELECT id FROM snippets WHERE {condition}");
+    let mut statement = transaction.prepare(&sql).map_err(|_| db_write_error())?;
+    let rows = statement
+        .query_map(params, |row| row.get::<_, String>(0))
+        .map_err(|_| db_write_error())?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|_| db_write_error())
+}
 
 fn query_snippet(connection: &Connection, id: &str) -> Result<Option<Snippet>, AppError> {
     connection
@@ -1973,6 +2022,88 @@ mod tests {
         assert!(repo.get(&s1.id).unwrap().is_none());
         assert!(repo.get(&s2.id).unwrap().is_none());
         assert!(repo.get(&s3.id).unwrap().is_some());
+    }
+
+    // === SPEC-15: 回收站操作与检索索引一致性 ===
+
+    #[test]
+    fn trash_move_excludes_id_from_search_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s = create_for_trash(&repo, "move-vis");
+        assert_eq!(repo.search("move-vis", 20).unwrap().total, 1);
+        repo.trash_move(&s.id).unwrap();
+        // 索引已同步 deleted_at：检索不再返回该软删除片段。
+        assert_eq!(repo.search("move-vis", 20).unwrap().total, 0);
+    }
+
+    #[test]
+    fn trash_restore_reincludes_id_in_search_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s = create_for_trash(&repo, "restore-vis");
+        repo.trash_move(&s.id).unwrap();
+        assert_eq!(repo.search("restore-vis", 20).unwrap().total, 0);
+        repo.trash_restore(&s.id).unwrap();
+        // 索引已同步 deleted_at=None：还原后重新可检索。
+        assert_eq!(repo.search("restore-vis", 20).unwrap().total, 1);
+    }
+
+    #[test]
+    fn trash_purge_one_removes_id_from_search_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s = create_for_trash(&repo, "purge-vis");
+        repo.trash_move(&s.id).unwrap();
+        repo.trash_purge_one(&s.id).unwrap();
+        assert_eq!(repo.search("purge-vis", 20).unwrap().total, 0);
+    }
+
+    #[test]
+    fn trash_empty_removes_ids_from_search_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        let s1 = create_for_trash(&repo, "empty-vis-1");
+        let s2 = create_for_trash(&repo, "empty-vis-2");
+        let _s3 = create_for_trash(&repo, "empty-vis-3");
+        repo.trash_move(&s1.id).unwrap();
+        repo.trash_move(&s2.id).unwrap();
+        assert_eq!(repo.search("empty-vis-1", 20).unwrap().total, 0);
+        assert_eq!(repo.search("empty-vis-2", 20).unwrap().total, 0);
+        assert_eq!(repo.search("empty-vis-3", 20).unwrap().total, 1);
+        repo.trash_empty().unwrap();
+        assert_eq!(repo.search("empty-vis-1", 20).unwrap().total, 0);
+        assert_eq!(repo.search("empty-vis-2", 20).unwrap().total, 0);
+        assert_eq!(repo.search("empty-vis-3", 20).unwrap().total, 1);
+    }
+
+    #[test]
+    fn auto_purge_removes_ids_from_search_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repository::open(dir.path()).unwrap();
+        // 用原始 UPDATE 直接设置 deleted_at，模拟索引仍持有陈旧 deleted_at=None 的状态
+        // （对应本 spec 修复前永久删除后快速搜索仍返回旧记录的根因）。
+        let _kept = create_for_trash(&repo, "ap-kept");
+        let purged = create_for_trash(&repo, "ap-purged");
+        let old = (Utc::now() - chrono::Duration::days(31))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        repo.connection
+            .lock()
+            .unwrap()
+            .execute(
+                "UPDATE snippets SET deleted_at = ?1 WHERE id = ?2",
+                params![old, purged.id],
+            )
+            .unwrap();
+        // 索引未同步前，旧 deleted_at=None 会让该片段仍被检索（复现旧 bug 场景）。
+        assert_eq!(repo.search("ap-purged", 20).unwrap().total, 1);
+
+        let threshold = (Utc::now() - chrono::Duration::days(30))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        repo.auto_purge(&threshold).unwrap();
+        // auto_purge 提交后定向移除 id：即使索引之前陈旧，也正确排除被删片段。
+        assert_eq!(repo.search("ap-purged", 20).unwrap().total, 0);
+        assert_eq!(repo.search("ap-kept", 20).unwrap().total, 1);
     }
 
     #[test]

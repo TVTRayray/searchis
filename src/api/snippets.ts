@@ -122,6 +122,10 @@ export const snippetsApi = {
   // SPEC-03
   executePaste: (id: string, operationId: string, autoPaste: boolean) =>
     call<PasteOutcome>('execute_paste', { input: { snippetId: id, operationId, autoPaste } }),
+  trashMove: (id: string) => call<PersistedSnippet>('trash_move', { id }),
+  trashRestore: (id: string) => call<PersistedSnippet>('trash_restore', { id }),
+  trashPurgeOne: (id: string, confirmationToken: string) =>
+    call<void>('trash_purge_one', { input: { id, confirmationToken } }),
   detectCapabilities: () =>
     call<PlatformCapabilities>('detect_capabilities'),
   togglePicker: () =>

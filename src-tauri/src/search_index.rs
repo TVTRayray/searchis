@@ -104,6 +104,13 @@ impl SearchIndex {
         }
     }
 
+    /// 按 id 从索引中移除，返回是否命中；对不存在的 id 幂等返回 false。
+    pub fn remove(&mut self, id: &str) -> bool {
+        let before = self.items.len();
+        self.items.retain(|item| item.id != id);
+        self.items.len() != before
+    }
+
     pub fn search(&self, query: &str, limit: i64) -> SearchResponse {
         let trimmed = query.trim();
         if trimmed.is_empty() {
@@ -411,6 +418,26 @@ mod tests {
         let resp = index.search("deleted", 20);
         assert_eq!(resp.total, 0);
         assert!(resp.items.is_empty());
+    }
+
+    #[test]
+    fn remove_removes_by_id_and_is_idempotent() {
+        let (mut index, _) = build_index();
+        // id "1" (key alpha) is indexed and searchable.
+        assert_eq!(index.search("alpha", 20).total, 1);
+        assert!(index.remove("1"));
+        // Removed once; a second remove for the missing id is idempotent false.
+        assert!(!index.remove("1"));
+        // The entry is gone from the index.
+        assert_eq!(index.search("alpha", 20).total, 0);
+    }
+
+    #[test]
+    fn remove_missing_id_returns_false_without_change() {
+        let (mut index, _) = build_index();
+        let before = index.items.len();
+        assert!(!index.remove("no-such-id"));
+        assert_eq!(index.items.len(), before);
     }
 
     #[test]

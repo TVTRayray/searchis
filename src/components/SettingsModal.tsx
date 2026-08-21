@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { SettingsConfig } from '../api/snippets';
-import { settingsApi } from '../api/snippets';
 import {
-  Settings, Keyboard, Sun, Moon, Monitor,
-  HardDrive, Download, Upload, RotateCcw, Zap, X
+  Download,
+  HardDrive,
+  Keyboard,
+  Monitor,
+  Moon,
+  RotateCcw,
+  Settings,
+  Sun,
+  Upload,
+  X,
+  Zap,
 } from 'lucide-react';
-import {
-  Box, VStack, HStack, Inline, Card, Button, IconButton,
-  Switch, Kbd, useTheme,
-} from './astryx';
+import { SettingsConfig, settingsApi } from '../api/snippets';
+import { useTheme } from './ThemeProvider';
+import { SelectField } from './ui/SelectField';
 
 interface SettingsModalProps {
   config: SettingsConfig;
@@ -19,152 +25,176 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+const themes = [
+  { id: 'light', label: '浅色', hint: 'Bloom', icon: Sun },
+  { id: 'dark', label: '深色', hint: 'Aurora', icon: Moon },
+  { id: 'system', label: '跟随系统', hint: '自动', icon: Monitor },
+] as const;
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
-  config, onUpdateConfig, onExportData, onImportData, onResetSampleData, onClose,
+  config,
+  onUpdateConfig,
+  onExportData,
+  onImportData,
+  onResetSampleData,
+  onClose,
 }) => {
-  const { setTheme } = useTheme();
+  const { setTheme, effectiveTheme } = useTheme();
   const [autostart, setAutostart] = useState(false);
 
   useEffect(() => {
     settingsApi.get().then(res => setAutostart(res.autostartActual)).catch(() => {});
   }, []);
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    onUpdateConfig('theme', newTheme);
-    setTheme(newTheme);
+  const handleThemeChange = (theme: 'light' | 'dark' | 'system') => {
+    setTheme(theme);
+    onUpdateConfig('theme', theme);
+  };
+
+  const updateAutostart = (enabled: boolean) => {
+    onUpdateConfig('launchAtLogin', enabled);
+    settingsApi.autostartSet(enabled).then(setAutostart).catch(() => {});
   };
 
   return (
-    <Box padding="md" className="max-w-2xl mx-auto select-none">
-      <Box radius="xl" shadow="window" background="surface" border="all" overflow="hidden"
-        className="raycast-window animate-pop-in">
-        <Box paddingX="lg" paddingY="md" background="titlebar" border="bottom">
-          <HStack align="center" justify="space-between">
-            <HStack align="center" gap="xs">
-              <Settings className="w-4 h-4 icon-accent" />
-              <span className="text-sm font-bold text-theme">Searchis 偏好设置</span>
-            </HStack>
-            <IconButton icon={<X className="w-4 h-4" />} ariaLabel="关闭设置窗口" onClick={onClose} />
-          </HStack>
-        </Box>
+    <div className="settings-page" role="region" aria-labelledby="settings-title">
+      <header className="settings-page-header">
+        <div className="settings-title-group">
+          <span className="settings-title-icon"><Settings className="size-4" aria-hidden /></span>
+          <div>
+            <h1 id="settings-title">偏好设置</h1>
+            <p>Searchis 的本地行为与外观</p>
+          </div>
+        </div>
+        <button type="button" className="manager-icon-button" aria-label="关闭设置窗口" title="关闭设置窗口" onClick={onClose}>
+          <X className="size-4" aria-hidden />
+        </button>
+      </header>
 
-        <Box padding="xl" className="max-h-[540px] overflow-y-auto">
-          <VStack gap="lg">
-            {/* 快捷键 */}
-            <Card title={<HStack align="center" gap="xs"><Keyboard className="w-4 h-4 icon-accent" /><span>全局快捷键与呼出</span></HStack>}>
-              <VStack gap="md">
-                <HStack align="center" justify="space-between">
-                  <VStack gap="3xs">
-                    <span className="text-xs font-semibold text-theme">全局呼出快捷键</span>
-                    <span className="text-[11px] text-theme-muted">设置后重启应用生效</span>
-                  </VStack>
-                  <HStack align="center" gap="xs">
-                    <input
-                      type="text"
-                      value={config.globalShortcut}
-                      onChange={e => onUpdateConfig('globalShortcut', e.target.value)}
-                      className="input-theme w-32 px-2 py-1 rounded text-xs text-center font-mono"
-                      placeholder="例: Alt+O"
-                      aria-label="全局呼出快捷键"
-                    />
-                  </HStack>
-                </HStack>
-                <Box border="top" paddingY="2xs" />
-                <Switch
-                  checked={config.launchAtLogin}
-                  onChange={v => {
-                    onUpdateConfig('launchAtLogin', v);
-                    // 同时操作 XDG Autostart .desktop 文件
-                    settingsApi.autostartSet(v).catch(() => {});
-                    // 更新实际状态显示
-                    setAutostart(v);
-                  }}
-                  label="开机自动启动 (XDG Autostart)" description={`当前状态: ${autostart ? '已启用' : '未启用'}`} />
-              </VStack>
-            </Card>
+      <div className="settings-page-body">
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon"><Keyboard className="size-4" aria-hidden /></div>
+              <div><h2>快捷键与启动</h2><p>用一个组合键从桌面任意位置呼出快速检索。</p></div>
+            </div>
+            <div className="settings-row">
+              <div><strong>全局呼出快捷键</strong><span>注册失败时会保留上一次可用快捷键。</span></div>
+              <input
+                type="text"
+                value={config.globalShortcut}
+                onChange={event => onUpdateConfig('globalShortcut', event.target.value)}
+                className="settings-shortcut-input manager-control manager-mono"
+                placeholder="例如 Alt+O"
+                aria-label="全局呼出快捷键"
+              />
+            </div>
+            <div className="settings-rule" />
+            <div className="settings-row">
+              <div><strong>开机自动启动</strong><span>使用 XDG Autostart，当前状态以系统文件为准。</span></div>
+              <label className="settings-switch-label">
+                <span className="sr-only">开机自动启动</span>
+                <input type="checkbox" className="manager-switch" checked={config.launchAtLogin} onChange={event => updateAutostart(event.target.checked)} />
+              </label>
+            </div>
+            <p className="settings-state-note">实际状态：{autostart ? '已启用' : '未启用'}</p>
+          </section>
 
-            {/* 自动粘贴 */}
-            <Card title={<HStack align="center" gap="xs"><Zap className="w-4 h-4 icon-accent" /><span>粘贴与恢复</span></HStack>}>
-              <VStack gap="md">
-                <Switch checked={config.autoPaste} onChange={v => onUpdateConfig('autoPaste', v)}
-                  label="自动粘贴" description="Enter 选定后自动复制并发送 Ctrl+V 粘贴到上一个应用" />
-                <Box border="top" paddingY="2xs" />
-                <Box padding="md" radius="md" background="subtle" border="all">
-                  <span className="text-xs text-theme-muted">
-                    剪贴板恢复功能在 V1 中不启用（PRD 硬约束 restoreClipboard=false）。
-                  </span>
-                </Box>
-              </VStack>
-            </Card>
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon"><Zap className="size-4" aria-hidden /></div>
+              <div><h2>粘贴行为</h2><p>决定选中片段后是否尝试向原窗口发送 Ctrl+V。</p></div>
+            </div>
+            <div className="settings-row">
+              <div><strong>自动粘贴</strong><span>关闭后仍可复制到剪贴板，但不会注入键盘事件。</span></div>
+              <input type="checkbox" className="manager-switch" checked={config.autoPaste} onChange={event => onUpdateConfig('autoPaste', event.target.checked)} aria-label="自动粘贴" />
+            </div>
+            <div className="settings-rule" />
+            <div className="settings-constraint">
+              <strong>剪贴板恢复已关闭</strong>
+              <span>V1 不保存或恢复用户原有剪贴板内容。</span>
+            </div>
+          </section>
 
-            {/* 主题 */}
-            <Card title={<HStack align="center" gap="xs"><Sun className="w-4 h-4 icon-accent" /><span>外观主题</span></HStack>}>
-              <HStack align="center" justify="space-between">
-                <span className="text-xs font-semibold text-theme">界面色彩风格</span>
-                <Inline gap="3xs" className="p-1 rounded-xl theme-surface-subtle border theme-divider">
-                  {([ ['light', Sun, '浅色'] as const, ['dark', Moon, '深色'] as const, ['system', Monitor, '跟随系统'] as const ]).map(([t, Icon, label]) => (
-                    <button key={t} type="button" onClick={() => handleThemeChange(t)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        config.theme === t ? 'nav-active shadow-xs' : 'interactive-muted'}`}>
-                      <Icon className="w-3.5 h-3.5" /><span>{label}</span>
-                    </button>
-                  ))}
-                </Inline>
-              </HStack>
-            </Card>
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon"><Sun className="size-4" aria-hidden /></div>
+              <div><h2>外观主题</h2><p>管理窗口与独立快速检索窗口共享后端主题设置。</p></div>
+            </div>
+            <div className="settings-theme-grid" role="group" aria-label="外观主题">
+              {themes.map(({ id, label, hint, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`settings-theme-option ${config.theme === id ? 'is-selected' : ''}`}
+                  onClick={() => handleThemeChange(id)}
+                  aria-pressed={config.theme === id}
+                >
+                  <Icon className="size-4" aria-hidden />
+                  <span><strong>{label}</strong><small>{hint}</small></span>
+                  {config.theme === id && <span className="settings-theme-check" aria-hidden>✓</span>}
+                </button>
+              ))}
+            </div>
+            <p className="settings-state-note">当前渲染：{effectiveTheme === 'dark' ? '深色 Aurora' : '浅色 Bloom'}</p>
+          </section>
 
-            {/* 最大结果数 */}
-            <Card title={<HStack align="center" gap="xs"><Settings className="w-4 h-4 icon-accent" /><span>检索与数据</span></HStack>}>
-              <VStack gap="md">
-                <HStack align="center" justify="space-between">
-                  <span className="text-xs font-semibold text-theme">最大结果数</span>
-                  <select value={config.maxResultsCount} onChange={e => onUpdateConfig('maxResultsCount', parseInt(e.target.value))}
-                    className="bg-transparent border-none text-theme font-medium outline-none cursor-pointer">
-                    {[5,10,20,50,100].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </HStack>
-                <Box border="top" paddingY="2xs" />
-                <HStack align="center" justify="space-between">
-                  <span className="text-xs font-semibold text-theme">回收站自动清理</span>
-                  <select value={config.trashAutoPurgeDays ?? ''} onChange={e => {
-                    const v = e.target.value ? parseInt(e.target.value) : null;
-                    onUpdateConfig('trashAutoPurgeDays', v);
-                  }}
-                    className="bg-transparent border-none text-theme font-medium outline-none cursor-pointer">
-                    <option value="">关闭</option>
-                    <option value="7">7 天</option>
-                    <option value="30">30 天</option>
-                    <option value="90">90 天</option>
-                  </select>
-                </HStack>
-              </VStack>
-            </Card>
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon"><Settings className="size-4" aria-hidden /></div>
+              <div><h2>检索与数据</h2><p>这些值会写入本地设置，并在重启后保持。</p></div>
+            </div>
+            <div className="settings-row">
+              <div><strong>最大结果数</strong><span>快速检索一次最多展示多少条结果。</span></div>
+              <SelectField
+                value={String(config.maxResultsCount)}
+                options={[5, 10, 20, 50, 100].map(value => ({ value: String(value), label: `${value} 条` }))}
+                onChange={value => onUpdateConfig('maxResultsCount', Number(value))}
+                ariaLabel="最大结果数"
+                className="settings-select"
+              />
+            </div>
+            <div className="settings-rule" />
+            <div className="settings-row">
+              <div><strong>回收站自动清理</strong><span>关闭，或在片段进入回收站后经过指定天数清理。</span></div>
+              <SelectField
+                value={config.trashAutoPurgeDays == null ? '' : String(config.trashAutoPurgeDays)}
+                options={[
+                  { value: '', label: '关闭' },
+                  { value: '7', label: '7 天' },
+                  { value: '30', label: '30 天' },
+                  { value: '90', label: '90 天' },
+                ]}
+                onChange={value => onUpdateConfig('trashAutoPurgeDays', value ? Number(value) : null)}
+                ariaLabel="回收站自动清理"
+                className="settings-select"
+              />
+            </div>
+          </section>
 
-            {/* 数据备份 */}
-            <Card title={<HStack align="center" gap="xs"><HardDrive className="w-4 h-4 icon-accent" /><span>数据备份与还原</span></HStack>}>
-              <VStack gap="md">
-                <HStack align="center" justify="space-between">
-                  <span className="text-xs font-semibold text-theme">导出 JSON 备份</span>
-                  <Button variant="secondary" size="sm" icon={<Download className="w-3.5 h-3.5" />} onClick={onExportData}>导出</Button>
-                </HStack>
-                <Box border="top" paddingY="2xs" />
-                <HStack align="center" justify="space-between">
-                  <span className="text-xs font-semibold text-theme">导入 JSON 备份</span>
-                  <label className="btn-secondary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" /><span>选择文件</span>
-                    <input type="file" accept=".json" onChange={onImportData} className="hidden" />
-                  </label>
-                </HStack>
-                <Box border="top" paddingY="2xs" />
-                <HStack align="center" justify="space-between">
-                  <span className="text-xs font-semibold text-danger">重置内置示例数据</span>
-                  <Button variant="danger" size="sm" icon={<RotateCcw className="w-3.5 h-3.5" />} onClick={onResetSampleData}>重置</Button>
-                </HStack>
-              </VStack>
-            </Card>
-          </VStack>
-        </Box>
-      </Box>
-    </Box>
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <div className="settings-section-icon"><HardDrive className="size-4" aria-hidden /></div>
+              <div><h2>本地备份</h2><p>备份文件为 UTF-8 明文 JSON；含敏感片段时请确认存放位置。</p></div>
+            </div>
+            <div className="settings-action-row">
+              <div><strong>导出 JSON 备份</strong><span>导出当前片段库与允许备份的设置。</span></div>
+              <button type="button" className="manager-button manager-button-secondary" onClick={onExportData}><Download className="size-3.5" aria-hidden />导出</button>
+            </div>
+            <div className="settings-rule" />
+            <div className="settings-action-row">
+              <div><strong>导入 JSON 备份</strong><span>选择文件后由应用服务校验格式，再决定是否写入。</span></div>
+              <label className="manager-button manager-button-secondary settings-file-button">
+                <Upload className="size-3.5" aria-hidden />选择文件
+                <input type="file" accept=".json" onChange={onImportData} className="sr-only" />
+              </label>
+            </div>
+            <div className="settings-rule" />
+            <div className="settings-action-row settings-danger-row">
+              <div><strong>重置内置示例数据</strong><span>这是破坏性操作，确认前不会改变数据库。</span></div>
+              <button type="button" className="manager-button manager-button-danger" onClick={onResetSampleData}><RotateCcw className="size-3.5" aria-hidden />重置</button>
+            </div>
+          </section>
+      </div>
+    </div>
   );
 };

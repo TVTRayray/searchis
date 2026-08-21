@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { AlertCircle, Lock, Settings, Star } from 'lucide-react';
+import { AlertCircle, Lock, Star } from 'lucide-react';
 import { SearchResultItem, settingsApi, snippetsApi } from '../api/snippets';
-import { Button, HStack, Inline, Kbd, useTheme, VStack } from './astryx';
+import { useTheme } from './ThemeProvider';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandShortcut } from './ui/command';
 
 interface QuickSearchWindowProps {
@@ -28,7 +28,6 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [total, setTotal] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -156,7 +155,6 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) return;
     if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
-    if (event.key === 'Tab') { event.preventDefault(); setShowPreview(value => !value); return; }
     if (event.key === 'ArrowDown' || event.key === 'j' || event.key === 'J') { event.preventDefault(); moveSelection(1); return; }
     if (event.key === 'ArrowUp' || event.key === 'k' || event.key === 'K') { event.preventDefault(); moveSelection(-1); return; }
     if (!(event.ctrlKey || event.metaKey)) {
@@ -178,7 +176,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       if (selectedIndex === index) void doPaste(item, false);
     }}>
       <span className={`quick-key ${selectedIndex === index ? 'quick-key-selected' : ''}`} aria-hidden>{item.pinned ? <Star className="size-3.5 fill-current" /> : item.key.slice(0, 2).toUpperCase()}</span>
-      <VStack gap="2xs" className="min-w-0 flex-1"><span className="truncate text-xs font-semibold">{item.title}</span><HStack gap="xs" align="center"><span className="truncate font-mono text-[11px] text-[color:var(--quick-muted)]">{highlight(item.key, searchQuery)}</span>{item.sensitive && <span className="quick-sensitive"><Lock className="size-3" />敏感</span>}{item.usageCount > 0 && <span className="quick-usage">使用 {item.usageCount} 次</span>}{item.tags.slice(0, 1).map(tag => <span className="quick-tag" key={tag}>#{tag}</span>)}</HStack></VStack>
+      <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2xs)' }}><span className="truncate text-xs font-semibold">{item.title}</span><div className="flex items-center gap-1.5"><span className="truncate font-mono text-[11px] text-[color:var(--quick-muted)]">{highlight(item.key, searchQuery)}</span>{item.sensitive && <span className="quick-sensitive"><Lock className="size-3" />敏感</span>}{item.usageCount > 0 && <span className="quick-usage">使用 {item.usageCount} 次</span>}{item.tags.slice(0, 1).map(tag => <span className="quick-tag" key={tag}>#{tag}</span>)}</div></div>
       {index < 9 && <CommandShortcut>Ctrl+{index + 1}</CommandShortcut>}
     </CommandItem>;
   };
@@ -188,16 +186,13 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       <Command shouldFilter={false} value={selected?.id ?? ''} onValueChange={id => setSelectedIndex(results.findIndex(item => item.id === id))}>
         <CommandInput ref={inputRef} value={searchQuery} onValueChange={setSearchQuery} onKeyDown={onKeyDown} placeholder="搜索 Key、别名、标题、标签或正文…" aria-label="检索文本片段" />
         {error && <div className="quick-error" role="alert"><AlertCircle className="size-4" aria-hidden />{error}</div>}
-        <div className="flex min-h-0 flex-1">
-          <CommandList className={`min-h-0 flex-1 ${showPreview ? 'border-r border-[color:var(--quick-border)]' : ''}`}>
-            <CommandEmpty>{!loading && <VStack align="center" justify="center" gap="md" className="px-4 text-center"><span className="text-xs text-[color:var(--quick-muted)]">{searchQuery ? '没有匹配的片段' : '暂无片段数据'}</span>{searchQuery && <Button variant="primary" size="sm" icon={<Star className="size-3.5" />} onClick={() => void createFromQuery()}>以该查询词为 Key 新建片段 <Kbd>Ctrl+N</Kbd></Button>}</VStack>}</CommandEmpty>
-            {pinned.length > 0 && <CommandGroup heading={`固定片段 · ${pinned.length}`}>{pinned.map(renderItem)}</CommandGroup>}
-            {ordinary.length > 0 && <CommandGroup heading={pinned.length ? `全部结果 · ${ordinary.length}` : `匹配片段结果 · ${ordinary.length} 条`}>{ordinary.map(renderItem)}</CommandGroup>}
-          </CommandList>
-          {showPreview && <aside className="quick-preview">{selected ? <VStack gap="md"><HStack align="center" justify="space-between"><span className="text-xs font-medium text-[color:var(--quick-muted)]">片段元信息</span><button className="quick-icon-button" onClick={() => { closingRef.current = true; onEditSnippet(selected); }} aria-label="跳转到该片段的管理编辑页"><Settings className="size-4" /></button></HStack><VStack gap="2xs"><h2 className="text-base font-bold">{selected.title}</h2><Inline gap="xs" align="center"><span className="text-[11px] text-[color:var(--quick-muted)]">Key:</span><span className="quick-tag">{selected.key}</span></Inline></VStack>{selected.aliases.length > 0 && <Inline gap="xs" align="center"><span className="text-[11px] text-[color:var(--quick-muted)]">别名:</span>{selected.aliases.map(alias => <span className="quick-tag" key={alias}>{alias}</span>)}</Inline>}{selected.tags.length > 0 && <Inline gap="xs" align="center"><span className="text-[11px] text-[color:var(--quick-muted)]">标签:</span>{selected.tags.map(tag => <span className="quick-tag" key={tag}>#{tag}</span>)}</Inline>}<span className="quick-usage">使用 {selected.usageCount} 次</span><div className="quick-content-notice">{selected.sensitive ? <><Lock className="size-5" aria-hidden /><span>••••••••••••••••</span><small>敏感信息默认已隐蔽</small></> : '正文仅在复制时写入剪贴板，不在此窗口展示。'}</div></VStack> : <div className="flex h-full items-center justify-center text-xs text-[color:var(--quick-muted)]">选择片段以查看元信息</div>}</aside>}
-        </div>
+        <CommandList className="min-h-0 flex-1">
+          <CommandEmpty>{!loading && <div className="flex flex-col items-center justify-center gap-3 px-4 text-center"><span className="text-xs text-[color:var(--quick-muted)]">{searchQuery ? '没有匹配的片段' : '暂无片段数据'}</span>{searchQuery && <button type="button" className="btn-primary inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all px-2.5 py-1 text-xs rounded-md" onClick={() => void createFromQuery()}>以该查询词为 Key 新建片段 <kbd className="raycast-kbd">Ctrl+N</kbd></button>}</div>}</CommandEmpty>
+          {pinned.length > 0 && <CommandGroup heading={`固定片段 · ${pinned.length}`}>{pinned.map(renderItem)}</CommandGroup>}
+          {ordinary.length > 0 && <CommandGroup heading={pinned.length ? `全部结果 · ${ordinary.length}` : `匹配片段结果 · ${ordinary.length} 条`}>{ordinary.map(renderItem)}</CommandGroup>}
+        </CommandList>
       </Command>
-      <footer className="quick-footer"><span><b>Searchis</b> · {loading ? '检索中…' : `展示 ${results.length} / 总数 ${total}`}</span><span>粘贴 <Kbd>↵</Kbd>　仅复制 <Kbd>Ctrl+↵</Kbd>　预览 <Kbd>Tab</Kbd>　关闭 <Kbd>Esc</Kbd></span></footer>
+      <footer className="quick-footer"><span><b>Searchis</b> · {loading ? '检索中…' : `展示 ${results.length} / 总数 ${total}`}</span><span>粘贴 <kbd className="raycast-kbd">↵</kbd>　仅复制 <kbd className="raycast-kbd">Ctrl+↵</kbd>　关闭 <kbd className="raycast-kbd">Esc</kbd></span></footer>
     </section>
   </main>;
 };

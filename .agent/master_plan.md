@@ -10,14 +10,12 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前阶段
 
-- 阶段名称：Phase 7 — 重构前端定向并入
-- 阶段目标：把外部 shadcn/ui 视觉重构并入正式应用，同时保留已验收的真实数据、双窗口、KGlobalAccel/X11、设置和 KDE AppMenu 契约；按最新产品决策在 SPEC-14 删除前端使用引导。
-- 外部视觉源：`/home/ray/.herdr/worktrees/searchis/rebuild-front/front-baseline` commit `0b28f05c230a544266eb508d52a66c9bf390d029`
-- 当前活跃 Spec：`.agent/specs/13-manager-settings-visual-refactor.md`
-- 当前状态：`qa_failed`（release 实机确认 RF8 仍失败）
-- 当前责任角色：`Coder`
-- QA Status：`failed`
-- 下一步：Coder 仅修复管理筛选及两个设置 Select 在 release WebKitGTK 中的 Bloom/Aurora 闭合态与展开选项样式；Reduced motion、WCAG AA、键盘焦点及 Frozen Passed 项禁止重测。
+- 阶段名称：Phase 8 — 发布阻塞后处理
+- 阶段目标：处理两项发布阻塞后处理项（回收站检索索引一致性、KDE AppMenu 实机显示），各自独立拆 slice 经 Coder → QA。
+- 当前活跃 Spec：`.agent/specs/16-kde-appmenu-restore.md`
+- 当前状态：`in_qa`（SPEC-16 QA `conditional_pass`，zbus 重做通过，待实机 Gate）
+- 当前责任角色：`Orchestrator`
+- 下一步：Orchestrator 实机验收 SPEC-16 Global Menu 显示/5 秒恢复/命令触发/不阻塞启动。
 
 ## 技术决策
 
@@ -48,8 +46,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 09 | [KDE Plasma 全局菜单](specs/09-kde-global-menu.md) | Global Menu 展示五组菜单，复用业务命令并在重启后重注册 | 03、04、07 | `done` |
 | 10 | [发布候选与质量门槛](specs/10-release-quality-gate.md) | 可执行文件、校验值、依赖说明、性能/隐私/无障碍验收证据 | 01–09 | `done` |
 | 12 | [快速检索窗口视觉重构并入](specs/12-quick-search-visual-refactor.md) | shadcn/cmdk 新视觉进入独立检索窗口，真实检索/粘贴/键盘行为不变 | V1 基线冻结 | `done` |
-| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `qa_failed`（RF8） |
-| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `todo`（blocked by 13） |
+| 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `done` |
+| 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `done` |
+| 15 | [回收站操作与检索索引一致性](specs/15-searchindex-trash-consistency.md) | 软删除/还原/永久删除/清空/自动清理后检索结果与回收站状态一致 | — | `done` |
+| 16 | [KDE AppMenu 实机显示恢复](specs/16-kde-appmenu-restore.md) | 五组菜单在 KDE Global Menu 实机显示、命令可触发、重启后 5s 内重注册 | — | `in_qa`（重做后待 QA） |
 
 ## 看板
 
@@ -59,17 +59,24 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ### QA Queue
 
+- [ ] SPEC-16 KDE AppMenu：QA `conditional_pass`（zbus DBusMenu 重做通过），待 Orchestrator 实机 Gate
+
+### Returned To Coder
+
 - [ ] 无
 
 ### Returned To Coder
 
-- [ ] SPEC-13 RF8：release WebKitGTK 中管理筛选、“最大结果数”、“回收站自动清理”的闭合态/展开选项仍未匹配 Bloom/Aurora 主题与新版样式。
+- [ ] 无
 
 ### Blocked
 
-- [ ] SPEC-14 blocked by SPEC-13 QA passed。
-- [ ] KDE AppMenu 实机未显示：SPEC-09 回归，需单独修复/验收，阻塞最终发布。
-- [ ] 回收站检索索引失效：`trash_move`/`trash_restore`/`trash_purge_one`/`trash_empty`/`auto_purge` 未同步 Rust `SearchIndex`；永久删除后快速搜索仍返回旧记录。独立于 SPEC-13，需单独修复并增加索引一致性回归测试。
+- [ ] 无（SPEC-14 已 done）
+
+### 后处理项（Post-processing，不阻塞当前 SPEC，置后单独拆 slice 修复/验收）
+
+- [ ] KDE AppMenu 实机未显示：已拆为 `specs/16-kde-appmenu-restore.md`，SPEC-15 后处理。
+- [ ] 回收站检索索引失效：已拆为 `specs/15-searchindex-trash-consistency.md`，当前活跃。
 
 ### Gate 0 验证记录
 
@@ -98,6 +105,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - [x] SPEC-08 六步首次使用向导（55 tests + clippy + build，后端完整实现，环境检测/进度/完成，QA 验收通过 2026-08-10）
 - [x] SPEC-09 KDE Plasma 全局菜单（55 tests + clippy + build，AppMenu D-Bus 适配，五组菜单模型，AC-16/17 合规，QA 验收通过 2026-08-10）
 - [x] SPEC-10 发布候选与质量门槛（55 tests + clippy + build，AC-01~20 回归全通过，性能/安全/加密验证，V1 发布就绪，QA 验收通过 2026-08-10）
+- [x] SPEC-13 管理窗口与设置视觉重构并入（RF5~RF7 复审 + RF8 release 实机通过；QA conditional_pass，Orchestrator 2026-08-21 放行转 `done`）
 - [x] Gate 0：SPEC-03~10 状态与 QA 结论统一；Rust tests/frontend build/clippy/release build 通过；当前 V1 工作树冻结为 git 基线并标记 `v1-gate0-baseline`。E2E 多窗口 Driver 问题已作为明确限制记录。
 
 ## 跨 Spec 不变量
@@ -124,6 +132,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-08（QA F1 根因）：确认 `cargo build --release`（直接 Cargo 构建）不走 Tauri CLI 的前端嵌入流水线（`beforeBuildCommand` 不执行），产出的二进制可能嵌入过时/空的 `dist/` 资源。唯一正确的发布构建命令为 `npm run tauri:build`（该命令依次执行 `npm run build` + `tauri build`，在 Cargo 编译前完成前端资源嵌入）。
 - 前端重构并入决策：外部 commit `0b28f05c...` 仅作为视觉/组件源，禁止整目录覆盖。不得并入其 mock `initialSnippets/searchEngine`、localStorage 领域数据、Option/Cmd 键位、音效/restoreClipboard 配置、单窗口 tauri.conf 或旧 Rust 源码。
 - 并入顺序固定为 SPEC-12 快速检索 → SPEC-13 管理/设置 → SPEC-14 向导/帮助/清理；每个 slice 独立 Coder/QA，失败只回滚当前 slice。
+- 2026-08-21：Orchestrator 确认 RF8 release 实机通过，SPEC-13 由 `in_qa`/`conditional_pass` 收为 `done` 并放行；SPEC-14 置为当前活跃 spec 交 Coder。
+- 2026-08-21：Orchestrator 决定将两项独立发布阻塞（KDE AppMenu 未显示；Rust `SearchIndex` 未同步回收站操作）登记为**后处理项**，不阻塞当前 SPEC-14，待其完成后单独拆 slice 修复/验收。
+- 2026-08-21：SPEC-14 收为 `done`，Phase 7 完成。两项后处理项分别拆为 SPEC-15（回收站检索索引一致性，当前活跃）与 SPEC-16（KDE AppMenu 实机显示恢复），进入 Phase 8。
 
 ## 风险记录
 
@@ -138,14 +149,10 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：`SPEC-13`
-- 状态：`qa_failed`
-- Next Owner：`Coder`
-- QA Status：`failed`
-- Blocking Issue：release WebKitGTK 实机确认 RF8 三个 Select 的控件/展开选项仍未匹配 Bloom/Aurora；临时 WDIO 闭合态检查是假阳性。
-- Frozen Passed（禁止重复验收）：CRUD、敏感信息、设置持久化、快捷键失败回滚、Tab 功能删除、浅色强调色、主题同步、Reduced motion、WCAG AA、键盘焦点。
-- Required Fix：仅 RF8；修复后人工只复测三个 Select 的浅/深闭合态与展开态。
-- Environment Note：生产数据库存在但 `/home/ray/.config/io.searchis.desktop/database.key` 缺失；不得创建替代 key。Orchestrator 已改用隔离 XDG 临时数据库完成本轮 UI 测试。
-- Separate Blockers：KDE AppMenu 未显示；Rust 回收站操作未同步 `SearchIndex`，永久删除后快速搜索仍返回旧记录。二者均独立于禁止改 Rust 的 SPEC-13，但阻塞最终发布。
-- Retest Required：`yes`（仅 RF8 三个 Select；其余冻结项不返工）。
-- Last Updated：2026-08-14 Orchestrator 隔离数据库实机第四轮复测
+- Spec：`SPEC-16`
+- 状态：`in_qa`（QA `conditional_pass`，zbus 重做通过，待实机 Gate）
+- Next Owner：`Orchestrator`
+- 类型：发布阻塞后处理项（KDE AppMenu 实机显示恢复）。
+- 重做实现：zbus 导出 com.canonical.dbusmenu（/MenuBar：GetLayout/GetGroupProperties/GetProperty/AboutToShow/Event(clicked)→dispatch_app_command）+ RegisterWindow(真实 XID, "org.kde.searchis/MenuBar")；xdotool 取 XID；保留 monitor 5s 重注册/降级/错误码/日志；70 tests passed、clippy/build 干净。
+- 实机 Gate 必做（目标 Arch/KDE/X11）：五组菜单显示、命令触发、Plasma 重启 5s 恢复、无小部件不阻塞。
+- Last Updated：2026-08-21 SPEC-16 QA conditional_pass（zbus 重做），转 Orchestrator 实机 Gate

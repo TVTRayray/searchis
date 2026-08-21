@@ -112,6 +112,21 @@ pub fn run() {
             logger.record("startup_environment", &environment_code);
             app.manage(state);
 
+            // SPEC-16: 启动时注册 KDE AppMenu 五组菜单，并后台监视 Registrar 出现/消失以 5 秒内重连。
+            // 无 Global Menu / D-Bus 不可用时不阻塞启动，注册失败记录可观测状态。
+            {
+                let menu = platform::build_menu_model(None, "");
+                let registrar = Arc::new(std::sync::Mutex::new(platform::AppMenuRegistrar::new()));
+                match registrar.lock() {
+                    Ok(mut reg) => match reg.register(&menu) {
+                        Ok(()) => logger.record("appmenu_register", "OK_registered"),
+                        Err(e) => logger.failure("appmenu_register", &e),
+                    },
+                    Err(_) => logger.record("appmenu_register", "MUTEX_POISONED"),
+                }
+                platform::spawn_appmenu_monitor(registrar, menu);
+            }
+
             // 检索窗口 WM 关闭拦截
             if let Some(search_window) = app.get_webview_window("search") {
                 let window_for_close = search_window.clone();

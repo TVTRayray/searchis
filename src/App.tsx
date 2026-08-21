@@ -11,23 +11,13 @@ import {
   snippetsApi,
   windowApi,
 } from './api/snippets';
-import {
-  ThemeProvider,
-  AppShell,
-  Box,
-  VStack,
-  HStack,
-  Button,
-  Kbd,
-  useTheme,
-} from './components/astryx';
+import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { HeaderBar } from './components/HeaderBar';
 import { QuickSearchWindow } from './components/QuickSearchWindow';
 import { ManagerWindow } from './components/ManagerWindow';
 import { SettingsModal } from './components/SettingsModal';
-import { OnboardingWizard } from './components/OnboardingWizard';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
 // 纯浏览器（vite dev 无 Tauri）环境回退为管理窗口形态。
@@ -96,11 +86,13 @@ const MainContent: React.FC = () => {
   const [settingsRevision, setSettingsRevision] = useState(1);
   const settingsRevisionRef = useRef(1);
   const [config, setConfig] = useState<SettingsConfig>(DEFAULT_CONFIG);
+  const { setTheme } = useTheme();
 
-  // SPEC-06: 从后端加载设置
+  // SPEC-06: 从后端加载设置；主窗口以持久化后端主题覆盖旧的本地初始值。
   useEffect(() => {
     settingsApi.get().then(res => {
       setConfig(prev => ({ ...prev, ...res.settings }));
+      setTheme(res.settings.theme as 'light' | 'dark' | 'system');
       settingsRevisionRef.current = res.revision;
       setSettingsRevision(res.revision);
     }).catch(() => {
@@ -135,10 +127,9 @@ const MainContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewMode>('manager');
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [pendingPermanentDeleteId, setPendingPermanentDeleteId] = useState<string | null>(null);
   const [editRequestId, setEditRequestId] = useState<string | null>(null);
   const [prefillCreateKey, setPrefillCreateKey] = useState<string | undefined>();
-
-  const { effectiveTheme } = useTheme();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -257,7 +248,51 @@ const MainContent: React.FC = () => {
     await handleCopySnippet(snippet);
   };
 
-  // 以下功能由后续 Spec 提供：回收站（SPEC-05）、导入导出/重置（SPEC-07）
+  const handleDeleteSnippet = async (id: string) => {
+    const target = snippets.find(snippet => snippet.id === id);
+    if (!target) return;
+    try {
+      await snippetsApi.trashMove(id);
+      showToast(`片段 "${target.key}" 已移入回收站`);
+      await refresh();
+    } catch (error) {
+      showToast(`移入回收站失败：${errorMessage(error)}`, 'error');
+    }
+  };
+
+  const handleRestoreSnippet = async (id: string) => {
+    const target = snippets.find(snippet => snippet.id === id);
+    if (!target) return;
+    try {
+      await snippetsApi.trashRestore(id);
+      showToast(`片段 "${target.key}" 已恢复`);
+      await refresh();
+    } catch (error) {
+      showToast(`恢复片段失败：${errorMessage(error)}`, 'error');
+    }
+  };
+
+  const handlePermanentDeleteSnippet = (id: string) => {
+    if (snippets.some(snippet => snippet.id === id && snippet.deletedAt)) {
+      setPendingPermanentDeleteId(id);
+    }
+  };
+
+  const confirmPermanentDelete = async () => {
+    const id = pendingPermanentDeleteId;
+    const target = snippets.find(snippet => snippet.id === id);
+    setPendingPermanentDeleteId(null);
+    if (!id || !target) return;
+    try {
+      await snippetsApi.trashPurgeOne(id, `purge_${id}_${Date.now()}`);
+      showToast(`片段 "${target.key}" 已永久删除`);
+      await refresh();
+    } catch (error) {
+      showToast(`永久删除失败：${errorMessage(error)}`, 'error');
+    }
+  };
+
+  // 导入导出/重置仍由后续 UI slice 接入既有 Rust 命令。
   const notYet = (feature: string) => () => {
     showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
   };
@@ -280,109 +315,76 @@ const MainContent: React.FC = () => {
 
   if (loading) {
     return (
-      <Box className="h-screen w-full flex items-center justify-center ambient-glow-bg">
-        <span className="text-sm text-theme-muted">正在打开加密数据库…</span>
-      </Box>
+      <div className="main-window-shell main-window-loading">
+        <span>正在打开加密数据库…</span>
+      </div>
     );
   }
 
   return (
-    <AppShell
-      title="Searchis"
-      subtitle={`Arch Linux 本机文本片段工具 (${effectiveTheme === 'dark' ? '深色' : '浅色'}主题)`}
-      nav={
-        <HeaderBar
-          currentView={currentView}
-          onSelectView={setCurrentView}
-          config={config}
-          onUpdateConfig={updateConfig}
-          snippetCount={snippets.filter(s => !s.deletedAt).length}
-          onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
-          onOpenQuickPicker={handleOpenSearchWindow}
-        />
-      }
-      actions={
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<Zap className="w-3.5 h-3.5" />}
-          onClick={handleOpenSearchWindow}
-        >
-          呼出快速窗口 <Kbd>Alt+O</Kbd>
-        </Button>
-      }
-    >
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-pop-in">
-          <Box
-            paddingX="lg"
-            paddingY="md"
-            radius="lg"
-            shadow="elevated"
-            background="elevated"
-            border="all"
-            className={`flex items-center gap-2 ${
-              toast.type === 'success' ? 'status-success' : 'status-danger'
-            }`}
-          >
-            {toast.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4" />
-            ) : (
-              <AlertCircle className="w-4 h-4" />
-            )}
-            <span className="text-xs font-semibold">{toast.message}</span>
-          </Box>
-        </div>
-      )}
+    <div className="main-window-shell">
+      <HeaderBar
+        currentView={currentView}
+        onSelectView={setCurrentView}
+        config={config}
+        onUpdateConfig={updateConfig}
+        onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+      />
 
-      {/* Main View Renderer */}
-      {currentView === 'manager' && (
-        <ManagerWindow
-          snippets={snippets}
-          onSaveSnippet={handleSaveSnippet}
-          onDeleteSnippet={notYet('回收站')}
-          onRestoreSnippet={notYet('回收站')}
-          onPermanentDeleteSnippet={notYet('回收站')}
-          onCopySnippet={handleCopySnippet}
-          onPasteSnippet={handlePasteSnippet}
-          onOpenSettings={() => setCurrentView('settings')}
-          editRequestId={editRequestId}
-          prefillCreateKey={prefillCreateKey}
-          onRequestHandled={handleRequestHandled}
-        />
-      )}
+      <main className="main-window-content">
+        {toast && (
+          <div className="main-toast" role="status" aria-live="polite">
+            {toast.type === 'success' ? <CheckCircle2 className="size-4" aria-hidden /> : <AlertCircle className="size-4" aria-hidden />}
+            <span>{toast.message}</span>
+          </div>
+        )}
 
-      {currentView === 'onboarding' && (
-        <OnboardingWizard
-          onComplete={() => setCurrentView('manager')}
-          onCreateSnippet={(key, title, content) => {
-            snippetsApi
-              .create({ key, title, content, aliases: [], tags: ['向导新建'], sensitive: false, pinned: false }, crypto.randomUUID())
-              .then(() => refresh())
-              .then(() => showToast('片段已创建'))
-              .catch(e => showToast(`创建失败：${errorMessage(e)}`, 'error'));
-          }}
-        />
-      )}
+        {pendingPermanentDeleteId && (
+          <div className="manager-confirm-backdrop" role="presentation">
+            <section className="manager-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="permanent-delete-title" aria-describedby="permanent-delete-description">
+              <h2 id="permanent-delete-title">确认永久删除？</h2>
+              <p id="permanent-delete-description">此操作不可恢复，片段将从加密数据库中永久移除。</p>
+              <div className="manager-confirm-actions">
+                <button type="button" className="manager-button manager-button-secondary" onClick={() => setPendingPermanentDeleteId(null)}>取消</button>
+                <button type="button" className="manager-button manager-button-danger" onClick={confirmPermanentDelete}>确认永久删除</button>
+              </div>
+            </section>
+          </div>
+        )}
 
-      {currentView === 'settings' && (
-        <SettingsModal
-          config={config}
-          onUpdateConfig={updateConfig}
-          onExportData={notYet('数据导出')}
-          onImportData={notYet('数据导入')}
-          onResetSampleData={notYet('重置示例数据')}
-          onClose={() => setCurrentView('manager')}
-        />
-      )}
+        {currentView === 'manager' && (
+          <ManagerWindow
+            snippets={snippets}
+            onSaveSnippet={handleSaveSnippet}
+            onDeleteSnippet={handleDeleteSnippet}
+            onRestoreSnippet={handleRestoreSnippet}
+            onPermanentDeleteSnippet={handlePermanentDeleteSnippet}
+            onCopySnippet={handleCopySnippet}
+            onPasteSnippet={handlePasteSnippet}
+            onOpenSettings={() => setCurrentView('settings')}
+            editRequestId={editRequestId}
+            prefillCreateKey={prefillCreateKey}
+            onRequestHandled={handleRequestHandled}
+          />
+        )}
 
-      {/* Keyboard Shortcuts Help Modal */}
+        {currentView === 'settings' && (
+          <SettingsModal
+            config={config}
+            onUpdateConfig={updateConfig}
+            onExportData={notYet('数据导出')}
+            onImportData={notYet('数据导入')}
+            onResetSampleData={notYet('重置示例数据')}
+            onClose={() => setCurrentView('manager')}
+          />
+        )}
+      </main>
+
       <KeyboardShortcutsModal
         isOpen={isKeyboardHelpOpen}
         onClose={() => setIsKeyboardHelpOpen(false)}
       />
-    </AppShell>
+    </div>
   );
 };
 

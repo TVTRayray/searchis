@@ -118,6 +118,10 @@ const searchItems = async (windowLabel: string, query: string): Promise<SearchIt
   return response.items;
 };
 
+type SnippetRecord = { id: string; key: string; title: string; deletedAt: string | null };
+const listSnippetRecords = async (): Promise<SnippetRecord[]> =>
+  await inWindow('main', (tauri: any) => tauri.core.invoke('snippet_list')) as SnippetRecord[];
+
 const selectedResultId = async () => String(await inWindow(
   'search',
   () => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') ?? '',
@@ -144,7 +148,16 @@ const sendSearchKey = async (
 };
 
 const openSearch = async () => {
-  await clickButtonContaining('main', '呼出快速窗口');
+  await inWindow('main', () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'o',
+      code: 'KeyO',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    }));
+    return true;
+  });
   await waitForWindow('search', true);
   await waitFor('search', (_tauri, selector) => Boolean(document.querySelector(selector as string)), [inputSelectors.search]);
 };
@@ -174,6 +187,38 @@ const shellComputedProbe = async () => inWindow('search', () => {
     lightness,
   };
 }) as Promise<{ theme?: string; rootClass: string; backgroundColor: string; quickCanvas: string; colorScheme: string; lightness: number } | null>;
+
+const managerComputedProbe = async () => inWindow('main', () => {
+  const canvas = getComputedStyle(document.documentElement).getPropertyValue('--color-canvas').trim();
+  return {
+    theme: document.documentElement.dataset.theme,
+    canvas,
+    hasHeader: Boolean(document.querySelector('.manager-header')),
+    hasWorkspace: Boolean(document.querySelector('.manager-workspace')),
+    hasSettings: Boolean(document.querySelector('.settings-page')),
+    themeChoices: document.querySelectorAll('.settings-theme-option').length,
+    rootClass: document.documentElement.className,
+    bodyText: document.body.textContent ?? '',
+  };
+}) as Promise<{ theme?: string; canvas: string; hasHeader: boolean; hasWorkspace: boolean; hasSettings: boolean; themeChoices: number; rootClass: string; bodyText: string }>;
+
+const lightAccentProbe = async () => inWindow('main', () => {
+  const root = getComputedStyle(document.documentElement);
+  const accent = root.getPropertyValue('--color-accent').trim();
+  const contrast = root.getPropertyValue('--color-accent-contrast').trim();
+  const lightness = Number(accent.match(/oklch\(\s*([\d.]+)%/)?.[1] ?? -1) / 100;
+  const add = document.querySelector('.manager-add-button');
+  const primary = document.querySelector('.manager-button-primary');
+  const checkedSwitch = document.querySelector('.manager-switch:checked');
+  return {
+    accent,
+    contrast,
+    lightness,
+    addBackground: add ? getComputedStyle(add).backgroundColor : '',
+    primaryBackground: primary ? getComputedStyle(primary).backgroundColor : '',
+    switchBackground: checkedSwitch ? getComputedStyle(checkedSwitch).backgroundColor : '',
+  };
+}) as Promise<{ accent: string; contrast: string; lightness: number; addBackground: string; primaryBackground: string; switchBackground: string }>;
 
 const setBackendTheme = async (theme: 'light' | 'dark') => {
   const current = await inWindow('main', (tauri: any) => tauri.core.invoke('settings_get')) as { revision: number };
@@ -205,6 +250,63 @@ const createSnippet = async (snippet: typeof snippets[number]) => {
 
 describe('compiled Searchis application', () => {
   it('keeps the quick-search visual and keyboard contract on real data', async () => {
+    await waitFor('main', () => Boolean(document.querySelector('.manager-header')), [], 'manager header did not render');
+    await click('main', 'button[aria-label="打开设置"]');
+    await waitFor('main', () => Boolean(document.querySelector('.settings-page')), [], 'settings page did not render');
+    const settingsSurface = await managerComputedProbe();
+    if (!settingsSurface.hasHeader || !settingsSurface.hasSettings || settingsSurface.themeChoices !== 3) {
+      throw new Error(`SPEC-13 settings surface is incomplete: ${JSON.stringify(settingsSurface)}`);
+    }
+
+    await clickButtonContaining('main', '浅色');
+    await waitFor('main', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'manager light theme did not apply');
+    await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'light'), [], 'manager light theme was not persisted');
+    const lightManager = await managerComputedProbe();
+    const lightAccent = await lightAccentProbe();
+    if (lightManager.theme !== 'light' || !lightManager.hasHeader || !lightManager.canvas || lightAccent.lightness < 0.35 || lightAccent.lightness > 0.7 || !/^#fff(?:fff)?$/i.test(lightAccent.contrast) || !lightAccent.switchBackground) {
+      throw new Error(`manager light theme/layout/accent mismatch: ${JSON.stringify({ lightManager, lightAccent })}`);
+    }
+
+    await clickButtonContaining('main', '深色');
+    await waitFor('main', () => document.documentElement.dataset.theme === 'dark' && !document.documentElement.classList.contains('theme-transition'), [], 'manager dark theme did not apply');
+    await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'dark'), [], 'manager dark theme was not persisted');
+    const darkManager = await managerComputedProbe();
+    if (darkManager.theme !== 'dark' || !darkManager.hasHeader || !darkManager.canvas) {
+      throw new Error(`manager dark theme/layout mismatch: ${JSON.stringify(darkManager)}`);
+    }
+
+    await clickButtonContaining('main', '跟随系统');
+    const systemTheme = await inWindow('main', () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') as string;
+    await waitFor('main', (_tauri, expectedTheme) => document.documentElement.dataset.theme === expectedTheme && !document.documentElement.classList.contains('theme-transition'), [systemTheme], 'manager system theme did not follow the OS preference');
+    await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'system'), [], 'manager system theme was not persisted');
+
+    await clickButtonContaining('main', '浅色');
+    await waitFor('main', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'manager did not return to light theme');
+    await click('main', 'button[aria-label="返回片段管理"]');
+    await waitFor('main', () => Boolean(document.querySelector('.manager-workspace')), [], 'manager workspace did not render');
+    const managerAccent = await lightAccentProbe();
+    if (!managerAccent.addBackground || !managerAccent.primaryBackground) {
+      throw new Error(`manager light actions did not render with the shared accent token: ${JSON.stringify(managerAccent)}`);
+    }
+
+    // RF8 regression: a mouse option selection must close the themed listbox.
+    const sortTrigger = 'button[role="combobox"][aria-label="排序方式"]';
+    const sortListbox = '[role="listbox"][aria-label="排序方式"]';
+    await click('main', sortTrigger);
+    await waitFor('main', (_tauri, selector) => Boolean(document.querySelector(selector as string)), [sortListbox], 'manager sort listbox did not open');
+    await inWindow('main', (_tauri, selector) => {
+      const option = [...document.querySelectorAll(`${selector as string} [role="option"]`)].find(item => item.getAttribute('aria-selected') !== 'true');
+      if (!(option instanceof HTMLElement)) return false;
+      option.click();
+      return true;
+    }, sortListbox);
+    await waitFor('main', (_tauri, selector) => !document.querySelector(selector as string), [sortListbox], 'manager sort listbox stayed open after mouse selection');
+    const sortSelection = await inWindow('main', (_tauri, selector) => {
+      const trigger = document.querySelector(selector as string);
+      return trigger instanceof HTMLButtonElement && trigger.getAttribute('aria-expanded') === 'false' && document.activeElement === trigger;
+    }, sortTrigger);
+    if (!sortSelection) throw new Error('manager sort trigger did not retain focus after mouse selection');
+
     await setBackendTheme('light');
     await openSearch();
     const searchWindow = (await exec('xdotool', ['search', '--name', 'Searchis 快速检索'])).stdout.trim().split('\n').at(-1);
@@ -276,11 +378,20 @@ describe('compiled Searchis application', () => {
     await openSearch();
     await setValue('search', inputSelectors.search, snippets[0].key);
     await waitFor('search', (_tauri, title) => document.body.textContent?.includes(title as string) ?? false, [snippets[0].title], 'search result did not appear');
-    await sendSearchKey('Tab');
-    await waitFor('search', () => Boolean(document.querySelector('.quick-preview')), [], 'preview did not open');
-    await sendSearchKey('Tab');
-    await waitFor('search', () => !document.querySelector('.quick-preview'), [], 'preview did not close');
     await closeSearch();
+
+    // Real trash lifecycle: delete from the manager, restore from the trash view.
+    const recycleTarget = snippets[1];
+    await clickButtonContaining('main', recycleTarget.title);
+    await click('main', 'button[aria-label="放入回收站"]');
+    await browser.waitUntil(async () => (await listSnippetRecords()).find(item => item.key === recycleTarget.key)?.deletedAt !== null, { timeout: 5_000, interval: 100, timeoutMsg: 'delete IPC did not mark the snippet as trashed' });
+    await clickButtonContaining('main', '回收站');
+    await waitFor('main', (_tauri, title) => [...document.querySelectorAll('.manager-snippet-row')].some(row => row.textContent?.includes(title as string)), [recycleTarget.title], 'deleted snippet did not appear in trash');
+    await clickButtonContaining('main', recycleTarget.title);
+    await clickButtonContaining('main', '恢复');
+    await browser.waitUntil(async () => (await listSnippetRecords()).find(item => item.key === recycleTarget.key)?.deletedAt === null, { timeout: 5_000, interval: 100, timeoutMsg: 'restore IPC did not clear deletedAt' });
+    await clickButtonContaining('main', '全部片段');
+    await waitFor('main', (_tauri, title) => [...document.querySelectorAll('.manager-snippet-row')].some(row => row.textContent?.includes(title as string)), [recycleTarget.title], 'restored snippet did not return to all snippets');
 
     // Navigation is asserted by item identity, including both J/K directions.
     await openSearch();
@@ -292,10 +403,10 @@ describe('compiled Searchis application', () => {
     await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [firstSelected], 'ArrowDown did not move selection');
     const afterArrowDown = await selectedResultId();
     await sendSearchKey('k');
-    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-value') !== previous, [afterArrowDown], 'K did not move selection');
+    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterArrowDown], 'K did not move selection');
     const afterK = await selectedResultId();
     await sendSearchKey('j');
-    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-value') !== previous, [afterK], 'J did not move selection');
+    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterK], 'J did not move selection');
 
     // IME composition must not trigger Enter or change usage.
     const beforeIme = await selectedResultId();
@@ -354,15 +465,22 @@ describe('compiled Searchis application', () => {
     await waitForWindow('search', true);
     await closeSearch();
 
-    // Sensitive content is never rendered by the search DTO or preview.
+    // Sensitive content is never rendered by the search DTO.
     await openSearch();
     await setValue('search', inputSelectors.search, snippets[2].key);
     await waitFor('search', (_tauri, title) => document.body.textContent?.includes(title as string) ?? false, [snippets[2].title]);
     if (await hasText('search', snippets[2].content)) throw new Error('sensitive content leaked into quick-search DOM');
-    await sendSearchKey('Tab');
-    await waitFor('search', () => Boolean(document.querySelector('.quick-preview')), [], 'sensitive preview did not open');
-    if (await hasText('search', snippets[2].content)) throw new Error('sensitive content leaked into preview DOM');
     await closeSearch();
+
+    // Permanent deletion requires an explicit native confirmation and removes the real row.
+    await clickButtonContaining('main', snippets[1].title);
+    await click('main', 'button[aria-label="放入回收站"]');
+    await clickButtonContaining('main', '回收站');
+    await clickButtonContaining('main', snippets[1].title);
+    await clickButtonContaining('main', '彻底删除');
+    await waitFor('main', () => Boolean(document.querySelector('[role="alertdialog"]')), [], 'permanent deletion confirmation did not open');
+    await clickButtonContaining('main', '确认永久删除');
+    await browser.waitUntil(async () => !(await listSnippetRecords()).some(item => item.key === snippets[1].key), { timeout: 5_000, interval: 100, timeoutMsg: 'permanently deleted snippet remained in the real list' });
 
     // RF3 lifecycle check is last: after the native window hides, no search-context calls follow.
     await openSearch();
