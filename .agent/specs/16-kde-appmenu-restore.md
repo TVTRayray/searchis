@@ -2,9 +2,9 @@
 
 ## 基本信息
 
-- 当前状态：`in_qa`
-- 当前责任角色：`QA`
-- Coder 重做：zbus 导出 com.canonical.dbusmenu(/MenuBar/GetLayout/Event→dispatch) + RegisterWindow 真实 XID；70 tests passed（+1）、clippy/build 干净。实机 Gate 待 Orchestrator。
+- 当前状态：`done`
+- 当前责任角色：`Orchestrator`（已收口）
+- Coder 重做：zbus 导出 com.canonical.dbusmenu(/MenuBar/GetLayout/Event→dispatch) + RegisterWindow 真实 XID；70 tests passed、clippy/build 干净。实机 Gate 已通过（2026-08-21）。
 - 类型：发布阻塞后处理项
 - 关联 PRD：`FR-KDE-01/02`、`AC-16/17`、AGENT.md 第 5 节（D-Bus AppMenu 导出、Registrar 重启 5s 内重注册、无小部件不阻塞启动）
 - 前置 Spec：无（独立，SPEC-09 回归项）

@@ -106,6 +106,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - [x] SPEC-09 KDE Plasma 全局菜单（55 tests + clippy + build，AppMenu D-Bus 适配，五组菜单模型，AC-16/17 合规，QA 验收通过 2026-08-10）
 - [x] SPEC-10 发布候选与质量门槛（55 tests + clippy + build，AC-01~20 回归全通过，性能/安全/加密验证，V1 发布就绪，QA 验收通过 2026-08-10）
 - [x] SPEC-13 管理窗口与设置视觉重构并入（RF5~RF7 复审 + RF8 release 实机通过；QA conditional_pass，Orchestrator 2026-08-21 放行转 `done`）
+- [x] SPEC-15 回收站与检索索引一致性（SearchIndex::remove + 回收站五条写路径定向同步；62 tests，QA passed 2026-08-21；修复永久删除后仍可搜到）
+- [x] SPEC-16 KDE AppMenu 实机显示恢复（zbus 导出 com.canonical.dbusmenu + RegisterWindow 真实 XID；70 tests，QA conditional_pass + Orchestrator 实测通过，2026-08-21 `done`；修复全局菜单不显示）
 - [x] Gate 0：SPEC-03~10 状态与 QA 结论统一；Rust tests/frontend build/clippy/release build 通过；当前 V1 工作树冻结为 git 基线并标记 `v1-gate0-baseline`。E2E 多窗口 Driver 问题已作为明确限制记录。
 
 ## 跨 Spec 不变量
@@ -135,6 +137,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-21：Orchestrator 确认 RF8 release 实机通过，SPEC-13 由 `in_qa`/`conditional_pass` 收为 `done` 并放行；SPEC-14 置为当前活跃 spec 交 Coder。
 - 2026-08-21：Orchestrator 决定将两项独立发布阻塞（KDE AppMenu 未显示；Rust `SearchIndex` 未同步回收站操作）登记为**后处理项**，不阻塞当前 SPEC-14，待其完成后单独拆 slice 修复/验收。
 - 2026-08-21：SPEC-14 收为 `done`，Phase 7 完成。两项后处理项分别拆为 SPEC-15（回收站检索索引一致性，当前活跃）与 SPEC-16（KDE AppMenu 实机显示恢复），进入 Phase 8。
+- 2026-08-21（Phase 8 收口）：SPEC-15 QA `passed` 收为 `done`（重编后删除问题实机确认解决）；SPEC-16 实机第一次仍不显示，判 `qa_failed` 退回重做真实 DBusMenu（旧实现只 RegisterWindow 传字符串名、未导出 com.canonical.dbusmenu）；重做后 QA conditional_pass + Orchestrator 目标机实测通过，`done`。两项发布阻塞后处理项全部解除，Phase 8 完成。
 
 ## 风险记录
 
@@ -149,10 +152,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：`SPEC-16`
-- 状态：`in_qa`（QA `conditional_pass`，zbus 重做通过，待实机 Gate）
-- Next Owner：`Orchestrator`
-- 类型：发布阻塞后处理项（KDE AppMenu 实机显示恢复）。
-- 重做实现：zbus 导出 com.canonical.dbusmenu（/MenuBar：GetLayout/GetGroupProperties/GetProperty/AboutToShow/Event(clicked)→dispatch_app_command）+ RegisterWindow(真实 XID, "org.kde.searchis/MenuBar")；xdotool 取 XID；保留 monitor 5s 重注册/降级/错误码/日志；70 tests passed、clippy/build 干净。
-- 实机 Gate 必做（目标 Arch/KDE/X11）：五组菜单显示、命令触发、Plasma 重启 5s 恢复、无小部件不阻塞。
-- Last Updated：2026-08-21 SPEC-16 QA conditional_pass（zbus 重做），转 Orchestrator 实机 Gate
+- Spec：无活跃 spec
+- 状态：Phase 8 全部完成（SPEC-15、SPEC-16 `done`）
+- 两项发布阻塞后处理项已解除：
+  - SPEC-15 回收站检索索引一致性（62 tests，QA passed）
+  - SPEC-16 KDE AppMenu 真实 DBusMenu 导出（70 tests，QA conditional_pass + Orchestrator 实测通过 2026-08-21）
+- Last Updated：2026-08-21 SPEC-16 实测通过，Phase 8 完成
