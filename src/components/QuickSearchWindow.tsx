@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { AlertCircle, Lock, Star } from 'lucide-react';
@@ -69,6 +69,28 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     onClose();
   };
 
+  const fetchResults = useCallback(async (query: string) => {
+    const seq = ++seqRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await snippetsApi.search(query, maxResultsCount);
+      if (seq !== seqRef.current) return;
+      setResults(response.items);
+      setTotal(response.total);
+      setSelectedIndex(response.items.length ? 0 : -1);
+    } catch (searchError) {
+      if (seq === seqRef.current) {
+        setResults([]);
+        setTotal(0);
+        setSelectedIndex(-1);
+        setError((searchError as { message?: string }).message ?? '检索失败');
+      }
+    } finally {
+      if (seq === seqRef.current) setLoading(false);
+    }
+  }, [maxResultsCount]);
+
   useEffect(() => {
     let unlistenFocus: (() => void) | undefined;
     let unlistenFocusEvent: (() => void) | undefined;
@@ -92,7 +114,9 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       }, 400);
 
       void syncTheme();
-      setSearchQuery(''); setResults([]); setTotal(0); setSelectedIndex(-1); setError(null);
+      setSearchQuery('');
+      setError(null);
+      void fetchResults('');
       focusInput();
       window.setTimeout(focusInput, 20);
       window.setTimeout(focusInput, 60);
@@ -113,6 +137,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         visibleRef.current = true;
         reconcileTheme();
         void syncTheme();
+        void fetchResults(searchQuery);
         focusInput();
       }).catch(() => {});
     };
@@ -157,26 +182,14 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       window.removeEventListener('click', focusInput);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [fetchResults]);
 
   useEffect(() => {
-    const seq = ++seqRef.current;
-    setLoading(true); setError(null);
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await snippetsApi.search(searchQuery, maxResultsCount);
-        if (seq !== seqRef.current) return;
-        setResults(response.items); setTotal(response.total);
-        setSelectedIndex(response.items.length ? 0 : -1);
-      } catch (searchError) {
-        if (seq === seqRef.current) {
-          setResults([]); setTotal(0); setSelectedIndex(-1);
-          setError((searchError as { message?: string }).message ?? '检索失败');
-        }
-      } finally { if (seq === seqRef.current) setLoading(false); }
-    }, 120);
+    const timer = window.setTimeout(() => {
+      void fetchResults(searchQuery);
+    }, searchQuery ? 120 : 0);
     return () => window.clearTimeout(timer);
-  }, [searchQuery, maxResultsCount]);
+  }, [searchQuery, fetchResults]);
 
   const selected = results[selectedIndex] ?? null;
   const doPaste = async (item: SearchResultItem, keepOpen: boolean) => {
