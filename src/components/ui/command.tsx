@@ -11,12 +11,12 @@ export const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, autoFocus = true, ...props }, ref) => (
-  <div className="flex h-14 items-center gap-3 border-b border-[color:var(--quick-border)] px-4">
-    <Search className="size-5 shrink-0 text-[color:var(--quick-muted)]" aria-hidden />
+  <div className="flex h-14 items-center gap-3 border-b border-[color:var(--color-border)] px-4">
+    <Search className="size-5 shrink-0 text-[color:var(--color-fg-muted)]" aria-hidden />
     <CommandPrimitive.Input
       ref={ref}
       autoFocus={autoFocus}
-      className={cn('h-full w-full bg-transparent text-base text-[color:var(--quick-fg)] outline-none placeholder:text-[color:var(--quick-muted)]', className)}
+      className={cn('h-full w-full bg-transparent text-base text-[color:var(--color-fg)] outline-none placeholder:text-[color:var(--color-fg-muted)]', className)}
       {...props}
     />
   </div>
@@ -30,11 +30,11 @@ export const CommandEmpty = ({ className, ...props }: React.ComponentProps<typeo
   <CommandPrimitive.Empty className={cn('py-12 text-center text-sm', className)} {...props} />
 );
 export const CommandGroup = ({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Group>) => (
-  <CommandPrimitive.Group className={cn('p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[color:var(--quick-muted)]', className)} {...props} />
+  <CommandPrimitive.Group className={cn('p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-[color:var(--color-fg-muted)]', className)} {...props} />
 );
 export const CommandItem = ({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Item>) => (
-  <CommandPrimitive.Item className={cn('flex cursor-default items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none data-[selected=true]:bg-[color:var(--quick-active)]', className)} {...props} />
+  <CommandPrimitive.Item className={cn('flex cursor-default items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none data-[selected=true]:bg-[color:var(--color-accent-subtle)]', className)} {...props} />
 );
 export const CommandShortcut = ({ className, ...props }: React.ComponentProps<'span'>) => (
-  <span className={cn('ml-auto font-mono text-[11px] text-[color:var(--quick-muted)]', className)} {...props} />
+  <span className={cn('ml-auto font-mono text-[11px] text-[color:var(--color-fg-muted)]', className)} {...props} />
 );

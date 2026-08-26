@@ -25,6 +25,7 @@
         "width": 780,
         "height": 500,
         "decorations": false,
+        "transparent": true,
         "alwaysOnTop": true,
         "visible": false,
         "resizable": false,

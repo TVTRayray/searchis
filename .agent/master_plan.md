@@ -10,12 +10,12 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前阶段
 
-- 阶段名称：Phase 8 — 发布阻塞后处理
-- 阶段目标：处理两项发布阻塞后处理项（回收站检索索引一致性、KDE AppMenu 实机显示），各自独立拆 slice 经 Coder → QA。
-- 当前活跃 Spec：`.agent/specs/16-kde-appmenu-restore.md`
-- 当前状态：`in_qa`（SPEC-16 QA `conditional_pass`，zbus 重做通过，待实机 Gate）
-- 当前责任角色：`Orchestrator`
-- 下一步：Orchestrator 实机验收 SPEC-16 Global Menu 显示/5 秒恢复/命令触发/不阻塞启动。
+- 阶段名称：Phase 9 — 液态玻璃视觉定版（SPEC-17/18 完成，SPEC-19 进行中）
+- 阶段目标：Phase 8（SPEC-15/16 发布阻塞后处理）已于 2026-08-21 全部收口；阶段发布打磨提交 617df2e / 25e246e 已落地；SPEC-17（设计 token 地基 + 快搜窗口玻璃）已 `done`（QA passed + 实机门禁通过）；SPEC-18（管理窗口玻璃）已 `done`（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点，详见 SPEC-18「决策补遗」）；SPEC-19（主窗口全量玻璃 + 明暗全量回归）已分派 Coder，第一步为 SPEC-17/18 prep 收口 commit，第二步为 SPEC-19 实施
+- 当前活跃 Spec：`.agent/specs/19-main-window-glass-full-regression.md`（已分派 Coder）
+- 当前状态：`in_progress`（Phase 9 第三 slice 实施中）
+- 当前责任角色：`Coder`（Master 监控）
+- Last Updated：2026-08-26 SPEC-19 分派 Coder
 
 ## 技术决策
 
@@ -49,17 +49,21 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 13 | [管理窗口与设置视觉重构并入](specs/13-manager-settings-visual-refactor.md) | 新版管理/设置视觉，真实 CRUD/设置/回收站契约不变 | 12 | `done` |
 | 14 | [向导、快捷键帮助与 UI 清理回归](specs/14-onboarding-help-ui-cleanup.md) | 删除前端使用引导、重构快捷键帮助、清理 astryx，完成发布级回归 | 13 | `done` |
 | 15 | [回收站操作与检索索引一致性](specs/15-searchindex-trash-consistency.md) | 软删除/还原/永久删除/清空/自动清理后检索结果与回收站状态一致 | — | `done` |
-| 16 | [KDE AppMenu 实机显示恢复](specs/16-kde-appmenu-restore.md) | 五组菜单在 KDE Global Menu 实机显示、命令可触发、重启后 5s 内重注册 | — | `in_qa`（重做后待 QA） |
+| 16 | [KDE AppMenu 实机显示恢复](specs/16-kde-appmenu-restore.md) | 五组菜单在 KDE Global Menu 实机显示、命令可触发、重启后 5s 内重注册 | — | `done` |
+| 17 | [液态玻璃：设计 token 地基与快搜窗口玻璃](specs/17-liquid-glass-quick-search.md) | 快搜窗口玻璃面板 + 统一 token 体系（accent 电光蓝/radius 收敛/--quick-* 消灭）；检索复制粘贴不变 | 16 | `done` |
+| 18 | [液态玻璃：管理窗口玻璃](specs/18-manager-window-glass.md) | 管理窗口侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + 预存变量清理；Header 玻璃项作废（SPEC-13 重构已删 HeaderBar） | 17 | `done` |
+| 19 | [液态玻璃：主窗口全量玻璃与明暗全量回归](specs/19-main-window-glass-full-regression.md) | 主窗口 shell 玻璃（真实透明 + 氛围光）+ 全量明暗回归（所有视图明暗两套） | 18 | `todo` |
 
 ## 看板
 
 ### In Progress
 
-- [ ] 无
+- [ ] SPEC-19 主窗口全量玻璃与明暗全量回归（已入库，待交 Coder）
 
 ### QA Queue
 
 - [ ] SPEC-16 KDE AppMenu：QA `conditional_pass`（zbus DBusMenu 重做通过），待 Orchestrator 实机 Gate
+- [x] SPEC-18 管理窗口玻璃：QA `passed`（2026-08-25） + Orchestrator 2026-08-26 决策（Header 项作废）收为 `done`
 
 ### Returned To Coder
 
@@ -108,6 +112,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - [x] SPEC-13 管理窗口与设置视觉重构并入（RF5~RF7 复审 + RF8 release 实机通过；QA conditional_pass，Orchestrator 2026-08-21 放行转 `done`）
 - [x] SPEC-15 回收站与检索索引一致性（SearchIndex::remove + 回收站五条写路径定向同步；62 tests，QA passed 2026-08-21；修复永久删除后仍可搜到）
 - [x] SPEC-16 KDE AppMenu 实机显示恢复（zbus 导出 com.canonical.dbusmenu + RegisterWindow 真实 XID；70 tests，QA conditional_pass + Orchestrator 实测通过，2026-08-21 `done`；修复全局菜单不显示）
+- [x] SPEC-17 液态玻璃：设计 token 地基与快搜窗口玻璃（统一 token 体系 + Figtree 随包发货 + 快搜窗口玻璃面板；QA passed + Orchestrator 2026-08-26 实机门禁通过，`done`）
+- [x] SPEC-18 液态玻璃：管理窗口玻璃（侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + canvas-glow F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点；QA passed 2026-08-25 + Orchestrator 2026-08-26 决策收为 `done`；实机截图 `artifacts/spec-18/01-manager-dark.png`）
+- [x] Phase 8 后发布打磨：commit `617df2e`（2026-08-21，恢复 KDE Global Menu、系统托盘、sxhkd IPC、更新应用图标）与 commit `25e246e`（2026-08-24，快搜窗口初始激活时拉取默认 snippet 结果）已落地，两者均未绑定 spec（阶段收口性质）。
 - [x] Gate 0：SPEC-03~10 状态与 QA 结论统一；Rust tests/frontend build/clippy/release build 通过；当前 V1 工作树冻结为 git 基线并标记 `v1-gate0-baseline`。E2E 多窗口 Driver 问题已作为明确限制记录。
 
 ## 跨 Spec 不变量
@@ -138,6 +145,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-21：Orchestrator 决定将两项独立发布阻塞（KDE AppMenu 未显示；Rust `SearchIndex` 未同步回收站操作）登记为**后处理项**，不阻塞当前 SPEC-14，待其完成后单独拆 slice 修复/验收。
 - 2026-08-21：SPEC-14 收为 `done`，Phase 7 完成。两项后处理项分别拆为 SPEC-15（回收站检索索引一致性，当前活跃）与 SPEC-16（KDE AppMenu 实机显示恢复），进入 Phase 8。
 - 2026-08-21（Phase 8 收口）：SPEC-15 QA `passed` 收为 `done`（重编后删除问题实机确认解决）；SPEC-16 实机第一次仍不显示，判 `qa_failed` 退回重做真实 DBusMenu（旧实现只 RegisterWindow 传字符串名、未导出 com.canonical.dbusmenu）；重做后 QA conditional_pass + Orchestrator 目标机实测通过，`done`。两项发布阻塞后处理项全部解除，Phase 8 完成。
+- 2026-08-24：Phase 9 筹备定案 —— 液态玻璃视觉落地（SPEC-17 起）。设计源为 `~/hermes/design/searchis/` 下设计宪章与 glass spec v0.1（注意：这些文档内引用的旧编号 SPEC-15/16/17/18 属设计文档体系，与本仓库 spec 编号无关，仅作视觉源引用）。practice worktree 分支 `design-practice`（052bd4a/75befe3）只取配方作参考实现，禁止整体并入（主分支已分化）。
+- 2026-08-25：SPEC-17 审阅通过并入库（.agent/specs/17-liquid-glass-quick-search.md）。审阅中做了库内证据核查：`--quick-*` 声明 3 处（index.css）但组件引用 5 处（QuickSearchWindow.tsx 2、ui/command.tsx 4，其中 2 处内联复用）→ 迁移需覆盖声明 + 组件引用；`--color-surface-elevated` 有 12 处引用但全部在 index.css 内，无 TSX 引用 → 删除前需先替换 index.css 内引用；astryx/legacy（`--canvas`/`--fg`）已零引用；accent 浅色 hue 35（暖橙）与深色 hue 200（冷蓝）分裂实为变速迁。Orchestrator 决策（2026-08-25）：**UI 字体 = Figtree 随包发货**；**电光蓝取值：深色 `#57a7ff` / 浅色 `#2f6df6`**（`#3d7bfd` 因浅色对比度 3.85:1 < 4.5:1 不采用）。spec 状态由 `todo` 推进为 `in_progress` 交 Coder。
+- 2026-08-26：SPEC-18 Gate 复盘检出 **HeaderBar 死代码**——`HeaderBar.tsx` 组件存在但全仓零 import / 零 JSX 引用（`grep -rn 'import.*HeaderBar\|<HeaderBar' src/` 仅匹配组件自身 export）。根因为 commit `f4168e7`（SPEC-13/14/15 收口）将 `AppShell`/astryx 替换为 HTML/CSS divs 时，旧的 `<AppShell nav={<HeaderBar .../>}>` 被删除但新结构未补回 HeaderBar，提交信息谎称"迁移 HeaderBar"实际未迁。Orchestrator 决策：**(1) Header 已在 SPEC-13 重构时决定删除，不复活**（功能由侧栏小齿轮 + SettingsModal 外观主题 grid + KDE Global Menu 兜底），SPEC-18 成功标准中 `.manager-header` 玻璃项作废，CSS 保留为未来锚点；(2) SPEC-18 收为 `done`，其余 10 项（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理 + reduced-transparency 回退 + build + 实机截图）均通过；(3) 教训记录到 `headerbar-dead-code` 记忆，后续 SPEC 机械验收 grep 须含"未引用组件清单"项防复发；(4) SPEC-19 不再补回 header（保持 SPEC-13 决策一致）。
 
 ## 风险记录
 
@@ -152,9 +162,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：无活跃 spec
-- 状态：Phase 8 全部完成（SPEC-15、SPEC-16 `done`）
-- 两项发布阻塞后处理项已解除：
-  - SPEC-15 回收站检索索引一致性（62 tests，QA passed）
-  - SPEC-16 KDE AppMenu 真实 DBusMenu 导出（70 tests，QA conditional_pass + Orchestrator 实测通过 2026-08-21）
-- Last Updated：2026-08-21 SPEC-16 实测通过，Phase 8 完成
+- Spec：SPEC-19 液态玻璃：主窗口全量玻璃与明暗全量回归
+- 状态：`todo`（Phase 9 第三 slice；已入库 `.agent/specs/19-main-window-glass-full-regression.md`）
+- 阶段背景：Phase 9 前两 slice（SPEC-17 token 地基 + 快搜窗口玻璃、SPEC-18 管理窗口玻璃）均已完成 QA passed
+- 待 Coder 决策：无（spec 已明确）
+- Last Updated：2026-08-26 SPEC-18 收口（Header 项作废决策记录）

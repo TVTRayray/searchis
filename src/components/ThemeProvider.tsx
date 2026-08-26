@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { settingsApi } from '../api/snippets';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -12,19 +13,45 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// Backend settings are the source of truth. localStorage is only a render/write
+// cache: it seeds the first paint (flash prevention) and mirrors writes so the
+// quick-search window can hydrate instantly before its backend sync lands.
+const readCache = (): ThemeMode | null => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}') as { theme?: ThemeMode };
+    if (saved.theme === 'light' || saved.theme === 'dark' || saved.theme === 'system') return saved.theme;
+  } catch {
+    // Cache unreadable: fall through to backend / default.
+  }
+  return null;
+};
+
+const writeCache = (theme: ThemeMode) => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}');
+    localStorage.setItem('searchis_config_v1', JSON.stringify({ ...saved, theme }));
+  } catch {
+    // Cache write failures are non-fatal; the backend remains authoritative.
+  }
+};
+
 export const ThemeProvider: React.FC<{
   children: React.ReactNode;
   initialTheme?: ThemeMode;
 }> = ({ children, initialTheme = 'system' }) => {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}') as { theme?: ThemeMode };
-      return saved.theme || initialTheme;
-    } catch {
-      return initialTheme;
-    }
-  });
+  const [theme, setThemeState] = useState<ThemeMode>(() => readCache() ?? initialTheme);
   const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('dark');
+
+  // Hydrate from the backend on mount; a stale/absent cache is corrected here.
+  useEffect(() => {
+    let cancelled = false;
+    settingsApi.get().then(({ settings }) => {
+      if (!cancelled && (settings.theme === 'light' || settings.theme === 'dark' || settings.theme === 'system')) {
+        setThemeState(settings.theme);
+      }
+    }).catch(() => {}); // Backend unavailable: keep the cache-seeded value.
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let transitionTimeout: ReturnType<typeof setTimeout>;
@@ -61,12 +88,7 @@ export const ThemeProvider: React.FC<{
 
   const setTheme = (newTheme: ThemeMode) => {
     setThemeState(newTheme);
-    try {
-      const saved = JSON.parse(localStorage.getItem('searchis_config_v1') ?? '{}');
-      localStorage.setItem('searchis_config_v1', JSON.stringify({ ...saved, theme: newTheme }));
-    } catch {
-      // Backend settings remain the source of truth when local storage is unavailable.
-    }
+    writeCache(newTheme);
   };
 
   const toggleTheme = () => setTheme(effectiveTheme === 'dark' ? 'light' : 'dark');

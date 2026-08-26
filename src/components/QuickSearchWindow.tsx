@@ -234,7 +234,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       if (selectedIndex === index) void doPaste(item, false);
     }}>
       <span className={`quick-key ${selectedIndex === index ? 'quick-key-selected' : ''}`} aria-hidden>{item.pinned ? <Star className="size-3.5 fill-current" /> : item.key.slice(0, 2).toUpperCase()}</span>
-      <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2xs)' }}><span className="truncate text-xs font-semibold">{item.title}</span><div className="flex items-center gap-1.5"><span className="truncate font-mono text-[11px] text-[color:var(--quick-muted)]">{highlight(item.key, searchQuery)}</span>{item.sensitive && <span className="quick-sensitive"><Lock className="size-3" />敏感</span>}{item.usageCount > 0 && <span className="quick-usage">使用 {item.usageCount} 次</span>}{item.tags.slice(0, 1).map(tag => <span className="quick-tag" key={tag}>#{tag}</span>)}</div></div>
+      <div className="min-w-0 flex-1" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2xs)' }}><span className="truncate text-xs font-semibold">{item.title}</span><div className="flex items-center gap-1.5"><span className="truncate font-mono text-[11px] text-[color:var(--color-fg-muted)]">{highlight(item.key, searchQuery)}</span>{item.sensitive && <span className="quick-sensitive"><Lock className="size-3" />敏感</span>}{item.usageCount > 0 && <span className="quick-usage">使用 {item.usageCount} 次</span>}{item.tags.slice(0, 1).map(tag => <span className="quick-tag" key={tag}>#{tag}</span>)}</div></div>
       {index < 9 && <CommandShortcut>Ctrl+{index + 1}</CommandShortcut>}
     </CommandItem>;
   };
@@ -245,7 +245,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         <CommandInput ref={inputRef} value={searchQuery} onValueChange={setSearchQuery} onKeyDown={onKeyDown} placeholder="搜索 Key、别名、标题、标签或正文…" aria-label="检索文本片段" autoFocus />
         {error && <div className="quick-error" role="alert"><AlertCircle className="size-4" aria-hidden />{error}</div>}
         <CommandList className="min-h-0 flex-1">
-          <CommandEmpty>{!loading && <div className="flex flex-col items-center justify-center gap-3 px-4 text-center"><span className="text-xs text-[color:var(--quick-muted)]">{searchQuery ? '没有匹配的片段' : '暂无片段数据'}</span>{searchQuery && <button type="button" className="btn-primary inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all px-2.5 py-1 text-xs rounded-md" onClick={() => void createFromQuery()}>以该查询词为 Key 新建片段 <kbd className="raycast-kbd">Ctrl+N</kbd></button>}</div>}</CommandEmpty>
+          <CommandEmpty>{!loading && <div className="flex flex-col items-center justify-center gap-3 px-4 text-center"><span className="text-xs text-[color:var(--color-fg-muted)]">{searchQuery ? '没有匹配的片段' : '暂无片段数据'}</span>{searchQuery && <button type="button" className="btn-primary inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all px-2.5 py-1 text-xs rounded-md" onClick={() => void createFromQuery()}>以该查询词为 Key 新建片段 <kbd className="raycast-kbd">Ctrl+N</kbd></button>}</div>}</CommandEmpty>
           {pinned.length > 0 && <CommandGroup heading={`固定片段 · ${pinned.length}`}>{pinned.map(renderItem)}</CommandGroup>}
           {ordinary.length > 0 && <CommandGroup heading={pinned.length ? `全部结果 · ${ordinary.length}` : `匹配片段结果 · ${ordinary.length} 条`}>{ordinary.map(renderItem)}</CommandGroup>}
         </CommandList>
