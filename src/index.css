@@ -228,6 +228,12 @@ code, kbd, pre {
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-window);
   }
+  .main-window-shell {
+    background: var(--color-canvas);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .main-window-shell::before { display: none; }
 }
 
 .panel {
@@ -302,7 +308,10 @@ input[type="checkbox"] {
 }
 
 /* SPEC-13: main-window visual system. Business state remains in App/IPC; these classes own only layout and presentation. */
+/* SPEC-19: shell 改为玻璃背景（KDE 原生标题栏保留，透明让 KWin 渲染 wallpaper 透出）。
+   氛围光从 background-image 移到 ::before 伪元素，避免与 backdrop-filter 冲突。 */
 .main-window-shell {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100%;
@@ -310,11 +319,22 @@ input[type="checkbox"] {
   flex-direction: column;
   overflow: hidden;
   color: var(--color-fg);
-  background: var(--color-canvas);
-  background-image: radial-gradient(ellipse at 82% 0%, var(--color-canvas-glow-accent), transparent 48%), radial-gradient(ellipse at 10% 90%, var(--color-canvas-glow-cool), transparent 48%);
+  background: var(--color-surface);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+.main-window-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 82% 0%, var(--color-canvas-glow-accent), transparent 48%),
+    radial-gradient(ellipse at 10% 90%, var(--color-canvas-glow-cool), transparent 48%);
+  pointer-events: none;
 }
 .main-window-loading { align-items: center; justify-content: center; font-size: 13px; color: var(--color-fg-muted); }
-.main-window-content { position: relative; display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.main-window-content { position: relative; z-index: 1; display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .manager-header {
   z-index: 40;
   flex: none;
