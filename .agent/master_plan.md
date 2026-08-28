@@ -10,12 +10,12 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前阶段
 
-- 阶段名称：Phase 9 — 液态玻璃视觉定版（SPEC-17/18 完成，SPEC-19 进行中）
-- 阶段目标：Phase 8（SPEC-15/16 发布阻塞后处理）已于 2026-08-21 全部收口；阶段发布打磨提交 617df2e / 25e246e 已落地；SPEC-17（设计 token 地基 + 快搜窗口玻璃）已 `done`（QA passed + 实机门禁通过）；SPEC-18（管理窗口玻璃）已 `done`（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点，详见 SPEC-18「决策补遗」）；SPEC-19（主窗口全量玻璃 + 明暗全量回归）已分派 Coder，第一步为 SPEC-17/18 prep 收口 commit，第二步为 SPEC-19 实施
-- 当前活跃 Spec：`.agent/specs/19-main-window-glass-full-regression.md`（已分派 Coder）
-- 当前状态：`in_progress`（Phase 9 第三 slice 实施中）
-- 当前责任角色：`Coder`（Master 监控）
-- Last Updated：2026-08-26 SPEC-19 分派 Coder
+- 阶段名称：Phase 9 — 液态玻璃视觉定版（SPEC-17/18/19 全部 done，Phase 9 完成）
+- 阶段目标：Phase 8（SPEC-15/16 发布阻塞后处理）已于 2026-08-21 全部收口；阶段发布打磨提交 617df2e / 25e246e 已落地；SPEC-17（设计 token 地基 + 快搜窗口玻璃）已 `done`（QA passed + 实机门禁通过）；SPEC-18（管理窗口玻璃）已 `done`（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点，详见 SPEC-18「决策补遗」）；SPEC-19（主窗口全量玻璃 + 明暗全量回归）已 `done`（Coder 8ad133a+25c0a8e + QA conditional_pass + Orchestrator 2026-08-28 实机 Gate 通过），**Phase 9 液态玻璃视觉定版全部完成**
+- 当前活跃 Spec：无（Phase 9 已全部完成）
+- 当前状态：`done`（Phase 9 收口完成）
+- 当前责任角色：`Orchestrator`（Phase 9 完成，待定 V1 收尾/发布）
+- Last Updated：2026-08-28 QA `conditional_pass`，转 Orchestrator
 
 ## 技术决策
 
@@ -52,16 +52,17 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 16 | [KDE AppMenu 实机显示恢复](specs/16-kde-appmenu-restore.md) | 五组菜单在 KDE Global Menu 实机显示、命令可触发、重启后 5s 内重注册 | — | `done` |
 | 17 | [液态玻璃：设计 token 地基与快搜窗口玻璃](specs/17-liquid-glass-quick-search.md) | 快搜窗口玻璃面板 + 统一 token 体系（accent 电光蓝/radius 收敛/--quick-* 消灭）；检索复制粘贴不变 | 16 | `done` |
 | 18 | [液态玻璃：管理窗口玻璃](specs/18-manager-window-glass.md) | 管理窗口侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + 预存变量清理；Header 玻璃项作废（SPEC-13 重构已删 HeaderBar） | 17 | `done` |
-| 19 | [液态玻璃：主窗口全量玻璃与明暗全量回归](specs/19-main-window-glass-full-regression.md) | 主窗口 shell 玻璃（真实透明 + 氛围光）+ 全量明暗回归（所有视图明暗两套） | 18 | `todo` |
+| 19 | [液态玻璃：主窗口全量玻璃与明暗全量回归](specs/19-main-window-glass-full-regression.md) | 主窗口 shell 玻璃（真实透明 + 氛围光）+ 全量明暗回归（所有视图明暗两套） | 18 | `done` |
 
 ## 看板
 
 ### In Progress
 
-- [ ] SPEC-19 主窗口全量玻璃与明暗全量回归（已入库，待交 Coder）
+- [ ] 无（SPEC-19 已 done，Phase 9 完成）
 
 ### QA Queue
 
+- [x] SPEC-19 主窗口全量玻璃与明暗全量回归：QA `conditional_pass`（2026-08-28，build passed + 3 项机械 grep 全过 + 10 张明暗截图核验非空/区分度达标 + 范围核对干净）→ **Orchestrator 2026-08-28 目标机实机 Gate 通过，收为 `done`**
 - [ ] SPEC-16 KDE AppMenu：QA `conditional_pass`（zbus DBusMenu 重做通过），待 Orchestrator 实机 Gate
 - [x] SPEC-18 管理窗口玻璃：QA `passed`（2026-08-25） + Orchestrator 2026-08-26 决策（Header 项作废）收为 `done`
 
@@ -114,6 +115,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - [x] SPEC-16 KDE AppMenu 实机显示恢复（zbus 导出 com.canonical.dbusmenu + RegisterWindow 真实 XID；70 tests，QA conditional_pass + Orchestrator 实测通过，2026-08-21 `done`；修复全局菜单不显示）
 - [x] SPEC-17 液态玻璃：设计 token 地基与快搜窗口玻璃（统一 token 体系 + Figtree 随包发货 + 快搜窗口玻璃面板；QA passed + Orchestrator 2026-08-26 实机门禁通过，`done`）
 - [x] SPEC-18 液态玻璃：管理窗口玻璃（侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + canvas-glow F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点；QA passed 2026-08-25 + Orchestrator 2026-08-26 决策收为 `done`；实机截图 `artifacts/spec-18/01-manager-dark.png`）
+- [x] SPEC-19 液态玻璃：主窗口全量玻璃与明暗全量回归（main 窗口 `transparent: true` + `.main-window-shell` 玻璃配方 + 氛围光伪元素 + 明暗全量回归 10 张截图；QA conditional_pass 2026-08-28 + Orchestrator 目标机实机 Gate 通过收为 `done`；**Phase 9 液态玻璃视觉定版全部完成**；commit `8ad133a`（prep）+ `25c0a8e`（SPEC-19））
 - [x] Phase 8 后发布打磨：commit `617df2e`（2026-08-21，恢复 KDE Global Menu、系统托盘、sxhkd IPC、更新应用图标）与 commit `25e246e`（2026-08-24，快搜窗口初始激活时拉取默认 snippet 结果）已落地，两者均未绑定 spec（阶段收口性质）。
 - [x] Gate 0：SPEC-03~10 状态与 QA 结论统一；Rust tests/frontend build/clippy/release build 通过；当前 V1 工作树冻结为 git 基线并标记 `v1-gate0-baseline`。E2E 多窗口 Driver 问题已作为明确限制记录。
 
@@ -163,7 +165,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 ## 当前活跃 Spec 状态卡
 
 - Spec：SPEC-19 液态玻璃：主窗口全量玻璃与明暗全量回归
-- 状态：`todo`（Phase 9 第三 slice；已入库 `.agent/specs/19-main-window-glass-full-regression.md`）
-- 阶段背景：Phase 9 前两 slice（SPEC-17 token 地基 + 快搜窗口玻璃、SPEC-18 管理窗口玻璃）均已完成 QA passed
+- 状态：`done`（2026-08-28 Orchestrator 目标机实机 Gate 通过，Phase 9 收口）
+- 阶段背景：Phase 9 三 slice（SPEC-17 token 地基 + 快搜玻璃、SPEC-18 管理玻璃、SPEC-19 主窗口全量玻璃 + 明暗回归）**全部完成**，液态玻璃视觉定版落地
 - 待 Coder 决策：无（spec 已明确）
-- Last Updated：2026-08-26 SPEC-18 收口（Header 项作废决策记录）
+- Last Updated：2026-08-28 Orchestrator 实机验收通过，Phase 9 完成
