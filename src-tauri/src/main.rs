@@ -14,7 +14,7 @@ fn main() {
         if handled {
             return;
         }
-    } else if searchis_lib::send_cli_command("show-manager") {
+    } else if env::var("SEARCHIS_E2E").is_err() && searchis_lib::send_cli_command("show-manager") {
         // 无参数启动时，如果已有实例在后台运行，唤出其管理窗口，避免重复启动
         return;
     }

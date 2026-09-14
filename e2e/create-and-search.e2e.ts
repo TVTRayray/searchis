@@ -168,7 +168,7 @@ const closeSearch = async () => {
 };
 
 const shellComputedProbe = async () => inWindow('search', () => {
-  const shell = document.querySelector('.quick-search-shell');
+  const shell = document.querySelector('.quick-search-window') ?? document.querySelector('.quick-search-shell');
   if (!shell) return null;
   const style = getComputedStyle(shell);
   const backgroundColor = style.backgroundColor;
@@ -402,11 +402,11 @@ describe('compiled Searchis application', () => {
     await sendSearchKey('ArrowDown');
     await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [firstSelected], 'ArrowDown did not move selection');
     const afterArrowDown = await selectedResultId();
-    await sendSearchKey('k');
-    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterArrowDown], 'K did not move selection');
+    await sendSearchKey('k', { ctrl: true });
+    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterArrowDown], 'Ctrl+K did not move selection');
     const afterK = await selectedResultId();
-    await sendSearchKey('j');
-    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterK], 'J did not move selection');
+    await sendSearchKey('j', { ctrl: true });
+    await waitFor('search', (_tauri, previous) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') !== previous, [afterK], 'Ctrl+J did not move selection');
 
     // IME composition must not trigger Enter or change usage.
     const beforeIme = await selectedResultId();

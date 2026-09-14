@@ -549,7 +549,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                     value={contentInput}
                     onChange={event => setContentInput(event.target.value)}
                     onKeyDown={onContentKeyDown}
-                    placeholder="在此输入需要快速粘贴的任意文本片段... (支持 Ctrl+Z 撤销)"
+                    placeholder="在此输入需要快速粘贴的任意文本片段..."
                     rows={8}
                     className="manager-control manager-textarea manager-mono"
                   />
@@ -602,7 +602,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
             <div className="manager-save-bar">
               <span>保存后会写入本地加密数据库。</span>
               <button type="button" className="manager-button manager-button-primary manager-save-button" onClick={handleSave}>
-                保存片段
+                保存片段数据
               </button>
             </div>
           </div>

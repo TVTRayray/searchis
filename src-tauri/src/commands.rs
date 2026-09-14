@@ -547,7 +547,7 @@ pub fn open_search_window_inner(app: &tauri::AppHandle) -> Result<(), AppError> 
     let window = app
         .get_webview_window("search")
         .ok_or_else(|| AppError::new("WINDOW_UNAVAILABLE", "检索窗口不可用。请重启应用。"))?;
-    let _ = window.set_size(tauri::LogicalSize::new(780.0, 500.0));
+    let _ = window.set_size(tauri::LogicalSize::new(830.0, 550.0));
     let _ = window.center();
     let _ = window.unminimize();
     let _ = window.show();
@@ -555,19 +555,41 @@ pub fn open_search_window_inner(app: &tauri::AppHandle) -> Result<(), AppError> 
     let _ = window.set_focus();
     let _ = window.emit("focus-input", ());
 
+    // 在启动后台重试线程之前先同步检查一次：如果 set_focus() 已经真正生效，
+    // 就完全跳过后面比较重的 wmctrl/xdotool 进程调用，减少不必要的焦点抖动。
+    if window.is_focused().unwrap_or(false) {
+        return Ok(());
+    }
+
     let app_handle = app.clone();
     std::thread::spawn(move || {
-        for delay in [10, 40, 100, 200] {
-            std::thread::sleep(std::time::Duration::from_millis(delay));
-            if let Some(w) = app_handle.get_webview_window("search") {
-                let _ = w.set_focus();
-                let _ = w.emit("focus-input", ());
+        // 第一次尝试立即执行（无延迟），后续逐步拉长间隔以应对慢窗口管理器。
+        for delay in [0, 20, 60, 150] {
+            if delay > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(delay));
             }
+            let Some(w) = app_handle.get_webview_window("search") else {
+                break;
+            };
+            // 窗口已经真正拿到焦点后立即停止后续的强制激活重试，
+            // 避免 wmctrl/xdotool 反复抢占焦点造成闪烁，干扰用户已经开始的键盘输入。
+            if w.is_focused().unwrap_or(false) {
+                break;
+            }
+            let _ = w.set_focus();
             let _ = std::process::Command::new("wmctrl")
                 .args(["-a", "Searchis 快速检索"])
                 .output();
             let _ = std::process::Command::new("xdotool")
-                .args(["search", "--name", "Searchis 快速检索", "windowactivate", "--sync", "windowfocus", "--sync"])
+                .args([
+                    "search",
+                    "--name",
+                    "Searchis 快速检索",
+                    "windowactivate",
+                    "--sync",
+                    "windowfocus",
+                    "--sync",
+                ])
                 .output();
         }
     });

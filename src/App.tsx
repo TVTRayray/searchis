@@ -18,6 +18,7 @@ import { ManagerWindow } from './components/ManagerWindow';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { AboutModal } from './components/AboutModal';
+import { HeaderBar } from './components/HeaderBar';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
@@ -70,11 +71,19 @@ const SearchWindowApp: React.FC = () => {
       .catch(() => {});
   }, []);
 
+  const handleOpenManager = useCallback(() => {
+    windowApi
+      .closeSearch()
+      .then(() => windowApi.openManager())
+      .catch(() => {});
+  }, []);
+
   return (
     <QuickSearchWindow
       onClose={handleClose}
       onEditSnippet={handleEdit}
       onCreateNewSnippet={handleCreate}
+      onOpenManager={handleOpenManager}
       maxResultsCount={maxResults}
     />
   );
@@ -369,6 +378,13 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="main-window-shell">
+      <HeaderBar
+        currentView={currentView}
+        onSelectView={setCurrentView}
+        config={config}
+        onUpdateConfig={updateConfig}
+        onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+      />
       <main className="main-window-content">
         {toast && (
           <div className="main-toast" role="status" aria-live="polite">
