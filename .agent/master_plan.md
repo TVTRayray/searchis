@@ -1,21 +1,24 @@
 # Searchis Master Plan
 
-> 唯一需求源：`docs/prds/prd.md`（v0.3）  
+> 唯一需求源：`docs/prds/prd.md`（v0.4，2026-10-15 增补文件模板、分组与视觉定版）  
 > 执行规则：`.agent/AGENT.md`  
 > 技术基线：Tauri 2 + React 19/TypeScript/Vite + Rust + SQLite（SQLCipher 加密实现）
 
 ## 项目摘要
 
-Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文本片段检索、复制与自动粘贴工具。V1 不包含账户、云同步、剪贴板历史、Markdown、音效、安装包或自动更新。
+Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的文本片段与文件模板检索、复制、自动粘贴与导出工具。V1 不包含账户、云同步、剪贴板历史、内置富文本/Markdown 编辑与渲染、音效、安装包或自动更新。
 
 ## 当前阶段
 
-- 阶段名称：Phase 9 — 液态玻璃视觉定版（SPEC-17/18/19 全部 done，Phase 9 完成）
-- 阶段目标：Phase 8（SPEC-15/16 发布阻塞后处理）已于 2026-08-21 全部收口；阶段发布打磨提交 617df2e / 25e246e 已落地；SPEC-17（设计 token 地基 + 快搜窗口玻璃）已 `done`（QA passed + 实机门禁通过）；SPEC-18（管理窗口玻璃）已 `done`（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理；`.manager-header` 玻璃项因 HeaderBar 已在 SPEC-13 重构时决定删除而作废，CSS 保留为未来锚点，详见 SPEC-18「决策补遗」）；SPEC-19（主窗口全量玻璃 + 明暗全量回归）已 `done`（Coder 8ad133a+25c0a8e + QA conditional_pass + Orchestrator 2026-08-28 实机 Gate 通过），**Phase 9 液态玻璃视觉定版全部完成**
-- 当前活跃 Spec：无（Phase 9 已全部完成）
-- 当前状态：`done`（Phase 9 收口完成）
-- 当前责任角色：`Orchestrator`（Phase 9 完成，待定 V1 收尾/发布）
-- Last Updated：2026-08-28 QA `conditional_pass`，转 Orchestrator
+- 阶段名称：Phase 10 — 文件模板、分组与视觉定版（PRD v0.4）
+- 阶段目标：废弃液态玻璃，落地浅色“植物”/深色“暖炭”主题；新增分组树与文本片段语言标记；新增文件模板（模板目录、导入、外部打开、目录扫描）；快搜窗口带格式复制、导出、打开；设置视图改版与 zip 备份。需求源：`docs/prds/prd.md` v0.4、`docs/prds/file-templates-ui-requirements.md`、`docs/research/xlsx-clipboard-spike.md`。
+- 当前活跃 Spec：SPEC-20 视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移
+- 当前状态：`in_progress`
+- 当前责任角色：`Coder`
+- 工作分支：`feat/file-templates`
+- Last Updated：2026-10-15 Orchestrator 审阅通过 PRD v0.4 与 SPEC-20～24，SPEC-20 交 Coder
+
+> Phase 9（液态玻璃，SPEC-17～19）已于 2026-08-28 完成，其玻璃配方将由 SPEC-20 回退。
 
 ## 技术决策
 
@@ -53,10 +56,24 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 | 17 | [液态玻璃：设计 token 地基与快搜窗口玻璃](specs/17-liquid-glass-quick-search.md) | 快搜窗口玻璃面板 + 统一 token 体系（accent 电光蓝/radius 收敛/--quick-* 消灭）；检索复制粘贴不变 | 16 | `done` |
 | 18 | [液态玻璃：管理窗口玻璃](specs/18-manager-window-glass.md) | 管理窗口侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + 预存变量清理；Header 玻璃项作废（SPEC-13 重构已删 HeaderBar） | 17 | `done` |
 | 19 | [液态玻璃：主窗口全量玻璃与明暗全量回归](specs/19-main-window-glass-full-regression.md) | 主窗口 shell 玻璃（真实透明 + 氛围光）+ 全量明暗回归（所有视图明暗两套） | 18 | `done` |
+| 20 | [视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移](specs/20-botanical-ember-visual-foundation.md) | 去玻璃、两套不透明主题 token、字体随包、纸张颗粒、HeaderBar 按钮移到左栏底部 | 19 | `in_progress` |
+| 21 | [分组树与文本片段语言标记（Schema v4）](specs/21-groups-and-language.md) | 最多 3 层分组树、语言下拉与 CodeMirror 高亮、类型筛选、快搜结果行 Q-A | 20 | `todo` |
+| 22 | [文件模板管理（Schema v5）](specs/22-file-template-management.md) | 模板目录与分组同步、导入/新建/打开/打开方式/重命名/移动/回收站、目录扫描 | 21 | `todo` |
+| 23 | [快搜窗口文件动作：带格式复制、导出与打开](specs/23-formatted-copy-and-export.md) | X11 选区持有、md/xlsx/文件带格式复制、Shift+Enter 导出、Ctrl+O、底栏切换、autoPaste 修正 | 22 | `todo` |
+| 24 | [设置视图改版与 zip 备份](specs/24-settings-view-and-zip-backup.md) | 设置视图 S1、文件与导出分节、关于并入、zip 备份往返、重置清理模板 | 23 | `todo` |
 
 ## 看板
 
+### Todo（Phase 10，按顺序串行）
+
+- [ ] SPEC-21 分组树与语言标记
+- [ ] SPEC-22 文件模板管理
+- [ ] SPEC-23 带格式复制、导出与打开
+- [ ] SPEC-24 设置视图与 zip 备份
+
 ### In Progress
+
+- [ ] SPEC-20 视觉定版地基（Coder，2026-10-15 起）
 
 - [ ] 无（SPEC-19 已 done，Phase 9 完成）
 
@@ -128,6 +145,8 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 5. 敏感正文默认遮挡；数据库密钥绝不进入 JSON 备份。
 6. UI 不直接访问 SQLite、D-Bus、X11、KGlobalAccel、剪贴板或 XDG Autostart。
 7. 每个 spec 的 Coder 只修改其“允许修改范围”；跨范围需求退回 Master 拆解。
+8. （v0.4）模板目录操作固定“先文件、后数据库”，失败撤销；任何补偿路径不得删除用户文件；模板路径必须位于模板目录内，不跟随符号链接。
+9. （v0.4）自动化测试不得写真实系统剪贴板、不得启动外部应用；剪贴板与 `xdg-open` 在 E2E 构建中使用记录型替身。
 
 ## 决策记录
 
@@ -149,9 +168,17 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 - 2026-08-21（Phase 8 收口）：SPEC-15 QA `passed` 收为 `done`（重编后删除问题实机确认解决）；SPEC-16 实机第一次仍不显示，判 `qa_failed` 退回重做真实 DBusMenu（旧实现只 RegisterWindow 传字符串名、未导出 com.canonical.dbusmenu）；重做后 QA conditional_pass + Orchestrator 目标机实测通过，`done`。两项发布阻塞后处理项全部解除，Phase 8 完成。
 - 2026-08-24：Phase 9 筹备定案 —— 液态玻璃视觉落地（SPEC-17 起）。设计源为 `~/hermes/design/searchis/` 下设计宪章与 glass spec v0.1（注意：这些文档内引用的旧编号 SPEC-15/16/17/18 属设计文档体系，与本仓库 spec 编号无关，仅作视觉源引用）。practice worktree 分支 `design-practice`（052bd4a/75befe3）只取配方作参考实现，禁止整体并入（主分支已分化）。
 - 2026-08-25：SPEC-17 审阅通过并入库（.agent/specs/17-liquid-glass-quick-search.md）。审阅中做了库内证据核查：`--quick-*` 声明 3 处（index.css）但组件引用 5 处（QuickSearchWindow.tsx 2、ui/command.tsx 4，其中 2 处内联复用）→ 迁移需覆盖声明 + 组件引用；`--color-surface-elevated` 有 12 处引用但全部在 index.css 内，无 TSX 引用 → 删除前需先替换 index.css 内引用；astryx/legacy（`--canvas`/`--fg`）已零引用；accent 浅色 hue 35（暖橙）与深色 hue 200（冷蓝）分裂实为变速迁。Orchestrator 决策（2026-08-25）：**UI 字体 = Figtree 随包发货**；**电光蓝取值：深色 `#57a7ff` / 浅色 `#2f6df6`**（`#3d7bfd` 因浅色对比度 3.85:1 < 4.5:1 不采用）。spec 状态由 `todo` 推进为 `in_progress` 交 Coder。
+- 2026-10-15（Phase 10 筹备）：需求讨论结论 `docs/prds/file-templates-ui-requirements.md` 定稿，PRD 升级到 v0.4（A-03 修订、A-14～A-17、FR-GRP/TPL/FMT/EXP/VIS、AC-21～38、D-11～D-18）；AGENT.md 同步内容边界、容量、备份格式与文件安全规则。Orchestrator 对 11 个待定问题全部采纳建议：分组最多 3 层；外部子目录自动成为分组；自动 Key 保留中文；标题与文件名双向联动；外部删除进回收站标记“文件缺失”；重名加 ` (2)`；只含文本片段的分组也建目录；字体打包 Playfair Display + Source Sans 3 拉丁子集、中文退回 Noto CJK；快搜窗口保留透明窗口；颗粒不透明度实机调定；接受深浅两套强调色不同。xlsx 带格式复制只带格式与值（预研 `docs/research/xlsx-clipboard-spike.md`）。
+- 2026-10-15（Master 补充决定，Orchestrator 2026-10-15 审阅通过）：① 模板目录为 `<应用数据目录>/templates/`（`~/.local/share/io.searchis.desktop/templates/`，与数据库同目录，替代讨论稿中的 `~/.local/share/searchis/`）；② 识别顺序改为路径 → inode → 哈希；③ 单文件 20 MB、合计 10,000 条；④ 删除非空分组时内容整体上移到父级；⑤ 带格式复制、粘贴、导出计入使用次数，打开不计入；⑥ 导出后快搜窗口保持打开并显示路径；⑦ `autoPaste=false` 时 Ctrl+Enter 退化为仅复制（修正当前该设置在快搜窗口中不生效的问题）；⑧ 拆分为 SPEC-20～24 串行执行，视觉地基先行；⑨ Schema 分两步：v4（分组、语言，SPEC-21）、v5（文件字段，SPEC-22）。
 - 2026-08-26：SPEC-18 Gate 复盘检出 **HeaderBar 死代码**——`HeaderBar.tsx` 组件存在但全仓零 import / 零 JSX 引用（`grep -rn 'import.*HeaderBar\|<HeaderBar' src/` 仅匹配组件自身 export）。根因为 commit `f4168e7`（SPEC-13/14/15 收口）将 `AppShell`/astryx 替换为 HTML/CSS divs 时，旧的 `<AppShell nav={<HeaderBar .../>}>` 被删除但新结构未补回 HeaderBar，提交信息谎称"迁移 HeaderBar"实际未迁。Orchestrator 决策：**(1) Header 已在 SPEC-13 重构时决定删除，不复活**（功能由侧栏小齿轮 + SettingsModal 外观主题 grid + KDE Global Menu 兜底），SPEC-18 成功标准中 `.manager-header` 玻璃项作废，CSS 保留为未来锚点；(2) SPEC-18 收为 `done`，其余 10 项（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理 + reduced-transparency 回退 + build + 实机截图）均通过；(3) 教训记录到 `headerbar-dead-code` 记忆，后续 SPEC 机械验收 grep 须含"未引用组件清单"项防复发；(4) SPEC-19 不再补回 header（保持 SPEC-13 决策一致）。
 
 ## 风险记录
+
+- **（Phase 10）文件系统与数据库非原子**：导入、重命名、移动、回收站、备份导入都跨两种存储。缓解：先文件后数据库 + 补偿 + 目录扫描兜底收敛；SPEC-22 要求扫描核心为纯函数并覆盖注入失败测试。
+- **（Phase 10）X11 剪贴板自实现**：INCR、多格式、选区丢失处理容易出错，且不能在自动化测试中验证真实粘贴。缓解：格式转换与选区持有解耦，选区层用 `x11rb` 最小实现；AC-30～32 必须实机手动验收。
+- **（Phase 10）WPS 兼容性**：WPS 升级可能改变对 `XML Spreadsheet` 的解析。缓解：保留 `text/html` 与 TSV 兜底；预研样本留作回归用例。
+- **（Phase 10）原子保存改变 inode**：外部编辑器保存后 inode 变化。缓解：识别顺序为路径 → inode → 哈希（PRD FR-TPL-03）。
+- **（Phase 10）SPEC-21 至 SPEC-23 之间的备份缺口**：SPEC-24 前导出的 v1 JSON 备份不含分组、语言与模板文件。缓解：Phase 10 期间在 `feat/file-templates` 分支开发，SPEC-24 完成前不发布。
 
 - **SQLCipher 构建/分发**：目标机动态库或链接策略可能影响单可执行文件交付。SPEC-01 必须记录实际依赖和密钥错误测试，SPEC-10 再做干净环境验证。
 - **KDE/X11 集成**：KGlobalAccel、AppMenu 和窗口激活受 Plasma/D-Bus 生命周期影响。相关 spec 必须提供适配层替身测试与实机验收。
@@ -164,8 +191,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的纯文
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：SPEC-19 液态玻璃：主窗口全量玻璃与明暗全量回归
-- 状态：`done`（2026-08-28 Orchestrator 目标机实机 Gate 通过，Phase 9 收口）
-- 阶段背景：Phase 9 三 slice（SPEC-17 token 地基 + 快搜玻璃、SPEC-18 管理玻璃、SPEC-19 主窗口全量玻璃 + 明暗回归）**全部完成**，液态玻璃视觉定版落地
-- 待 Coder 决策：无（spec 已明确）
-- Last Updated：2026-08-28 Orchestrator 实机验收通过，Phase 9 完成
+- Spec：SPEC-20 视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移
+- 状态：`in_progress`（Coder）
+- 下一步：Coder 实现并回写实施记录，转 QA
+- Last Updated：2026-10-15 Orchestrator 审阅通过，SPEC-20 交 Coder
