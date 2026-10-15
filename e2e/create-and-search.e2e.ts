@@ -350,6 +350,29 @@ describe('compiled Searchis application', () => {
     await exec('xdotool', ['windowactivate', '--sync', mainWindow]);
     await waitForWindow('search', false);
 
+    // Regression: input written immediately after the picker becomes visible must
+    // survive delayed focus/visibility notifications.
+    await openSearch();
+    await setValue('search', inputSelectors.search, 'h');
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    const firstCharacter = await inWindow(
+      'search',
+      (_tauri, selector) => {
+        const input = document.querySelector(selector as string);
+        return input instanceof HTMLInputElement ? input.value : null;
+      },
+      inputSelectors.search,
+    );
+
+    if (firstCharacter !== 'h') {
+      throw new Error(
+        `search input lost the first character after activation: ${JSON.stringify(firstCharacter)}`,
+      );
+    }
+
+    await closeSearch();
+
     await setBackendTheme('dark');
     await openSearch();
     await exec('xdotool', ['windowactivate', '--sync', searchWindow]);
@@ -417,13 +440,11 @@ describe('compiled Searchis application', () => {
     if (await selectedResultId() !== beforeIme) throw new Error('IME Enter changed selection');
     if (((await searchItems('main', imeItem.key)).find(item => item.id === imeItem.id)?.usageCount) !== 0) throw new Error('IME Enter changed usageCount');
 
-    // Ctrl+Enter is copy-only: the picker remains open and usage metadata updates.
-    await sendSearchKey('Enter', { ctrl: true });
-    await waitForWindow('search', true);
-    await waitFor('search', () => document.body.textContent?.includes('使用 1 次') ?? false, [], 'Ctrl+Enter did not update usage metadata');
+    // Enter is copy-only: the picker closes and usage metadata updates.
+    await sendSearchKey('Enter');
+    await waitForWindow('search', false);
     const copied = (await searchItems('main', imeItem.key)).find(item => item.id === imeItem.id);
-    if (copied?.usageCount !== 1) throw new Error(`Ctrl+Enter usageCount expected 1, got ${copied?.usageCount}`);
-    await closeSearch();
+    if (copied?.usageCount !== 1) throw new Error(`Enter usageCount expected 1, got ${copied?.usageCount}`);
 
     // Ctrl+1 requests auto-paste and closes the picker. The backend's Rust tests
     // cover clipboard contents; this UI check covers the real command result/count.

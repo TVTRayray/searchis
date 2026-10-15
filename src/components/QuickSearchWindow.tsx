@@ -58,7 +58,6 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   const copyingRef = useRef(false);
   const closingRef = useRef(false);
   const isOpenRef = useRef(false);
-  const lastResetRef = useRef(0);
   const lastThemeSyncAtRef = useRef(0);
   const { setTheme } = useTheme();
 
@@ -95,6 +94,8 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     if (closingRef.current) return;
     closingRef.current = true;
     isOpenRef.current = false;
+    setSearchQuery("");
+    setError(null);
     onClose();
   };
 
@@ -146,13 +147,8 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       void syncTheme();
     };
 
-    const openAndReset = () => {
+    const openAndRefresh = () => {
       const now = Date.now();
-      if (now - lastResetRef.current < 500) {
-        focusInput();
-        return;
-      }
-      lastResetRef.current = now;
       closingRef.current = false;
       hasBeenFocused = false;
       window.clearTimeout(focusGraceTimer);
@@ -162,7 +158,6 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
 
       lastThemeSyncAtRef.current = now;
       void syncTheme();
-      setSearchQuery("");
       setError(null);
       void fetchResults("");
       focusInput();
@@ -171,7 +166,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     const activate = () => {
       if (!isOpenRef.current) {
         isOpenRef.current = true;
-        openAndReset();
+        openAndRefresh();
       } else {
         throttledSyncTheme();
         focusInput();
@@ -194,8 +189,13 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         ?.isVisible()
         .then((visible) => {
           if (!visible) {
+            const wasVisible = visibleRef.current;
             visibleRef.current = false;
             isOpenRef.current = false;
+            if (wasVisible) {
+              setSearchQuery("");
+              setError(null);
+            }
             return;
           }
           if (visibleRef.current) return;
@@ -349,9 +349,11 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     const raw = searchQuery.trim();
     if (!raw) return;
     try {
+      const prepared = await snippetsApi.prepareNew(raw);
       closingRef.current = true;
-      onCreateNewSnippet((await snippetsApi.prepareNew(raw)).normalizedKey);
+      onCreateNewSnippet(prepared.normalizedKey);
     } catch (prepareError) {
+      closingRef.current = false;
       setError(
         (prepareError as { message?: string }).message ?? "无法生成 Key",
       );
@@ -365,7 +367,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      close();
       return;
     }
     if (event.key === "ArrowDown") {
@@ -381,7 +383,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     if (!(event.ctrlKey || event.metaKey)) {
       if (event.key === "Enter" && selected) {
         event.preventDefault();
-        void doPaste(selected, false);
+        void doCopy(selected);
       }
       return;
     }
@@ -393,7 +395,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     }
     if (event.key === "Enter" && selected) {
       event.preventDefault();
-      void doPaste(selected, true);
+      void doPaste(selected, false);
       return;
     }
     if ((event.key === "e" || event.key === "E") && selected) {
@@ -555,10 +557,10 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
           </span>
           <span className="flex items-center gap-2">
             <span>
-              粘贴 <kbd className="raycast-kbd">↵</kbd>
+              仅复制 <kbd className="raycast-kbd">↵</kbd>
             </span>
             <span>
-              仅复制 <kbd className="raycast-kbd">Ctrl+↵</kbd>
+              粘贴 <kbd className="raycast-kbd">Ctrl+↵</kbd>
             </span>
             <span>
               关闭 <kbd className="raycast-kbd">Esc</kbd>
