@@ -1,18 +1,18 @@
 runtime_mode: managed
 active_changes:
   - change_id: phase10-file-templates
-    state: ready
-    updated_at: 2026-10-15T08:08:18.154Z
+    state: blocked
+    updated_at: 2026-10-15T08:10:38.549Z
 recent_events:
-  - at: 2026-10-15T08:08:18.154Z
-    event: qa_passed
-    detail: visual-foundation
+  - at: 2026-10-15T08:10:38.549Z
+    event: task_blocked
+    detail: 人工暂停（2026-10-15）：用户在 SPEC-20 完成后暂停 Phase 10；本任务尚未修改任何代码
     change_id: phase10-file-templates
-  - at: 2026-10-15T08:08:18.154Z
-    event: spec_ready
-    detail: groups-language
-    change_id: phase10-file-templates
-  - at: 2026-10-15T08:03:17.631Z
+  - at: 2026-10-15T08:08:41.795Z
     event: herdr_agent_started
-    detail: reviewer-reviewer-mv994pgq-hnso4:wZ:pE
+    detail: implementer-implementer-mv99bmvr:wZ:pF
+    change_id: phase10-file-templates
+  - at: 2026-10-15T08:08:37.528Z
+    event: task_dispatched
+    detail: implementer:implementer-mv99bmvr-9tkf1:groups-language:route=implementer
     change_id: phase10-file-templates
