@@ -1,0 +1,16 @@
+runtime_mode: managed
+active_changes:
+  - change_id: phase10-file-templates
+    state: ready
+    updated_at: 2026-10-15T07:22:45.218Z
+recent_events:
+  - at: 2026-10-15T07:22:45.218Z
+    event: spec_ready
+    detail: visual-foundation
+    change_id: phase10-file-templates
+  - at: 2026-10-15T07:22:45.218Z
+    event: plan_approved
+    change_id: phase10-file-templates
+  - at: 2026-10-15T03:43:14.672Z
+    event: plan_submitted
+    change_id: phase10-file-templates

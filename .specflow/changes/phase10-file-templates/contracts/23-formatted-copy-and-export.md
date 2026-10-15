@@ -6,9 +6,8 @@
 
 - Spec ID：`SPEC-23`
 - 标题：快搜窗口文件动作：带格式复制、导出与打开
-- 当前状态：`todo`
+- SpecFlow spec：`formatted-copy-export`（状态以 `../state.yaml` 为准）
 - 关联阶段：Phase 10 第四 slice
-- 当前责任角色：`Master`（已审阅通过，待前置 spec 完成）
 - 关联 PRD：FR-PCK-02（v0.4 按键表与 `autoPaste` 修正）、FR-PCK-03、FR-FMT-01～04、FR-EXP-01、AC-30～35、E-25、E-26、NFR-PERF-06、D-16、D-18
 - 前置 Spec：SPEC-22
 - 允许修改范围：
@@ -20,7 +19,7 @@
   - 文本片段的剪贴板写入路径（继续使用现有封装，行为不变）
   - 设置视图 UI（导出目录的修改界面在 SPEC-24；本 slice 只读取设置值，默认 `null`）
   - 备份格式、分组与扫描逻辑
-  - `docs/prds/**`、`.agent/**`
+  - `docs/prds/**`、`.agent/**`、`.specflow/system-specs/**`、本 change 的规划工件（`proposal.md`、`specs/`、`contracts/`、`design.md`、`ux-design.md`，Planner 专属）
 
 ## 背景与目标
 
@@ -173,31 +172,11 @@ xlsx 转换输出：
 
 - [ ] NFR-PERF-06：1 MB md、5,000 单元格 xlsx 各 100 次，记录 p95。
 
-## 实施记录
+## 执行与记录（SpecFlow）
 
-- Changed Files：
-- Commands Run：
-- Validation Output：
-- Residual Risks：
-- Implementation Notes：
+> 2026-10-15 起本 spec 由 SpecFlow 管理（change `phase10-file-templates`，spec `formatted-copy-export`）。原“实施记录 / QA Result / 完成定义”三节作废，替代关系如下：
 
-## QA Result
-
-- Status：`not_run`
-- Owner Back：`none`
-- Verdict Date：
-- Summary：
-- Findings：
-- Risks：
-- Missing Tests：
-- Required Fixes：
-- Retest Criteria：
-
-## 完成定义
-
-- [ ] 功能与关联 PRD、成功标准一致。
-- [ ] 失败、降级和事务路径已实现。
-- [ ] 测试已补齐并记录实际结果，或已说明无法执行的原因。
-- [ ] 没有超出本 spec 的范围扩张。
-- [ ] QA Result 为 `passed`。
-- [ ] `master_plan.md` 与本 spec 状态一致。
+- 实施记录 → `handoffs/<task-id>.result.yaml`（`changed_files`、`test_results`、`unresolved_issues`）。
+- QA Result → `reviews/<task-id>.md`（含 Design Conformance 节），结论由 runtime 导入后推进状态。
+- 手动 / 实机验收项 → QA 报告的“实机验收”清单标为 `pending_human`，由人在归档审批前于 `test_report.md` 执行并勾选；失败时用 `specflow reopen-qa` 退回。
+- 完成定义 → 本 spec 的 Delta Spec 场景全部有证据、QA `pass`、`tasks.md` 对应条目勾选。

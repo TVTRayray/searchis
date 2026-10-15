@@ -4,9 +4,8 @@
 
 - Spec ID：`SPEC-22`
 - 标题：文件模板管理：模板目录、导入、外部打开与目录扫描（Schema v5）
-- 当前状态：`todo`
+- SpecFlow spec：`file-templates`（状态以 `../state.yaml` 为准）
 - 关联阶段：Phase 10 第三 slice
-- 当前责任角色：`Master`（已审阅通过，待前置 spec 完成）
 - 关联 PRD：A-03、A-14、A-16、FR-SNP-01（`kind`、`file`）、FR-TPL-01～07、FR-GRP-02（目录同步部分）、FR-MGT-01、FR-MGT-04、FR-SCH-01、8.1 `TemplateFile`、9.3、AC-21/22（目录部分）、AC-24～29、E-21～24、E-27、NFR-PERF-07、D-11～D-15
 - 前置 Spec：SPEC-21
 - 允许修改范围：
@@ -18,7 +17,7 @@
   - 剪贴板与带格式复制、导出、快搜窗口新快捷键（SPEC-23）
   - 设置视图与备份格式（SPEC-24）
   - KDE Global Menu 菜单结构
-  - `docs/prds/**`、`.agent/**`
+  - `docs/prds/**`、`.agent/**`、`.specflow/system-specs/**`、本 change 的规划工件（`proposal.md`、`specs/`、`contracts/`、`design.md`、`ux-design.md`，Planner 专属）
 
 ## 背景与目标
 
@@ -168,31 +167,11 @@ SearchResultItem 新增：fileExt（kind=file 时）。
 
 - [ ] 2,000 个模板文件无变化扫描 ≤ 2 s（NFR-PERF-07），记录设备信息与样本数。
 
-## 实施记录
+## 执行与记录（SpecFlow）
 
-- Changed Files：
-- Commands Run：
-- Validation Output：
-- Residual Risks：
-- Implementation Notes：
+> 2026-10-15 起本 spec 由 SpecFlow 管理（change `phase10-file-templates`，spec `file-templates`）。原“实施记录 / QA Result / 完成定义”三节作废，替代关系如下：
 
-## QA Result
-
-- Status：`not_run`
-- Owner Back：`none`
-- Verdict Date：
-- Summary：
-- Findings：
-- Risks：
-- Missing Tests：
-- Required Fixes：
-- Retest Criteria：
-
-## 完成定义
-
-- [ ] 功能与关联 PRD、成功标准一致。
-- [ ] 失败、降级和事务路径已实现。
-- [ ] 测试已补齐并记录实际结果，或已说明无法执行的原因。
-- [ ] 没有超出本 spec 的范围扩张。
-- [ ] QA Result 为 `passed`。
-- [ ] `master_plan.md` 与本 spec 状态一致。
+- 实施记录 → `handoffs/<task-id>.result.yaml`（`changed_files`、`test_results`、`unresolved_issues`）。
+- QA Result → `reviews/<task-id>.md`（含 Design Conformance 节），结论由 runtime 导入后推进状态。
+- 手动 / 实机验收项 → QA 报告的“实机验收”清单标为 `pending_human`，由人在归档审批前于 `test_report.md` 执行并勾选；失败时用 `specflow reopen-qa` 退回。
+- 完成定义 → 本 spec 的 Delta Spec 场景全部有证据、QA `pass`、`tasks.md` 对应条目勾选。

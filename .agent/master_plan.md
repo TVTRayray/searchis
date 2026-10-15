@@ -1,5 +1,7 @@
 # Searchis Master Plan
 
+> **2026-10-15 起本文件为 Phase 1～9 历史归档，只读。** Phase 10 起的进度、状态与 QA 由 SpecFlow 管理：`.specflow/changes/phase10-file-templates/`（`state.yaml` 为权威状态；`specflow status` 查看）。
+
 > 唯一需求源：`docs/prds/prd.md`（v0.4，2026-10-15 增补文件模板、分组与视觉定版）  
 > 执行规则：`.agent/AGENT.md`  
 > 技术基线：Tauri 2 + React 19/TypeScript/Vite + Rust + SQLite（SQLCipher 加密实现）
@@ -12,11 +14,9 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的文本
 
 - 阶段名称：Phase 10 — 文件模板、分组与视觉定版（PRD v0.4）
 - 阶段目标：废弃液态玻璃，落地浅色“植物”/深色“暖炭”主题；新增分组树与文本片段语言标记；新增文件模板（模板目录、导入、外部打开、目录扫描）；快搜窗口带格式复制、导出、打开；设置视图改版与 zip 备份。需求源：`docs/prds/prd.md` v0.4、`docs/prds/file-templates-ui-requirements.md`、`docs/research/xlsx-clipboard-spike.md`。
-- 当前活跃 Spec：SPEC-20 视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移
-- 当前状态：`in_progress`
-- 当前责任角色：`Coder`
+- 当前活跃 Spec / 状态 / 责任角色：**见 SpecFlow change `phase10-file-templates`**（SPEC-20～24 对应 spec `visual-foundation`、`groups-language`、`file-templates`、`formatted-copy-export`、`settings-backup`）
 - 工作分支：`feat/file-templates`
-- Last Updated：2026-10-15 Orchestrator 审阅通过 PRD v0.4 与 SPEC-20～24，SPEC-20 交 Coder
+- Last Updated：2026-10-15 Phase 10 迁移到 SpecFlow（SPEC-20 尚未开始实现，迁移无进行中工作）
 
 > Phase 9（液态玻璃，SPEC-17～19）已于 2026-08-28 完成，其玻璃配方将由 SPEC-20 回退。
 
@@ -56,26 +56,21 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的文本
 | 17 | [液态玻璃：设计 token 地基与快搜窗口玻璃](specs/17-liquid-glass-quick-search.md) | 快搜窗口玻璃面板 + 统一 token 体系（accent 电光蓝/radius 收敛/--quick-* 消灭）；检索复制粘贴不变 | 16 | `done` |
 | 18 | [液态玻璃：管理窗口玻璃](specs/18-manager-window-glass.md) | 管理窗口侧栏玻璃 + 模态对话框玻璃 + 列表/详情实色 + 预存变量清理；Header 玻璃项作废（SPEC-13 重构已删 HeaderBar） | 17 | `done` |
 | 19 | [液态玻璃：主窗口全量玻璃与明暗全量回归](specs/19-main-window-glass-full-regression.md) | 主窗口 shell 玻璃（真实透明 + 氛围光）+ 全量明暗回归（所有视图明暗两套） | 18 | `done` |
-| 20 | [视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移](specs/20-botanical-ember-visual-foundation.md) | 去玻璃、两套不透明主题 token、字体随包、纸张颗粒、HeaderBar 按钮移到左栏底部 | 19 | `in_progress` |
-| 21 | [分组树与文本片段语言标记（Schema v4）](specs/21-groups-and-language.md) | 最多 3 层分组树、语言下拉与 CodeMirror 高亮、类型筛选、快搜结果行 Q-A | 20 | `todo` |
-| 22 | [文件模板管理（Schema v5）](specs/22-file-template-management.md) | 模板目录与分组同步、导入/新建/打开/打开方式/重命名/移动/回收站、目录扫描 | 21 | `todo` |
-| 23 | [快搜窗口文件动作：带格式复制、导出与打开](specs/23-formatted-copy-and-export.md) | X11 选区持有、md/xlsx/文件带格式复制、Shift+Enter 导出、Ctrl+O、底栏切换、autoPaste 修正 | 22 | `todo` |
-| 24 | [设置视图改版与 zip 备份](specs/24-settings-view-and-zip-backup.md) | 设置视图 S1、文件与导出分节、关于并入、zip 备份往返、重置清理模板 | 23 | `todo` |
+| 20 | [视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移](../.specflow/changes/phase10-file-templates/contracts/20-botanical-ember-visual-foundation.md) | 去玻璃、两套不透明主题 token、字体随包、纸张颗粒、HeaderBar 按钮移到左栏底部 | 19 | 见 SpecFlow |
+| 21 | [分组树与文本片段语言标记（Schema v4）](../.specflow/changes/phase10-file-templates/contracts/21-groups-and-language.md) | 最多 3 层分组树、语言下拉与 CodeMirror 高亮、类型筛选、快搜结果行 Q-A | 20 | 见 SpecFlow |
+| 22 | [文件模板管理（Schema v5）](../.specflow/changes/phase10-file-templates/contracts/22-file-template-management.md) | 模板目录与分组同步、导入/新建/打开/打开方式/重命名/移动/回收站、目录扫描 | 21 | 见 SpecFlow |
+| 23 | [快搜窗口文件动作：带格式复制、导出与打开](../.specflow/changes/phase10-file-templates/contracts/23-formatted-copy-and-export.md) | X11 选区持有、md/xlsx/文件带格式复制、Shift+Enter 导出、Ctrl+O、底栏切换、autoPaste 修正 | 22 | 见 SpecFlow |
+| 24 | [设置视图改版与 zip 备份](../.specflow/changes/phase10-file-templates/contracts/24-settings-view-and-zip-backup.md) | 设置视图 S1、文件与导出分节、关于并入、zip 备份往返、重置清理模板 | 23 | 见 SpecFlow |
 
 ## 看板
 
-### Todo（Phase 10，按顺序串行）
+### Todo（Phase 10）
 
-- [ ] SPEC-21 分组树与语言标记
-- [ ] SPEC-22 文件模板管理
-- [ ] SPEC-23 带格式复制、导出与打开
-- [ ] SPEC-24 设置视图与 zip 备份
+- Phase 10（SPEC-20～24）由 SpecFlow 管理，不再在本看板维护。
 
 ### In Progress
 
-- [ ] SPEC-20 视觉定版地基（Coder，2026-10-15 起）
-
-- [ ] 无（SPEC-19 已 done，Phase 9 完成）
+- 无（SPEC-19 已 done，Phase 9 完成；Phase 10 见 SpecFlow）
 
 ### QA Queue
 
@@ -171,6 +166,7 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的文本
 - 2026-10-15（Phase 10 筹备）：需求讨论结论 `docs/prds/file-templates-ui-requirements.md` 定稿，PRD 升级到 v0.4（A-03 修订、A-14～A-17、FR-GRP/TPL/FMT/EXP/VIS、AC-21～38、D-11～D-18）；AGENT.md 同步内容边界、容量、备份格式与文件安全规则。Orchestrator 对 11 个待定问题全部采纳建议：分组最多 3 层；外部子目录自动成为分组；自动 Key 保留中文；标题与文件名双向联动；外部删除进回收站标记“文件缺失”；重名加 ` (2)`；只含文本片段的分组也建目录；字体打包 Playfair Display + Source Sans 3 拉丁子集、中文退回 Noto CJK；快搜窗口保留透明窗口；颗粒不透明度实机调定；接受深浅两套强调色不同。xlsx 带格式复制只带格式与值（预研 `docs/research/xlsx-clipboard-spike.md`）。
 - 2026-10-15（Master 补充决定，Orchestrator 2026-10-15 审阅通过）：① 模板目录为 `<应用数据目录>/templates/`（`~/.local/share/io.searchis.desktop/templates/`，与数据库同目录，替代讨论稿中的 `~/.local/share/searchis/`）；② 识别顺序改为路径 → inode → 哈希；③ 单文件 20 MB、合计 10,000 条；④ 删除非空分组时内容整体上移到父级；⑤ 带格式复制、粘贴、导出计入使用次数，打开不计入；⑥ 导出后快搜窗口保持打开并显示路径；⑦ `autoPaste=false` 时 Ctrl+Enter 退化为仅复制（修正当前该设置在快搜窗口中不生效的问题）；⑧ 拆分为 SPEC-20～24 串行执行，视觉地基先行；⑨ Schema 分两步：v4（分组、语言，SPEC-21）、v5（文件字段，SPEC-22）。
 - 2026-08-26：SPEC-18 Gate 复盘检出 **HeaderBar 死代码**——`HeaderBar.tsx` 组件存在但全仓零 import / 零 JSX 引用（`grep -rn 'import.*HeaderBar\|<HeaderBar' src/` 仅匹配组件自身 export）。根因为 commit `f4168e7`（SPEC-13/14/15 收口）将 `AppShell`/astryx 替换为 HTML/CSS divs 时，旧的 `<AppShell nav={<HeaderBar .../>}>` 被删除但新结构未补回 HeaderBar，提交信息谎称"迁移 HeaderBar"实际未迁。Orchestrator 决策：**(1) Header 已在 SPEC-13 重构时决定删除，不复活**（功能由侧栏小齿轮 + SettingsModal 外观主题 grid + KDE Global Menu 兜底），SPEC-18 成功标准中 `.manager-header` 玻璃项作废，CSS 保留为未来锚点；(2) SPEC-18 收为 `done`，其余 10 项（侧栏玻璃 + 列表/详情实色 + `.raycast-window` 玻璃 + F2 清理 + reduced-transparency 回退 + build + 实机截图）均通过；(3) 教训记录到 `headerbar-dead-code` 记忆，后续 SPEC 机械验收 grep 须含"未引用组件清单"项防复发；(4) SPEC-19 不再补回 header（保持 SPEC-13 决策一致）。
+- 2026-10-15（工作流迁移）：Phase 10 起改用 SpecFlow（`/home/ray/Projects/CodeRepo/codex-spec-first-workflow`）。SPEC-20～24 迁入 change `phase10-file-templates` 的 `contracts/`，需求与拆分不变；新增 Delta Spec（本轮全部 ADDED，归档形成第一版 System Spec 基线）、`docs/design/` 宪章三件套、`test_report.md` 实机验收清单。实机项约定：Reviewer 标 `pending_human`，人在归档审批前执行，失败用 `reopen-qa` 退回。本文件自此为 Phase 1～9 只读归档。
 
 ## 风险记录
 
@@ -191,7 +187,4 @@ Searchis 面向 Arch Linux、KDE Plasma 6、X11，是单机、单用户的文本
 
 ## 当前活跃 Spec 状态卡
 
-- Spec：SPEC-20 视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移
-- 状态：`in_progress`（Coder）
-- 下一步：Coder 实现并回写实施记录，转 QA
-- Last Updated：2026-10-15 Orchestrator 审阅通过，SPEC-20 交 Coder
+- Phase 10 起见 SpecFlow：`node /home/ray/Projects/CodeRepo/codex-spec-first-workflow/dist/cli.js status`

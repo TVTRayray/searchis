@@ -1161,7 +1161,7 @@ V1 不接入远程分析。仅允许在本地保存不含用户内容的诊断�
 
 ### Phase 10：文件模板、分组与视觉定版（v0.4）
 
-- [ ] 任务拆分见 `.agent/master_plan.md` 的 Phase 10 与 `.agent/specs/20-*.md` 至 `24-*.md`，本节不重复列出。
+- [ ] 任务拆分见 SpecFlow change `.specflow/changes/phase10-file-templates/`（Delta Spec 与 `contracts/20～24-*.md`），本节不重复列出。
 
 ## 16. 需求优先级
 

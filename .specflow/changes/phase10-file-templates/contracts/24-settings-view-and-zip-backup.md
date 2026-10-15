@@ -4,9 +4,8 @@
 
 - Spec ID：`SPEC-24`
 - 标题：设置视图改版（S1）与 zip 备份、恢复、重置
-- 当前状态：`todo`
+- SpecFlow spec：`settings-backup`（状态以 `../state.yaml` 为准）
 - 关联阶段：Phase 10 第五 slice（收口）
-- 当前责任角色：`Master`（已审阅通过，待前置 spec 完成）
 - 关联 PRD：FR-SET-01（v0.4 设置视图与“文件与导出”）、FR-DAT-01～03（v0.4）、8.2、8.3 `SearchisBackupV2`、AC-36、AC-37、A-14（明文说明）、D-12
 - 前置 Spec：SPEC-23
 - 允许修改范围：
@@ -18,7 +17,7 @@
 - 禁止修改范围：
   - 带格式复制、扫描与文件操作核心逻辑（只调用，不改）
   - KDE Global Menu 菜单结构（“关于”菜单项改为打开设置的“关于”分节，命令 ID 不变）
-  - `docs/prds/**`、`.agent/**`
+  - `docs/prds/**`、`.agent/**`、`.specflow/system-specs/**`、本 change 的规划工件（`proposal.md`、`specs/`、`contracts/`、`design.md`、`ux-design.md`，Planner 专属）
 
 ## 背景与目标
 
@@ -153,31 +152,11 @@ zip 结构：
 
 - [ ] 500 MB 模板总量的导出、导入耗时记录（不设硬指标，确保界面不冻结并显示进度）。
 
-## 实施记录
+## 执行与记录（SpecFlow）
 
-- Changed Files：
-- Commands Run：
-- Validation Output：
-- Residual Risks：
-- Implementation Notes：
+> 2026-10-15 起本 spec 由 SpecFlow 管理（change `phase10-file-templates`，spec `settings-backup`）。原“实施记录 / QA Result / 完成定义”三节作废，替代关系如下：
 
-## QA Result
-
-- Status：`not_run`
-- Owner Back：`none`
-- Verdict Date：
-- Summary：
-- Findings：
-- Risks：
-- Missing Tests：
-- Required Fixes：
-- Retest Criteria：
-
-## 完成定义
-
-- [ ] 功能与关联 PRD、成功标准一致。
-- [ ] 失败、降级和事务路径已实现。
-- [ ] 测试已补齐并记录实际结果，或已说明无法执行的原因。
-- [ ] 没有超出本 spec 的范围扩张。
-- [ ] QA Result 为 `passed`。
-- [ ] `master_plan.md` 与本 spec 状态一致。
+- 实施记录 → `handoffs/<task-id>.result.yaml`（`changed_files`、`test_results`、`unresolved_issues`）。
+- QA Result → `reviews/<task-id>.md`（含 Design Conformance 节），结论由 runtime 导入后推进状态。
+- 手动 / 实机验收项 → QA 报告的“实机验收”清单标为 `pending_human`，由人在归档审批前于 `test_report.md` 执行并勾选；失败时用 `specflow reopen-qa` 退回。
+- 完成定义 → 本 spec 的 Delta Spec 场景全部有证据、QA `pass`、`tasks.md` 对应条目勾选。

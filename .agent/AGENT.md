@@ -1,6 +1,6 @@
 # Searchis 项目执行宪法
 
-> 适用范围：本仓库的 spec-first 开发流程  
+> 适用范围：本仓库的 spec-first 开发流程（2026-10-15 起采用 SpecFlow，见 §8～§11）  
 > 需求真理源：`docs/prds/prd.md`  
 > UI 交互基线：仓库根目录 `src/`（原 `front-baseline/` 已并入仓库根目录）
 
@@ -98,7 +98,7 @@ UI 不得直接调用未封装的平台命令。平台能力失败必须转换�
 - 行为变更必须关联一个 spec 和至少一个 PRD 需求/验收编号。
 - 先运行最小相关检查，再运行阶段要求的完整检查。
 - 不得声称未实际执行的测试通过。
-- 缺失工具链或存在前置失败时，必须写入 spec 的 `QA Result` 或风险区。
+- 缺失工具链或存在前置失败时，必须写入任务 result 的 `unresolved_issues` 或 QA 报告的 Findings。
 - 核心规则优先通过可观察行为测试，不以内部实现细节替代验收。
 
 ### 7.2 当前可用前端检查
@@ -115,7 +115,7 @@ npm run build
 npm run tauri:build
 ```
 
-相关工具确定后，Master 必须先更新本文件和目标 spec，再把命令作为完成定义。
+相关工具确定后，Planner 必须先更新本文件、`.specflow/config.yaml` 的 `quality.test_commands` 和目标 Delta Spec，再把命令作为完成定义。
 
 ### 7.3 后续平台实现的最低测试范围
 
@@ -130,75 +130,81 @@ npm run tauri:build
 
 ```text
 .agent/
-  AGENT.md
-  master_plan.md
-  specs/
-    _template.md
-    NN-feature-name.md
+  AGENT.md                 项目宪法（本文件，稳定规则）
+  master_plan.md           Phase 1～9 历史总览（只读归档）
+  specs/01～19-*.md        Phase 1～9 历史 spec（只读归档）
+.specflow/
+  config.yaml              流程策略源（测试命令、修复策略、路由、默认可写路径）
+  state.yaml               派生项目索引（runtime 生成，勿手改）
+  system-specs/            已实现、已确认的系统行为（归档时由 Delta 合并生成）
+  changes/<change-id>/     进行中的变更：proposal、specs/（Delta）、contracts/、design、
+                           ux-design、tasks、state.yaml、handoffs/、reviews/、test_report
+  history/                 已归档 change
+docs/design/               设计宪章、tokens、视觉验收清单
 ```
 
-- `AGENT.md`：稳定规则，不保存实时任务状态。
-- `master_plan.md`：唯一项目进度总览。
-- `specs/*.md`：每个文件对应一个可独立实现和验收的 vertical slice。
-- `docs/prds/prd.md`：产品范围、需求和验收真理源。
-- 聊天结论只有写回上述文件后才成为正式状态。
+- `docs/prds/prd.md`：产品意图与验收编号源；`.specflow/system-specs/` 形成后，它是“当前已实现行为”的事实源，PRD 只保留意图与版本历史。
+- 单个 change 的 `state.yaml` 是该 change 的权威状态；聊天结论、`master_plan.md` 不是。
+- `contracts/` 保存每个 spec 的详细契约（允许/禁止修改范围、IPC、数据契约、失败场景、测试点），与 Delta Spec 一起作为实现与 QA 输入。
+- SpecFlow CLI：`node /home/ray/Projects/CodeRepo/codex-spec-first-workflow/dist/cli.js <command>`（下文记作 `specflow`）。
 
 ## 9. 角色边界
 
-### Orchestrator
+### Human / Orchestrator
 
-- 由人类承担。
-- 指定阶段、目标 spec、允许修改范围及角色切换时机。
+- 由人类承担；同时担任 `operator_runtime`（运行 `specflow` 命令推进状态）。
+- 只在四处介入：澄清需求、批准计划（`specflow approve`）、处理 `decision_required`（`specflow resolve`）、批准归档（`specflow archive`）。
+- 执行无法自动化的实机验收（见 §10），或明确授权 Agent 执行。
 
-### Master
+### Planner（原 Master）
 
-- 阅读 PRD、`AGENT.md` 和 `master_plan.md`。
-- 只允许修改 `.agent/`。
-- 负责拆分 vertical slices、维护看板、产出和修订 specs。
-- 禁止修改业务代码。
+- 阅读 PRD、本文件、`docs/design/` 与 System Spec。
+- 只允许修改 `.specflow/changes/<id>/` 的规划工件（proposal、specs、contracts、design、ux-design、tasks）与 `docs/design/`、`docs/prds/`。
+- 禁止修改业务代码；不得自行推进状态。
 
-### Coder
+### Implementer（原 Coder）
 
-- 开始前必须阅读 `AGENT.md`、`master_plan.md`、唯一目标 spec 和最新 `QA Result`。
-- 只实现当前 spec，不扩展其他需求。
-- 完成后回写实现状态、实际执行的检查和残余风险。
-- QA 退回后只处理 `Required Fixes`、`Missing Tests` 和 `Retest Criteria`。
+- 只执行任务包 `handoffs/<task-id>.yaml` 列出的 spec，读取其 inputs 与对应 `contracts/` 文件。
+- 只修改任务包 `allowed_paths` 内的文件；contracts 中“仅限”约束同样有效。
+- 完成后写 `handoffs/<task-id>.result.yaml`（`changed_files`、`test_results` 必填），并勾选 `tasks.md` 对应条目；不得声称 QA 通过。
+- 修复轮只处理最新 QA 报告列出的 Findings。
 
-### QA
+### Reviewer（原 QA）
 
-- 阅读目标 spec、真实 diff 和测试结果。
-- 默认只审查，不修改业务代码。
-- 先列 Findings、Risks、Missing Tests，再给结论。
-- 必须把结论写回目标 spec 和 `master_plan.md`。
+- 阅读 Delta Spec、contracts、真实 diff 与测试证据；默认只审查，不改业务代码。
+- 填写 `reviews/<task-id>.md`（Design Impact ≠ none 时必须完成 Design Conformance 节），在 result 中给出 `verdict: pass | repair | escalation` 与 `category`。
 
-## 10. Spec 编写规则
+### Subagent
 
-每个 spec 必须：
+- 默认禁止。只有 orchestrator 用 `specflow dispatch-subagent` 派发的只读辅助任务可以执行，不得写文件或再派生。
 
-- 是用户可观察的 vertical slice，不得只描述纯 UI、纯 Schema 或纯基础设施。
-- 明确关联 PRD 需求编号和验收编号。
-- 包含背景、成功标准、非目标、接口契约、数据变化、失败场景、测试点和完成定义。
-- 明确允许修改的目录和禁止修改的范围。
-- 写出平台调用、事务边界、错误码和降级行为。
-- 只有在实现、测试、QA 和状态回写均完成后才能标记为 `done`。
+## 10. 变更与验收规则
 
-状态流转：
+每个 change 必须：
+
+- 在 `proposal.md` 声明 Design Impact（`none` / `visual` / `design_system`）；后两档实施前必须有 `ux-design.md` 与视觉证据。
+- 每个 Delta Spec 用 `ADDED / MODIFIED / REMOVED Requirements` 表达行为变化，Requirement 用 MUST 陈述，并附 GIVEN/WHEN/THEN 场景，关联 PRD 需求与验收编号。
+- 每个 spec 是用户可观察的 vertical slice，有明确允许修改路径（`specflow add-spec --path`）与禁止范围（contracts）。
+- 写出平台调用、事务边界、错误码和降级行为（contracts）。
+
+状态流转由 runtime 管理（详见 SpecFlow `01-methodology/state-machine.md`）：
 
 ```text
-todo -> in_progress -> in_qa -> done
-                         |
-                         v
-                     qa_failed -> in_progress
+planning → awaiting_plan_approval → ready → implementing ⇄ reviewing ⇄ repairing
+        → awaiting_archive_approval → archived     （任一非终态可进入 blocked / decision_required）
 ```
 
-同一时间只允许一个“当前活跃 Spec”。如需并行，必须由 Orchestrator 明确授权并在 `master_plan.md` 中记录文件边界。
+- 自动修复：`implementation_defect`、`missing_test`、`regression`、`visual_defect`、`visual_regression`、`accessibility` 每个 spec 最多 2 次；需求歧义、架构、安全、数据迁移、权限不足立即升级给人。
+- 实机验收约定：KDE 全局快捷键、写真实剪贴板、自动粘贴、外部应用粘贴、实机截图对照与 KDE Global Menu 显示不得由 Agent 自动执行（除非人明确授权）。Reviewer 在 QA 报告中把这些项标为 `pending_human`，不阻止 `pass`；人在归档审批前执行并记录于 change 的 `test_report.md`，失败时 `specflow reopen-qa` 退回对应 spec。
+- 同一时间只允许一个活跃 change（`max_active_changes: 1`），spec 串行执行。
 
 ## 11. 完成定义
 
-一个 vertical slice 只有同时满足以下条件才算完成：
+一个 spec 只有同时满足以下条件才算完成（`qa_passed`）：
 
-- spec 中的功能和失败路径已实现。
-- 相关测试已通过，或无法执行的原因已写入文件。
-- QA 已给出 `passed`。
-- spec 与 `master_plan.md` 已反映真实状态。
+- Delta Spec 场景与 contracts 中的功能和失败路径已实现。
+- 相关测试已通过并写入 result，或无法执行的原因已写入 `unresolved_issues`。
+- Reviewer 结论为 `pass`，QA 报告已导入。
 - 没有未记录的范围扩张、数据风险或平台兼容风险。
+
+一个 change 只有在全部 spec `qa_passed`、`test_report.md` 填写完毕（含实机项）、人工批准归档并完成 Delta 合并后才算完成。

@@ -8,9 +8,8 @@
 
 - Spec ID：`SPEC-20`
 - 标题：视觉定版：植物 / 暖炭主题地基与 HeaderBar 迁移
-- 当前状态：`in_progress`
+- SpecFlow spec：`visual-foundation`（状态以 `../state.yaml` 为准）
 - 关联阶段：Phase 10（文件模板、分组与视觉定版）第一 slice
-- 当前责任角色：`Coder`
 - 关联 PRD：A-17、FR-VIS-01、FR-VIS-02、FR-SET-01（主题展示名）、NFR 11.4、AC-38、D-17
 - 前置 Spec：SPEC-19（`done`）
 - 允许修改范围：
@@ -30,7 +29,7 @@
   - `src/api/**`、`src/types/**`、`src/lib/**`（数据契约）
   - 任何键盘行为、检索、复制、粘贴、设置持久化逻辑
   - 分组、语言、文件模板相关的任何 UI 结构（SPEC-21～24 承担）
-  - `docs/prds/**`、`.agent/**`（Master 专属）
+  - `docs/prds/**`、`.agent/**`、`.specflow/system-specs/**`、本 change 的规划工件（`proposal.md`、`specs/`、`contracts/`、`design.md`、`ux-design.md`，Planner 专属）
 
 ## 背景与目标
 
@@ -154,31 +153,11 @@ flowchart TD
 
 - [ ] 新增字体文件总大小记录到实施记录（预期 < 400 KB）。
 
-## 实施记录
+## 执行与记录（SpecFlow）
 
-- Changed Files：
-- Commands Run：
-- Validation Output：
-- Residual Risks：
-- Implementation Notes：
+> 2026-10-15 起本 spec 由 SpecFlow 管理（change `phase10-file-templates`，spec `visual-foundation`）。原“实施记录 / QA Result / 完成定义”三节作废，替代关系如下：
 
-## QA Result
-
-- Status：`not_run`
-- Owner Back：`none`
-- Verdict Date：
-- Summary：
-- Findings：
-- Risks：
-- Missing Tests：
-- Required Fixes：
-- Retest Criteria：
-
-## 完成定义
-
-- [ ] 功能与关联 PRD、成功标准一致。
-- [ ] 失败、降级路径已验证。
-- [ ] 测试已补齐并记录实际结果，或已说明无法执行的原因。
-- [ ] 没有超出本 spec 的范围扩张。
-- [ ] QA Result 为 `passed`。
-- [ ] `master_plan.md` 与本 spec 状态一致。
+- 实施记录 → `handoffs/<task-id>.result.yaml`（`changed_files`、`test_results`、`unresolved_issues`）。
+- QA Result → `reviews/<task-id>.md`（含 Design Conformance 节），结论由 runtime 导入后推进状态。
+- 手动 / 实机验收项 → QA 报告的“实机验收”清单标为 `pending_human`，由人在归档审批前于 `test_report.md` 执行并勾选；失败时用 `specflow reopen-qa` 退回。
+- 完成定义 → 本 spec 的 Delta Spec 场景全部有证据、QA `pass`、`tasks.md` 对应条目勾选。

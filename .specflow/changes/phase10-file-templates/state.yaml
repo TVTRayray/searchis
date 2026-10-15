@@ -1,0 +1,149 @@
+change_id: phase10-file-templates
+state: ready
+created_at: 2026-10-15T03:37:42.427Z
+updated_at: 2026-10-15T07:22:45.218Z
+specs:
+  - id: visual-foundation
+    title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
+    state: ready
+    depends_on: []
+    paths:
+      - src/index.css
+      - src/main.tsx
+      - src/App.tsx
+      - src/components/HeaderBar.tsx
+      - src/components/ManagerWindow.tsx
+      - src/components/QuickSearchWindow.tsx
+      - src/components/ui/command.tsx
+      - src/components/ui/SelectField.tsx
+      - src/components/SettingsModal.tsx
+      - src/components/AboutModal.tsx
+      - src/components/KeyboardShortcutsModal.tsx
+      - src/components/ThemeProvider.tsx
+      - src/assets/fonts/**
+      - src-tauri/tauri.conf.json
+      - src-tauri/tauri.e2e.conf.json
+      - e2e/**
+      - artifacts/spec-20/**
+    qa_attempts: 0
+    qa_report: null
+  - id: groups-language
+    title: SPEC-21 分组树与文本片段语言标记（Schema v4）
+    state: todo
+    depends_on:
+      - visual-foundation
+    paths:
+      - src-tauri/src/model.rs
+      - src-tauri/src/storage.rs
+      - src-tauri/src/service.rs
+      - src-tauri/src/commands.rs
+      - src-tauri/src/lib.rs
+      - src-tauri/src/validation.rs
+      - src-tauri/src/search_index.rs
+      - src-tauri/src/error.rs
+      - src/api/**
+      - src/types/**
+      - src/components/ManagerWindow.tsx
+      - src/components/QuickSearchWindow.tsx
+      - src/App.tsx
+      - src/components/ui/**
+      - src/index.css
+      - package.json
+      - package-lock.json
+      - e2e/**
+    qa_attempts: 0
+    qa_report: null
+  - id: file-templates
+    title: SPEC-22 文件模板管理：模板目录、导入、外部打开与目录扫描（Schema v5）
+    state: todo
+    depends_on:
+      - groups-language
+    paths:
+      - src-tauri/src/**
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - src/api/**
+      - src/types/**
+      - src/components/ManagerWindow.tsx
+      - src/components/ui/**
+      - src/App.tsx
+      - src/index.css
+      - e2e/**
+    qa_attempts: 0
+    qa_report: null
+  - id: formatted-copy-export
+    title: SPEC-23 快搜窗口文件动作：带格式复制、导出与打开
+    state: todo
+    depends_on:
+      - file-templates
+    paths:
+      - src-tauri/src/**
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - src/components/QuickSearchWindow.tsx
+      - src/components/ManagerWindow.tsx
+      - src/components/KeyboardShortcutsModal.tsx
+      - src/api/**
+      - src/types/**
+      - src/index.css
+      - e2e/**
+    qa_attempts: 0
+    qa_report: null
+  - id: settings-backup
+    title: SPEC-24 设置视图改版（S1）与 zip 备份、恢复、重置
+    state: todo
+    depends_on:
+      - formatted-copy-export
+    paths:
+      - src-tauri/src/**
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - src-tauri/capabilities/**
+      - src/components/SettingsModal.tsx
+      - src/components/SettingsView.tsx
+      - src/components/AboutModal.tsx
+      - src/App.tsx
+      - src/components/ManagerWindow.tsx
+      - src/api/**
+      - src/types/**
+      - src/index.css
+      - package.json
+      - package-lock.json
+      - e2e/**
+    qa_attempts: 0
+    qa_report: null
+leases: []
+history:
+  - at: 2026-10-15T03:37:42.427Z
+    event: change_created
+    detail: "PRDs: docs/prds/prd.md, docs/prds/file-templates-ui-requirements.md,
+      docs/research/xlsx-clipboard-spike.md"
+  - at: 2026-10-15T03:37:42.494Z
+    event: spec_added
+    detail: visual-foundation
+      paths:src/index.css,src/main.tsx,src/App.tsx,src/components/HeaderBar.tsx,src/components/ManagerWindow.tsx,src/components/QuickSearchWindow.tsx,src/components/ui/command.tsx,src/components/ui/SelectField.tsx,src/components/SettingsModal.tsx,src/components/AboutModal.tsx,src/components/KeyboardShortcutsModal.tsx,src/components/ThemeProvider.tsx,src/assets/fonts/**,src-tauri/tauri.conf.json,src-tauri/tauri.e2e.conf.json,e2e/**,artifacts/spec-20/**
+  - at: 2026-10-15T03:37:42.563Z
+    event: spec_added
+    detail: groups-language depends_on:visual-foundation
+      paths:src-tauri/src/model.rs,src-tauri/src/storage.rs,src-tauri/src/service.rs,src-tauri/src/commands.rs,src-tauri/src/lib.rs,src-tauri/src/validation.rs,src-tauri/src/search_index.rs,src-tauri/src/error.rs,src/api/**,src/types/**,src/components/ManagerWindow.tsx,src/components/QuickSearchWindow.tsx,src/App.tsx,src/components/ui/**,src/index.css,package.json,package-lock.json,e2e/**
+  - at: 2026-10-15T03:37:42.630Z
+    event: spec_added
+    detail: file-templates depends_on:groups-language
+      paths:src-tauri/src/**,src-tauri/Cargo.toml,src-tauri/Cargo.lock,src/api/**,src/types/**,src/components/ManagerWindow.tsx,src/components/ui/**,src/App.tsx,src/index.css,e2e/**
+  - at: 2026-10-15T03:37:42.705Z
+    event: spec_added
+    detail: formatted-copy-export depends_on:file-templates
+      paths:src-tauri/src/**,src-tauri/Cargo.toml,src-tauri/Cargo.lock,src/components/QuickSearchWindow.tsx,src/components/ManagerWindow.tsx,src/components/KeyboardShortcutsModal.tsx,src/api/**,src/types/**,src/index.css,e2e/**
+  - at: 2026-10-15T03:37:42.780Z
+    event: spec_added
+    detail: settings-backup depends_on:formatted-copy-export
+      paths:src-tauri/src/**,src-tauri/Cargo.toml,src-tauri/Cargo.lock,src-tauri/capabilities/**,src/components/SettingsModal.tsx,src/components/SettingsView.tsx,src/components/AboutModal.tsx,src/App.tsx,src/components/ManagerWindow.tsx,src/api/**,src/types/**,src/index.css,package.json,package-lock.json,e2e/**
+  - at: 2026-10-15T03:43:14.672Z
+    event: plan_submitted
+  - at: 2026-10-15T07:22:45.218Z
+    event: spec_ready
+    detail: visual-foundation
+  - at: 2026-10-15T07:22:45.218Z
+    event: plan_approved
+labels:
+  - visual
