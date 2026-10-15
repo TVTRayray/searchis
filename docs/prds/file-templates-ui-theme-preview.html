@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Searchis 定版主题</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Josefin+Sans:wght@500;600&family=Marcellus&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Source+Sans+3:wght@400;500;600&family=Source+Serif+4:wght@500;600&display=swap">
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#DDD8CC;font-family:Figtree,"Noto Sans SC",system-ui,sans-serif;color:#2A2520}
+.page{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
+.top h1{font-family:"Source Serif 4","Noto Serif SC",serif;font-weight:600;font-size:22px;margin:0 12px 0 0}
+.top a{text-decoration:none;font:inherit;font-size:13px;padding:5px 12px;border-radius:8px;border:1px solid rgba(60,45,20,.25);background:#F6F2E8;color:#2A2520;cursor:pointer}
+
+.stage{margin-bottom:34px}
+.stage-head h2{font-family:"Source Serif 4","Noto Serif SC",serif;font-weight:600;font-size:19px;margin:0}
+.stage-head p{margin:4px 0 10px;font-size:13px;color:#5A5146;line-height:1.6}
+
+[data-t=parchment]{--bg:#F3EEE2;--win:#FBF8F1;--side:#EEE7D7;--list:#F7F3EA;--detail:#FBF8F1;--field:#EAE3D2;--field-bd:rgba(80,60,30,.14);--fg:#2A2520;--fg2:#4E463C;--muted:#7A7064;--bd:rgba(80,60,30,.14);--bd2:rgba(80,60,30,.24);--acc:#A9502F;--acc-fill:#B5583A;--on-acc:#FFFDF8;--sel:rgba(181,88,59,.10);--sel-bd:rgba(181,88,59,.32);--hl:rgba(214,170,80,.34);--kbd:#F1EBDD;--code:#F5F0E4;--foot:#F5F0E4;--r-win:18px;--r-ctl:8px;--r-row:10px;--r-btn:9px;--r-kbd:5px;--fh:"Source Serif 4","Noto Serif SC",serif;--fb:Figtree,"Noto Sans SC",sans-serif;--fl:Figtree,"Noto Sans SC",sans-serif;--ls:0;--shadow:0 20px 50px rgba(60,45,20,.14),0 4px 12px rgba(60,45,20,.06);--grain:0;--c-doc:#4A6382;--c-sheet:#557A3E;--c-pdf:#A8473A;--c-code:#5E554A;--sy-k:#A9502F;--sy-s:#557A3E;--sy-c:#8F8578;--sy-n:#4A6382}
+[data-t=botanical]{--bg:#F2EEE2;--win:#FAF8F1;--side:#EDE8DA;--list:#F6F3EA;--detail:#FAF8F1;--field:#EDE8DC;--field-bd:transparent;--fg:#2D3A31;--fg2:#46524A;--muted:#66705F;--bd:#E3DDD0;--bd2:#CFC7B6;--acc:#5E7056;--acc-fill:#2D3A31;--on-acc:#F9F8F4;--sel:rgba(140,154,132,.20);--sel-bd:rgba(140,154,132,.6);--hl:rgba(214,180,90,.34);--kbd:#EDE8DC;--code:#F2EEE3;--foot:#F3EFE5;--r-win:26px;--r-ctl:999px;--r-row:14px;--r-btn:999px;--r-kbd:999px;--fh:"Playfair Display","Noto Serif SC",serif;--fb:"Source Sans 3","Noto Sans SC",sans-serif;--fl:"Source Sans 3","Noto Sans SC",sans-serif;--ls:.04em;--shadow:0 25px 50px -12px rgba(45,58,49,.18),0 4px 6px -1px rgba(45,58,49,.05);--grain:.06;--c-doc:#5F7183;--c-sheet:#5E7056;--c-pdf:#B0664F;--c-code:#4B5850;--sy-k:#A65A44;--sy-s:#5E7056;--sy-c:#8A8F84;--sy-n:#5F7183;--ic-bg:rgba(140,154,132,.16);--btn2-bd:#8C9A84}
+[data-t=claude-dark]{--bg:#1A1917;--win:#262624;--side:#1F1E1D;--list:#232321;--detail:#262624;--field:#30302E;--field-bd:transparent;--fg:#F5F4EE;--fg2:#C2C0B6;--muted:#9C9A92;--bd:rgba(222,220,209,.11);--bd2:rgba(222,220,209,.22);--acc:#E5916F;--acc-fill:#B95C3D;--on-acc:#FFF8F2;--sel:rgba(217,119,87,.16);--sel-bd:rgba(217,119,87,.45);--hl:rgba(214,170,80,.30);--kbd:#30302E;--code:#1F1E1D;--foot:#1F1E1D;--r-win:26px;--r-ctl:999px;--r-row:14px;--r-btn:999px;--r-kbd:999px;--fh:"Playfair Display","Noto Serif SC",serif;--fb:"Source Sans 3","Noto Sans SC",sans-serif;--fl:"Source Sans 3","Noto Sans SC",sans-serif;--ls:.04em;--shadow:0 20px 50px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.3);--grain:.035;--c-doc:#93A9C6;--c-sheet:#9BBF84;--c-pdf:#E3907C;--c-code:#B5AFA2;--sy-k:#E59A7A;--sy-s:#A9C98F;--sy-c:#8A877E;--sy-n:#9DB4D3;--ic-bg:rgba(217,119,87,.14);--btn2-bd:rgba(229,145,111,.55)}
+[data-t=deco]{--bg:#0B0B0A;--win:#12110F;--side:#0E0D0C;--list:#12110F;--detail:#151411;--field:transparent;--field-bd:rgba(212,175,55,.55);--fg:#F2F0E4;--fg2:#CFCAB8;--muted:#8F8A7E;--bd:rgba(212,175,55,.20);--bd2:rgba(212,175,55,.45);--acc:#D4AF37;--acc-fill:#D4AF37;--on-acc:#0A0A0A;--sel:rgba(212,175,55,.08);--sel-bd:rgba(212,175,55,.65);--hl:rgba(212,175,55,.30);--kbd:transparent;--code:#0E0D0C;--foot:#0E0D0C;--r-win:0;--r-ctl:0;--r-row:0;--r-btn:0;--r-kbd:0;--fh:Marcellus,"Noto Serif SC",serif;--fb:Figtree,"Noto Sans SC",sans-serif;--fl:"Josefin Sans","Noto Sans SC",sans-serif;--ls:.16em;--shadow:0 0 0 1px rgba(212,175,55,.35),0 0 40px rgba(212,175,55,.07);--grain:.07;--c-doc:#8FA9C9;--c-sheet:#A8B98A;--c-pdf:#D9907A;--c-code:#CFCAB8;--sy-k:#D4AF37;--sy-s:#A8B98A;--sy-c:#7E7A70;--sy-n:#8FA9C9}
+
+.canvas{position:relative;overflow:hidden;background:var(--bg);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:12px;color:var(--fg);font-family:var(--fb)}
+[data-t=deco] .canvas{border-radius:0;background:repeating-linear-gradient(45deg,rgba(212,175,55,.035) 0 1px,transparent 1px 22px),repeating-linear-gradient(-45deg,rgba(212,175,55,.035) 0 1px,transparent 1px 22px),radial-gradient(ellipse at 50% 0,rgba(212,175,55,.10),transparent 60%),var(--bg)}
+.grain{pointer-events:none;position:absolute;inset:0;z-index:5;opacity:var(--grain);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.label{font-family:var(--fl);font-size:11px;letter-spacing:var(--ls);color:var(--muted);text-transform:uppercase}
+.win{position:relative;background:var(--win);border:1px solid var(--bd);border-radius:var(--r-win);overflow:hidden;box-shadow:var(--shadow)}
+[data-t=deco] .win{outline:1px solid rgba(212,175,55,.25);outline-offset:4px;overflow:visible}
+.cn{display:none;position:absolute;width:14px;height:14px;border-color:var(--acc);border-style:solid;border-width:0;z-index:2}
+[data-t=deco] .cn{display:block}
+.cn.tl{top:-6px;left:-6px;border-top-width:2px;border-left-width:2px}
+.cn.br{bottom:-6px;right:-6px;border-bottom-width:2px;border-right-width:2px}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.kbd{font-family:"JetBrains Mono",monospace;font-size:11px;padding:0 6px;border-radius:var(--r-kbd);background:var(--kbd);border:1px solid var(--bd2);border-bottom-width:1.5px;color:var(--fg2);white-space:nowrap}
+.bd{font-family:var(--fl);font-size:10.5px;letter-spacing:max(var(--ls),.03em);padding:1px 6px;border-radius:var(--r-kbd);border:1px solid var(--bd2);color:var(--muted);margin-left:auto;white-space:nowrap}
+[data-t=deco] .bd{color:var(--acc);border-color:rgba(212,175,55,.4)}
+.mk{background:var(--hl);border-radius:3px;padding:0 1px}
+.q-input{display:flex;align-items:center;gap:10px;padding:14px 18px;font-size:16px;border-bottom:1px solid var(--bd)}
+[data-t=deco] .q-input{border-bottom:1px solid var(--bd2)}
+.q-input .ti{color:var(--muted);font-size:18px}
+.caret{width:2px;height:18px;background:var(--acc);margin-left:-8px}
+.q-count{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--fl);letter-spacing:var(--ls)}
+.q-list{padding:6px}
+.row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:var(--r-row);border:1px solid transparent}
+.row.on{background:var(--sel);border-color:var(--sel-bd)}
+[data-t=parchment] .q-list .row.on,[data-t=claude-dark] .q-list .row.on{border-color:transparent}
+[data-t=deco] .row.on{box-shadow:0 0 18px rgba(212,175,55,.12)}
+.ic{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:9px;background:var(--code);border:1px solid var(--bd)}
+[data-shape=botanical] .ic{border-radius:50%;border:none;background:var(--ic-bg)}
+[data-t=deco] .ic{width:24px;height:24px;margin:4px;border-radius:0;transform:rotate(45deg);border:1px solid rgba(212,175,55,.5);background:transparent}
+[data-t=deco] .ic i{transform:rotate(-45deg);font-size:14px}
+.ttl{font-size:14px;font-weight:600;color:var(--fg)}
+[data-shape=botanical] .ttl{font-weight:500}
+.sub{font-size:11.5px;color:var(--muted)}
+.q-foot{display:flex;gap:14px;justify-content:flex-end;flex-wrap:wrap;padding:9px 18px;border-top:1px solid var(--bd);font-size:12px;color:var(--fg2);background:var(--foot)}
+.mgr{display:grid;grid-template-columns:172px 230px minmax(0,1fr);height:390px}
+@media (max-width:720px){.mgr{grid-template-columns:130px minmax(0,1fr)}.mgr .list{display:none}}
+.side{background:var(--side);padding:14px 10px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--bd)}
+.ni{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r-row);color:var(--fg2);font-size:13px;border:1px solid transparent}
+.ni .n{margin-left:auto;font-size:11px;color:var(--muted)}
+.ni.on{background:var(--sel);color:var(--acc);border-color:transparent}
+[data-t=deco] .ni.on{border-left:2px solid var(--acc);background:linear-gradient(90deg,rgba(212,175,55,.12),transparent)}
+[data-shape=botanical] .ni.on{color:var(--fg)}
+.sec{font-family:var(--fl);font-size:11px;letter-spacing:var(--ls);color:var(--muted);padding:12px 10px 4px;display:flex;align-items:center;gap:8px;text-transform:uppercase}
+[data-t=deco] .sec{color:var(--acc);justify-content:center}
+[data-t=deco] .sec::before,[data-t=deco] .sec::after{content:"";height:1px;width:18px;background:rgba(212,175,55,.5)}
+[data-shape=botanical] .sec{font-family:var(--fh);font-style:italic;font-size:13px;text-transform:none;letter-spacing:0;color:var(--acc)}
+.sfoot{margin-top:auto;border-top:1px solid var(--bd);padding-top:10px;display:flex;justify-content:space-around;color:var(--fg2);font-size:18px}
+.list{background:var(--list);padding:12px;display:flex;flex-direction:column;gap:3px;border-right:1px solid var(--bd)}
+.fld{background:var(--field);border:1px solid var(--field-bd);border-radius:var(--r-ctl);padding:6px 12px;font-size:13px;color:var(--fg)}
+[data-t=deco] .fld{border-width:0 0 1px 0;padding:6px 2px}
+.search{color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.list .row{padding:8px 10px;gap:9px;font-size:13px}
+.list .row i{font-size:16px}
+.detail{background:var(--detail);padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.dh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dh h3{font-family:var(--fh);font-weight:600;font-size:22px;margin:0 auto 0 0;letter-spacing:0}
+[data-t=deco] .dh h3{font-weight:400;letter-spacing:.06em}
+[data-shape=botanical] .dh h3 em{font-style:italic;font-weight:500;color:var(--acc)}
+.dh h3 em{font-style:normal}
+.btn{font-family:var(--fb);font-size:12.5px;padding:6px 14px;border-radius:var(--r-btn);border:1px solid var(--bd2);background:transparent;color:var(--fg)}
+.btn.p{background:var(--acc-fill);border-color:var(--acc-fill);color:var(--on-acc)}
+[data-shape=botanical] .btn{letter-spacing:.06em}
+[data-shape=botanical] .btn:not(.p){border-color:var(--btn2-bd);color:var(--acc)}
+[data-t=deco] .btn{font-family:var(--fl);letter-spacing:.18em;font-size:11.5px;border-color:var(--acc);color:var(--acc)}
+[data-t=deco] .btn.p{color:var(--on-acc);background:linear-gradient(180deg,#E6C766,#D4AF37 55%,#B8952A);box-shadow:0 0 16px rgba(212,175,55,.25)}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lb{font-family:var(--fl);font-size:11px;letter-spacing:var(--ls);color:var(--muted);margin-bottom:4px;text-transform:uppercase}
+[data-t=deco] .lb{color:var(--acc)}
+.code{flex:1;background:var(--code);border:1px solid var(--bd);border-radius:calc(var(--r-row) + 2px);padding:12px 14px;font-family:"JetBrains Mono",monospace;font-size:12px;line-height:1.8;color:var(--fg)}
+[data-shape=botanical] .code{border-radius:18px;border-color:transparent}
+.k{color:var(--sy-k)}.s{color:var(--sy-s)}.c{color:var(--sy-c);font-style:italic}.nn{color:var(--sy-n)}
+</style></head><body><div class="page">
+<div class="top" role="group" aria-label="主题切换"><h1>Searchis 定版主题</h1><a href="#botanical">浅色 植物</a><a href="#claude-dark">深色 暖炭</a></div>
+<div id="stages">
+<section class="stage" id="botanical" data-t="botanical" data-shape="botanical">
+ <div class="stage-head"><h2>浅色 · 植物 Botanical</h2><p>米纸色底加纸张颗粒纹理；森林绿文字，鼠尾草绿用于选中和图标，主按钮为深绿；圆角很大，输入框和按钮是胶囊形；标题用 Playfair Display，正文用 Source Sans 3。</p></div>
+ <div class="canvas">
+  <div class="grain" aria-hidden="true"></div>
+  <div class="label">快搜窗口</div>
+  <div class="win">
+   <span class="cn tl" aria-hidden="true"></span><span class="cn br" aria-hidden="true"></span>
+   <div class="q-input"><i class="ti ti-search" aria-hidden="true"></i><span>bx</span><span class="caret"></span><span class="q-count">3 项</span></div>
+   <div class="q-list">
+    <div class="row on"><div class="ic" style="color:var(--c-sheet)"><i class="ti ti-table" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl"><span class="mk">报</span>销单</div><div class="sub"><span class="mono"><span class="mk">bx</span></span> · 行政 · 使用 12 次</div></div><span class="bd">XLSX</span><span class="kbd">Ctrl+1</span></div>
+    <div class="row"><div class="ic" style="color:var(--c-code)"><i class="ti ti-terminal-2" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl">备份 xtrabackup</div><div class="sub"><span class="mono"><span class="mk">bx</span>b</span> · 运维</div></div><span class="bd">BASH</span><span class="kbd">Ctrl+2</span></div>
+    <div class="row"><div class="ic" style="color:var(--c-doc)"><i class="ti ti-file-text" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl"><span class="mk">报</span>销说明</div><div class="sub"><span class="mono"><span class="mk">bx</span>sm</span> · 行政</div></div><span class="bd">MD</span><span class="kbd">Ctrl+3</span></div>
+   </div>
+   <div class="q-foot"><span>带格式复制 <span class="kbd">↵</span></span><span>粘贴 <span class="kbd">Ctrl+↵</span></span><span>导出 <span class="kbd">Shift+↵</span></span><span>打开 <span class="kbd">Ctrl+O</span></span><span>编辑 <span class="kbd">Ctrl+E</span></span><span>关闭 <span class="kbd">Esc</span></span></div>
+  </div>
+  <div class="label" style="margin-top:10px">管理窗口</div>
+  <div class="win mgr">
+   <span class="cn tl" aria-hidden="true"></span><span class="cn br" aria-hidden="true"></span>
+   <div class="side">
+    <div class="ni"><i class="ti ti-stack-2" aria-hidden="true"></i>全部<span class="n">24</span></div>
+    <div class="ni"><i class="ti ti-star" aria-hidden="true"></i>固定<span class="n">5</span></div>
+    <div class="ni"><i class="ti ti-clock" aria-hidden="true"></i>最近使用</div>
+    <div class="sec">分组</div>
+    <div class="ni on"><i class="ti ti-folder-open" aria-hidden="true"></i>运维<span class="n">8</span></div>
+    <div class="ni" style="padding-left:28px"><i class="ti ti-folder" aria-hidden="true"></i>数据库<span class="n">3</span></div>
+    <div class="ni"><i class="ti ti-folder" aria-hidden="true"></i>行政<span class="n">4</span></div>
+    <div class="ni"><i class="ti ti-trash" aria-hidden="true"></i>回收站</div>
+    <div class="sfoot"><i class="ti ti-keyboard" aria-label="快捷键速查"></i><i class="ti ti-sun" aria-label="切换主题"></i><i class="ti ti-settings" aria-label="设置"></i></div>
+   </div>
+   <div class="list">
+    <div class="fld search"><i class="ti ti-search" aria-hidden="true"></i>过滤</div>
+    <div class="row on"><i class="ti ti-terminal-2" style="color:var(--c-code)" aria-hidden="true"></i>重启 nginx<span class="bd">BASH</span></div>
+    <div class="row"><i class="ti ti-database" style="color:var(--c-code)" aria-hidden="true"></i>慢查询<span class="bd">SQL</span></div>
+    <div class="row"><i class="ti ti-file-text" style="color:var(--c-doc)" aria-hidden="true"></i>上线检查单<span class="bd">MD</span></div>
+    <div class="row"><i class="ti ti-table" style="color:var(--c-sheet)" aria-hidden="true"></i>值班表<span class="bd">XLSX</span></div>
+    <div class="row"><i class="ti ti-file-type-pdf" style="color:var(--c-pdf)" aria-hidden="true"></i>机房规范<span class="bd">PDF</span></div>
+   </div>
+   <div class="detail">
+    <div class="dh"><h3>重启 <em>nginx</em></h3><span class="btn">复制</span><span class="btn p">快速粘贴</span></div>
+    <div class="grid3">
+     <div><div class="lb">Key</div><div class="fld mono">ngxr</div></div>
+     <div><div class="lb">分组</div><div class="fld">运维</div></div>
+     <div><div class="lb">语言</div><div class="fld">bash</div></div>
+    </div>
+    <div class="lb">内容</div>
+    <div class="code"><span class="c"># 检查配置后重载</span><br><span class="k">sudo</span> nginx -t <span class="k">&amp;&amp;</span> \<br>&nbsp;&nbsp;<span class="k">sudo</span> systemctl reload nginx <span class="nn">--no-block</span><br><span class="k">echo</span> <span class="s">"reloaded at $(date)"</span></div>
+   </div>
+  </div>
+ </div>
+</section>
+<section class="stage" id="claude-dark" data-t="claude-dark" data-shape="botanical">
+ <div class="stage-head"><h2>深色 · 暖炭 Ember（使用植物风格的形状和字体）</h2><p>Claude 深色的暖炭底，陶土色强调；圆角、胶囊控件、Playfair 标题和 Source Sans 3 正文都与浅色一致，切换主题时只有颜色变化；加一层很淡的颗粒纹理。</p></div>
+ <div class="canvas">
+  <div class="grain" aria-hidden="true"></div>
+  <div class="label">快搜窗口</div>
+  <div class="win">
+   <span class="cn tl" aria-hidden="true"></span><span class="cn br" aria-hidden="true"></span>
+   <div class="q-input"><i class="ti ti-search" aria-hidden="true"></i><span>bx</span><span class="caret"></span><span class="q-count">3 项</span></div>
+   <div class="q-list">
+    <div class="row on"><div class="ic" style="color:var(--c-sheet)"><i class="ti ti-table" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl"><span class="mk">报</span>销单</div><div class="sub"><span class="mono"><span class="mk">bx</span></span> · 行政 · 使用 12 次</div></div><span class="bd">XLSX</span><span class="kbd">Ctrl+1</span></div>
+    <div class="row"><div class="ic" style="color:var(--c-code)"><i class="ti ti-terminal-2" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl">备份 xtrabackup</div><div class="sub"><span class="mono"><span class="mk">bx</span>b</span> · 运维</div></div><span class="bd">BASH</span><span class="kbd">Ctrl+2</span></div>
+    <div class="row"><div class="ic" style="color:var(--c-doc)"><i class="ti ti-file-text" aria-hidden="true"></i></div><div style="flex:1;min-width:0"><div class="ttl"><span class="mk">报</span>销说明</div><div class="sub"><span class="mono"><span class="mk">bx</span>sm</span> · 行政</div></div><span class="bd">MD</span><span class="kbd">Ctrl+3</span></div>
+   </div>
+   <div class="q-foot"><span>带格式复制 <span class="kbd">↵</span></span><span>粘贴 <span class="kbd">Ctrl+↵</span></span><span>导出 <span class="kbd">Shift+↵</span></span><span>打开 <span class="kbd">Ctrl+O</span></span><span>编辑 <span class="kbd">Ctrl+E</span></span><span>关闭 <span class="kbd">Esc</span></span></div>
+  </div>
+  <div class="label" style="margin-top:10px">管理窗口</div>
+  <div class="win mgr">
+   <span class="cn tl" aria-hidden="true"></span><span class="cn br" aria-hidden="true"></span>
+   <div class="side">
+    <div class="ni"><i class="ti ti-stack-2" aria-hidden="true"></i>全部<span class="n">24</span></div>
+    <div class="ni"><i class="ti ti-star" aria-hidden="true"></i>固定<span class="n">5</span></div>
+    <div class="ni"><i class="ti ti-clock" aria-hidden="true"></i>最近使用</div>
+    <div class="sec">分组</div>
+    <div class="ni on"><i class="ti ti-folder-open" aria-hidden="true"></i>运维<span class="n">8</span></div>
+    <div class="ni" style="padding-left:28px"><i class="ti ti-folder" aria-hidden="true"></i>数据库<span class="n">3</span></div>
+    <div class="ni"><i class="ti ti-folder" aria-hidden="true"></i>行政<span class="n">4</span></div>
+    <div class="ni"><i class="ti ti-trash" aria-hidden="true"></i>回收站</div>
+    <div class="sfoot"><i class="ti ti-keyboard" aria-label="快捷键速查"></i><i class="ti ti-sun" aria-label="切换主题"></i><i class="ti ti-settings" aria-label="设置"></i></div>
+   </div>
+   <div class="list">
+    <div class="fld search"><i class="ti ti-search" aria-hidden="true"></i>过滤</div>
+    <div class="row on"><i class="ti ti-terminal-2" style="color:var(--c-code)" aria-hidden="true"></i>重启 nginx<span class="bd">BASH</span></div>
+    <div class="row"><i class="ti ti-database" style="color:var(--c-code)" aria-hidden="true"></i>慢查询<span class="bd">SQL</span></div>
+    <div class="row"><i class="ti ti-file-text" style="color:var(--c-doc)" aria-hidden="true"></i>上线检查单<span class="bd">MD</span></div>
+    <div class="row"><i class="ti ti-table" style="color:var(--c-sheet)" aria-hidden="true"></i>值班表<span class="bd">XLSX</span></div>
+    <div class="row"><i class="ti ti-file-type-pdf" style="color:var(--c-pdf)" aria-hidden="true"></i>机房规范<span class="bd">PDF</span></div>
+   </div>
+   <div class="detail">
+    <div class="dh"><h3>重启 <em>nginx</em></h3><span class="btn">复制</span><span class="btn p">快速粘贴</span></div>
+    <div class="grid3">
+     <div><div class="lb">Key</div><div class="fld mono">ngxr</div></div>
+     <div><div class="lb">分组</div><div class="fld">运维</div></div>
+     <div><div class="lb">语言</div><div class="fld">bash</div></div>
+    </div>
+    <div class="lb">内容</div>
+    <div class="code"><span class="c"># 检查配置后重载</span><br><span class="k">sudo</span> nginx -t <span class="k">&amp;&amp;</span> \<br>&nbsp;&nbsp;<span class="k">sudo</span> systemctl reload nginx <span class="nn">--no-block</span><br><span class="k">echo</span> <span class="s">"reloaded at $(date)"</span></div>
+   </div>
+  </div>
+ </div>
+</section>
+</div>
+</div></body></html>
