@@ -72,8 +72,10 @@ herdr:
     planner: claude
     implementer: claude
     reviewer: pi
-  args:
-    implementer: [--permission-mode, auto]
+  # Workers start in their default permission mode; permission prompts are answered by the human
+  # in the worker pane. To opt in to a less interactive mode, the human may set e.g.
+  # args: { implementer: [--permission-mode, acceptEdits] }
+  args: {}
   direction: down
   start_timeout_ms: 60000
 

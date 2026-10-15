@@ -79,7 +79,13 @@ D=.specflow/changes/phase10-file-templates
 
 ### status=blocked
 
-`herdr agent read <pane>` 查看对话框内容，原样摘要发给 Guide（`[ORCH] BLOCKED ...`）并发通知给人，然后结束本轮。只有收到人工授权后，才运行 `SF approve-agent $C <T> --key <key> --confirm`。
+Worker 以默认权限模式运行，权限对话框由人在 worker pane 里亲自处理。
+
+1. `herdr agent read <pane>` 查看对话框内容。
+2. 如果是**权限请求**（运行命令、编辑文件）：发通知 `herdr notification show "SpecFlow: worker 等待授权" --body "<role>:<spec> <一句话请求>" --sound request`，然后结束本轮。人在该 pane 处理后，worker 会继续工作，router 会再次推送状态。不要为每个权限请求通知 Guide。
+3. 如果命令明显越界（写 `allowed_paths` 之外的文件、push、删除用户数据、写真实剪贴板等）：除了通知人，还要发 `[ORCH] BLOCKED-RISK ...` 给 Guide。
+4. 如果是 worker 的**需求或设计提问**：升级（§7）。
+5. 你从不替 worker 按键。`SF approve-agent` 只在人明确授权时使用。
 
 ### status=idle / done / unknown
 
