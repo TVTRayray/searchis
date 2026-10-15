@@ -5,19 +5,23 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Keyboard,
   Layers,
+  Moon,
   Plus,
   RotateCcw,
   Search,
   Settings,
   Shield,
   Star,
+  Sun,
   Tag,
   Trash2,
   X,
 } from 'lucide-react';
 import { Snippet, SidebarFilter, SortOption } from '../types/snippet';
 import { SelectField } from './ui/SelectField';
+import { THEME_LABELS, useTheme } from './ThemeProvider';
 
 interface ManagerWindowProps {
   snippets: Snippet[];
@@ -28,6 +32,8 @@ interface ManagerWindowProps {
   onCopySnippet: (snippet: Snippet) => void;
   onPasteSnippet: (snippet: Snippet) => void;
   onOpenSettings: () => void;
+  onOpenKeyboardHelp: () => void;
+  onToggleTheme: () => void;
   /** 检索窗口 Ctrl+E 跳转：编辑指定片段 */
   editRequestId?: string | null;
   /** 检索窗口 Ctrl+N 跳转：以该 Key 预填新建 */
@@ -136,6 +142,8 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   onCopySnippet,
   onPasteSnippet,
   onOpenSettings,
+  onOpenKeyboardHelp,
+  onToggleTheme,
   editRequestId,
   prefillCreateKey,
   onRequestHandled,
@@ -161,6 +169,10 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const [keyError, setKeyError] = useState('');
 
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const { theme, effectiveTheme } = useTheme();
+  const themeLabel = theme === 'system'
+    ? `${THEME_LABELS.system} · ${THEME_LABELS[effectiveTheme]}`
+    : THEME_LABELS[theme];
 
   // 响应外部 initialFilter 变化（例如菜单切换到回收站）
   React.useEffect(() => {
@@ -352,21 +364,33 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   return (
     <div className="manager-workspace">
       <aside className="manager-sidebar" aria-label="片段分类">
-        <div className="manager-sidebar-heading">
-          <span>分类目录</span>
-          <button type="button" className="manager-icon-button manager-icon-button-small" aria-label="打开系统设置" title="打开系统设置" onClick={onOpenSettings}>
-            <Settings className="size-3.5" aria-hidden />
-          </button>
-        </div>
+        <div className="manager-sidebar-heading">分类目录</div>
         <div className="manager-side-scroll">
-          {navItem('all', '全部片段', <Layers className="size-4" aria-hidden />, snippets.filter(snippet => !snippet.deletedAt).length, 'accent')}
-          {navItem('pinned', '固定片段', <Star className="size-4" aria-hidden />, pinnedCount, 'warning')}
-          {navItem('recent', '最近使用', <Clock className="size-4" aria-hidden />)}
+          {navItem('all', '全部片段', <Layers strokeWidth={1.5} className="size-4" aria-hidden />, snippets.filter(snippet => !snippet.deletedAt).length, 'accent')}
+          {navItem('pinned', '固定片段', <Star strokeWidth={1.5} className="size-4" aria-hidden />, pinnedCount, 'warning')}
+          {navItem('recent', '最近使用', <Clock strokeWidth={1.5} className="size-4" aria-hidden />)}
           <div className="manager-side-divider" />
           <div className="manager-side-section-title">标签分类</div>
-          {allTags.map(tag => navItem(tag, tag, <Tag className="size-3.5" aria-hidden />, tagCounts[tag]))}
+          {allTags.map(tag => navItem(tag, tag, <Tag strokeWidth={1.5} className="size-3.5" aria-hidden />, tagCounts[tag]))}
           <div className="manager-side-divider" />
-          {navItem('trash', '回收站', <Trash2 className="size-4" aria-hidden />, deletedCount || undefined, 'danger')}
+          {navItem('trash', '回收站', <Trash2 strokeWidth={1.5} className="size-4" aria-hidden />, deletedCount || undefined, 'danger')}
+        </div>
+        <div className="manager-sidebar-footer">
+          <button type="button" className="manager-icon-button" aria-label="键盘快捷键速查" title="键盘快捷键速查" onClick={onOpenKeyboardHelp}>
+            <Keyboard strokeWidth={1.5} className="size-[18px]" aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="manager-icon-button"
+            aria-label={`切换主题（当前：${themeLabel}）`}
+            title={`切换主题（当前：${themeLabel}）`}
+            onClick={onToggleTheme}
+          >
+            {effectiveTheme === 'dark' ? <Sun strokeWidth={1.5} className="size-[18px]" aria-hidden /> : <Moon strokeWidth={1.5} className="size-[18px]" aria-hidden />}
+          </button>
+          <button type="button" className="manager-icon-button" aria-label="打开设置" title="打开设置" onClick={onOpenSettings}>
+            <Settings strokeWidth={1.5} className="size-[18px]" aria-hidden />
+          </button>
         </div>
       </aside>
 
@@ -374,7 +398,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
         <div className="manager-list-toolbar">
           <div className="manager-list-search-row">
             <label className="manager-search-field">
-              <Search className="size-4" aria-hidden />
+              <Search strokeWidth={1.5} className="size-4" aria-hidden />
               <span className="sr-only">过滤片段</span>
               <input
                 type="search"
@@ -386,12 +410,12 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
               />
               {searchQuery && (
                 <button type="button" className="manager-search-clear" aria-label="清除过滤条件" onClick={() => resetSearchQuery('')}>
-                  <X className="size-3.5" aria-hidden />
+                  <X strokeWidth={1.5} className="size-3.5" aria-hidden />
                 </button>
               )}
             </label>
             <button type="button" className="manager-add-button" aria-label="新建片段" title="新建片段" onClick={handleStartCreateNew}>
-              <Plus className="size-4" aria-hidden />
+              <Plus strokeWidth={1.5} className="size-4" aria-hidden />
             </button>
           </div>
           <div className="manager-list-meta">
@@ -412,7 +436,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
         <div className="manager-snippet-scroll">
           {filteredSnippets.length === 0 ? (
             <div className="manager-empty-state">
-              <div className="manager-empty-mark"><Layers className="size-5" aria-hidden /></div>
+              <div className="manager-empty-mark"><Layers strokeWidth={1.5} className="size-5" aria-hidden /></div>
               <strong>暂无匹配的文本片段</strong>
               <span>{activeFilter === 'trash' ? '回收站为空' : '从一个简短、可重复使用的 Key 开始。'}</span>
               {activeFilter !== 'trash' && <button type="button" className="manager-text-action" onClick={handleStartCreateNew}>新建第一条片段</button>}
@@ -434,7 +458,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                     }}
                   >
                     <span className="manager-snippet-mark" aria-hidden>
-                      {snippet.pinned ? <Star className="size-3.5" fill="currentColor" /> : snippet.key.slice(0, 2).toUpperCase()}
+                      {snippet.pinned ? <Star strokeWidth={1.5} className="size-3.5" fill="currentColor" /> : snippet.key.slice(0, 2).toUpperCase()}
                     </span>
                     <span className="manager-snippet-copy">
                       <span className="manager-snippet-title">{snippet.title}</span>
@@ -467,7 +491,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 {selectedSnippet && !isCreatingNew && (
                   <>
                     <button type="button" className="manager-button manager-button-secondary" onClick={() => handleCopy(selectedSnippet)}>
-                      {copiedId === selectedSnippet.id ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                      {copiedId === selectedSnippet.id ? <Check strokeWidth={1.5} className="size-3.5" aria-hidden /> : <Copy strokeWidth={1.5} className="size-3.5" aria-hidden />}
                       {copiedId === selectedSnippet.id ? '已复制' : '仅复制'}
                     </button>
                     <button type="button" className="manager-button manager-button-primary" onClick={() => onPasteSnippet(selectedSnippet)}>快速粘贴</button>
@@ -476,15 +500,15 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 {selectedSnippet?.deletedAt ? (
                   <>
                     <button type="button" className="manager-button manager-button-secondary" onClick={() => onRestoreSnippet(selectedSnippet.id)}>
-                      <RotateCcw className="size-3.5" aria-hidden />恢复
+                      <RotateCcw strokeWidth={1.5} className="size-3.5" aria-hidden />恢复
                     </button>
                     <button type="button" className="manager-button manager-button-danger" onClick={() => onPermanentDeleteSnippet(selectedSnippet.id)}>
-                      <Trash2 className="size-3.5" aria-hidden />彻底删除
+                      <Trash2 strokeWidth={1.5} className="size-3.5" aria-hidden />彻底删除
                     </button>
                   </>
                 ) : selectedSnippet && !isCreatingNew ? (
                   <button type="button" className="manager-icon-button manager-danger-icon" aria-label="放入回收站" title="放入回收站" onClick={() => onDeleteSnippet(selectedSnippet.id)}>
-                    <Trash2 className="size-4" aria-hidden />
+                    <Trash2 strokeWidth={1.5} className="size-4" aria-hidden />
                   </button>
                 ) : null}
               </div>
@@ -531,7 +555,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                   <div className="manager-content-tools">
                     {isSensitive && (
                       <button type="button" className="manager-inline-action" onClick={() => setSensitiveRevealed(value => !value)}>
-                        {sensitiveRevealed ? <EyeOff className="size-3.5" aria-hidden /> : <Eye className="size-3.5" aria-hidden />}
+                        {sensitiveRevealed ? <EyeOff strokeWidth={1.5} className="size-3.5" aria-hidden /> : <Eye strokeWidth={1.5} className="size-3.5" aria-hidden />}
                         {sensitiveRevealed ? '隐蔽' : '显示明文'}
                       </button>
                     )}
@@ -540,7 +564,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 </div>
                 {isSensitive && !sensitiveRevealed ? (
                   <button type="button" className="manager-sensitive-panel" onClick={() => setSensitiveRevealed(true)} aria-label="显示敏感文本正文">
-                    <Shield className="size-6" aria-hidden />
+                    <Shield strokeWidth={1.5} className="size-6" aria-hidden />
                     <strong>敏感文本正文默认已安全隐蔽</strong>
                     <span>点击此处显示明文正文</span>
                   </button>
@@ -601,7 +625,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
 
             <div className="manager-save-bar">
               <span>保存后会写入本地加密数据库。</span>
-              <button type="button" className="manager-button manager-button-primary manager-save-button" onClick={handleSave}>
+              <button type="button" className={`manager-button ${selectedSnippet && !isCreatingNew ? 'manager-button-secondary' : 'manager-button-primary'} manager-save-button`} onClick={handleSave}>
                 保存片段数据
               </button>
             </div>
@@ -609,7 +633,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
         ) : (
           <div className="manager-editor-empty">
             <div className="manager-empty-mark manager-empty-mark-large">
-              <Layers className="size-6" aria-hidden />
+              <Layers strokeWidth={1.5} className="size-6" aria-hidden />
             </div>
             <strong>未选择任何片段</strong>
             <span>在左侧选择一个片段查看详情，或直接新建。</span>

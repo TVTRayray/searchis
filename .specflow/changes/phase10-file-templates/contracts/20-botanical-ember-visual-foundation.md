@@ -18,12 +18,12 @@
   - `src/App.tsx`（仅删除 HeaderBar 引用与挂载左栏底部按钮所需的回调传递）
   - `src/components/HeaderBar.tsx`（删除）
   - `src/components/ManagerWindow.tsx`（仅左栏底部按钮栏、删除标题旁重复设置按钮、图标 strokeWidth、className 调整）
-  - `src/components/QuickSearchWindow.tsx`、`src/components/ui/command.tsx`、`src/components/ui/SelectField.tsx`（仅样式类名与图标 strokeWidth，不改行为）
+  - `src/components/QuickSearchWindow.tsx`、`src/components/ui/command.tsx`、`src/components/ui/SelectField.tsx`（仅样式类名与图标 strokeWidth，不改行为；`command.tsx` 可为焦点环新增无行为的样式包裹元素——2026-10-15 人工授权）
   - `src/components/SettingsModal.tsx`、`AboutModal.tsx`、`KeyboardShortcutsModal.tsx`（仅样式类名、主题展示名文案、图标 strokeWidth）
-  - `src/components/ThemeProvider.tsx`（仅主题展示名）
+  - `src/components/ThemeProvider.tsx`（仅主题展示名；以及 `prefers-reduced-motion: reduce` 时不添加 `theme-transition` 的守卫——2026-10-15 人工授权）
   - `src/assets/fonts/`（新增 Playfair Display、Source Sans 3 拉丁子集 woff2；删除 Figtree）
   - `src-tauri/tauri.conf.json`、`src-tauri/tauri.e2e.conf.json`（仅 `main` 窗口 `transparent` 项）
-  - `e2e/**`（仅更新与玻璃/旧配色相关的视觉断言）
+  - `e2e/**`（更新与玻璃/旧配色相关的视觉断言；新增本 spec 要求的回归断言：焦点环、reduced-motion、placeholder 对比度、主题 token——2026-10-15 人工授权）
 - 禁止修改范围：
   - `src-tauri/src/**`（全部 Rust 业务、存储、平台层）
   - `src/api/**`、`src/types/**`、`src/lib/**`（数据契约）

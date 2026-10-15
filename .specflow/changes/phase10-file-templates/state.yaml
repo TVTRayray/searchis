@@ -1,11 +1,11 @@
 change_id: phase10-file-templates
 state: ready
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-15T07:22:45.218Z
+updated_at: 2026-10-15T08:08:18.154Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
-    state: ready
+    state: qa_passed
     depends_on: []
     paths:
       - src/index.css
@@ -25,11 +25,11 @@ specs:
       - src-tauri/tauri.e2e.conf.json
       - e2e/**
       - artifacts/spec-20/**
-    qa_attempts: 0
-    qa_report: null
+    qa_attempts: 1
+    qa_report: reviews/reviewer-mv994pgq-hnso4.md
   - id: groups-language
     title: SPEC-21 分组树与文本片段语言标记（Schema v4）
-    state: todo
+    state: ready
     depends_on:
       - visual-foundation
     paths:
@@ -145,5 +145,86 @@ history:
     detail: visual-foundation
   - at: 2026-10-15T07:22:45.218Z
     event: plan_approved
+  - at: 2026-10-15T07:23:53.567Z
+    event: task_dispatched
+    detail: implementer:implementer-mv97q3xa-qsqnu:visual-foundation:route=implementer
+  - at: 2026-10-15T07:23:57.832Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mv97q3xa:wZ:p8
+  - at: 2026-10-15T07:33:53.556Z
+    event: decision_required
+    detail: "visual-foundation（SPEC-20）的所有内容都已实现，build 和 E2E 都通过。只有一项需要决策： 两条 MUST
+      要求互相冲突。按 design-tokens.md 的规定，深色主按钮文字 #FFF8F2 放在主按钮底色 #B95C3D 上，对比度只有
+      4.28:1，达不到“主按钮文字 ≥ 4.5:1（WCAG AA）”的要求。 在没有决策之前，token 保持与表格逐项一致，没有自行改值。
+      已完成内容：index.css 换成植物/暖炭两套不透明 token，并新增
+      highlight、icon-bg、btn-secondary-border、focus-ring、文件类型、语法高亮、radius-window\
+      /card/row/pill、font-heading/body/mono、grain-opacity；
+      玻璃效果、氛围光、backdrop-filter 全部删除；Playfair Display 与 Source Sans 3
+      改为随包发货，Figtree 已删除； SVG 纸张颗粒层通过 ::after 实现，设置了
+      pointer-events:none；输入框改为填充底、胶囊形、2px 带偏移焦点光环；
+      主按钮实心、次要按钮描边，每个界面最多一个主按钮；lucide 图标统一 1.5 线宽；动效设为快搜 120ms、弹出 180ms、管理窗口
+      220ms ease-out，并支持 reduced-motion； HeaderBar
+      已删除，三个按钮移到左栏底部，标题旁重复的设置按钮已删除；主题展示名改为“浅色 植物 / 深色 暖炭 / 跟随系统”，存储值不变； main 窗口
+      transparent=false；E2E 视觉探针改为断言新主题的不透明背景色。"
+  - at: 2026-10-15T07:40:34.265Z
+    event: spec_released
+    detail: "visual-foundation: implementing without a lease"
+  - at: 2026-10-15T07:40:34.265Z
+    event: human_resolution
+    detail: "ready: 人工决策 A：深色主按钮底色 #B35838"
+  - at: 2026-10-15T07:40:37.648Z
+    event: task_dispatched
+    detail: implementer:implementer-mv98bmof-n2bpf:visual-foundation:route=implementer
+  - at: 2026-10-15T07:40:41.918Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mv98bmof:wZ:p9
+  - at: 2026-10-15T07:42:03.933Z
+    event: implementation_completed
+    detail: visual-foundation
+  - at: 2026-10-15T07:42:07.509Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mv98dk0k-znn1r:visual-foundation:route=reviewer
+  - at: 2026-10-15T07:42:10.878Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mv98dk0k-znn1r:wZ:pA
+  - at: 2026-10-15T07:50:11.015Z
+    event: repair_dispatched
+    detail: visual-foundation:attempt-1
+  - at: 2026-10-15T07:50:21.253Z
+    event: task_dispatched
+    detail: implementer:implementer-mv98o4zo-bexgr:visual-foundation:route=implementer
+  - at: 2026-10-15T07:50:25.520Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mv98o4zo:wZ:pC
+  - at: 2026-10-15T07:56:20.590Z
+    event: implementation_completed
+    detail: visual-foundation
+  - at: 2026-10-15T07:56:23.916Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mv98vwtn-tluwx:visual-foundation:route=reviewer
+  - at: 2026-10-15T07:56:27.480Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mv98vwtn-tluwx:wZ:pD
+  - at: 2026-10-15T07:59:53.696Z
+    event: decision_required
+    detail: 复审发现权限范围冲突后停止：contract 20 限定 ThemeProvider.tsx 仅修改主题展示名， 但本轮 F2 修复新增
+      prefers-reduced-motion 的 matchMedia 条件逻辑。 修复目的符合 F2，但现有任务包未解除契约内容限制；须由
+      Orchestrator/人授权并同步契约， 或由 Implementer 撤去该 guard、保留 CSS 修复后重新验证。本轮不作 QA
+      通过结论。
+  - at: 2026-10-15T08:03:10.440Z
+    event: human_resolution
+    detail: "reviewing: 人工决策 A：授权修复轮的三处改动并放宽 contract 20"
+  - at: 2026-10-15T08:03:14.283Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mv994pgq-hnso4:visual-foundation:route=reviewer
+  - at: 2026-10-15T08:03:17.631Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mv994pgq-hnso4:wZ:pE
+  - at: 2026-10-15T08:08:18.154Z
+    event: qa_passed
+    detail: visual-foundation
+  - at: 2026-10-15T08:08:18.154Z
+    event: spec_ready
+    detail: groups-language
 labels:
   - visual

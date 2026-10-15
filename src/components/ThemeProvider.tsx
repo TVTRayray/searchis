@@ -3,6 +3,13 @@ import { settingsApi } from '../api/snippets';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+// Display names only; stored values stay light / dark / system.
+export const THEME_LABELS: Record<ThemeMode, string> = {
+  light: '浅色 植物',
+  dark: '深色 暖炭',
+  system: '跟随系统',
+};
+
 interface ThemeContextType {
   theme: ThemeMode;
   effectiveTheme: 'light' | 'dark';
@@ -62,7 +69,9 @@ export const ThemeProvider: React.FC<{
       const active = isDark ? 'dark' : 'light';
 
       setEffectiveTheme(active);
-      document.documentElement.classList.add('theme-transition');
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('theme-transition');
+      }
       document.documentElement.setAttribute('data-theme', active);
       document.documentElement.classList.toggle('dark', isDark);
 

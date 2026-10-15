@@ -1,0 +1,35 @@
+task_id: reviewer-mv98vwtn-tluwx
+lease_id: lease-mv98vwtn-gsnkf
+outcome: needs_decision
+summary: >-
+  复审发现权限范围冲突后停止：contract 20 限定 ThemeProvider.tsx 仅修改主题展示名，
+  但本轮 F2 修复新增 prefers-reduced-motion 的 matchMedia 条件逻辑。
+  修复目的符合 F2，但现有任务包未解除契约内容限制；须由 Orchestrator/人授权并同步契约，
+  或由 Implementer 撤去该 guard、保留 CSS 修复后重新验证。本轮不作 QA 通过结论。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mv98vwtn-tluwx.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mv98vwtn-tluwx.result.yaml
+  test_results:
+    - command: git diff --check
+      result: pass（本轮执行，无输出）
+    - command: git diff --name-only -- src-tauri/src src/api src/types src/lib
+      result: 无结果；无相关业务代码变更
+    - command: "grep -rnE 'backdrop-filter|glass|canvas-glow|Figtree|HeaderBar' src/"
+      result: 无结果（预期 exit 1）
+    - command: >-
+        grep -rnE '#[0-9a-fA-F]{3,8}\b|rgba?\(' src/components src/App.tsx
+      result: 无结果（预期 exit 1）
+    - command: cd src-tauri && cargo test <scoped test filter>
+      result: not_applicable（无 Rust 逻辑变更）
+    - command: npm run build
+      result: 本轮未执行；发现权限冲突后停止。最新 implementer result 报告 pass，仅转引。
+    - command: npm run test:e2e
+      result: 本轮未执行；发现权限冲突后停止。最新 implementer result 报告 1 passing，仅转引，不代表本轮验证。
+unresolved_issues:
+  - "S1：ThemeProvider.tsx:72-74 的 reduced-motion guard 超出 contract 20:23 的仅主题展示名限制，需授权并同步契约或撤去 guard。"
+  - "F1–F3 完整运行复验未完成；不得将已阅源码或实现者通过报告视为本轮验证通过。"
+  - "后续 E2E 含真实前台窗口激活/输入，执行须遵守授权边界。"
+  - "pending_human：浅/深各六张截图、KDE Global Menu、KWin 圆角、颗粒调定、首帧无白闪及完整键盘/IME 实机回归。"
+verdict: escalation
+category: permission_insufficient

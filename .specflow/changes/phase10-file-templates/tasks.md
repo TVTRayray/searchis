@@ -6,14 +6,15 @@
 
 ## visual-foundation: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
 
-- [ ] 1.1 `src/index.css` 替换为植物/暖炭两套 token，新增 highlight、文件类型、语法高亮、形状、字体、grain token；删除全部玻璃 token 与氛围光
-- [ ] 1.2 随包 Playfair Display（500、600、500 italic）与 Source Sans 3（400、500、600）拉丁子集 woff2，记录来源与 OFL 许可证；删除 Figtree
-- [ ] 1.3 纸张颗粒层（`pointer-events:none`）、输入框/按钮/焦点光环/图标 strokeWidth 规范、动效时长与 reduced-motion
-- [ ] 1.4 删除 `HeaderBar.tsx`，三个按钮移到管理窗口左栏底部，删除标题旁重复设置按钮
-- [ ] 1.5 主题展示名改为“浅色 植物 / 深色 暖炭 / 跟随系统”，存储值不变；`main` 窗口 `transparent=false`
-- [ ] 1.6 更新 E2E 视觉探针为新主题不透明背景色；机械 grep 无玻璃/Figtree/HeaderBar 残留
-- [ ] 1.7 对比度复核（正文、muted、选中、主按钮文字），数值写入 result
-- [ ] 1.8 `npm run build`、`npm run test:e2e` 通过；记录字体总大小（预期 < 400 KB）
+- [x] 1.1 `src/index.css` 替换为植物/暖炭两套 token，新增 highlight、文件类型、语法高亮、形状、字体、grain token；删除全部玻璃 token 与氛围光
+- [x] 1.2 随包 Playfair Display（500、600、500 italic）与 Source Sans 3（400、500、600）拉丁子集 woff2，记录来源与 OFL 许可证；删除 Figtree
+- [x] 1.3 纸张颗粒层（`pointer-events:none`）、输入框/按钮/焦点光环/图标 strokeWidth 规范、动效时长与 reduced-motion
+- [x] 1.4 删除 `HeaderBar.tsx`，三个按钮移到管理窗口左栏底部，删除标题旁重复设置按钮
+- [x] 1.5 主题展示名改为“浅色 植物 / 深色 暖炭 / 跟随系统”，存储值不变；`main` 窗口 `transparent=false`
+- [x] 1.6 更新 E2E 视觉探针为新主题不透明背景色；机械 grep 无玻璃/Figtree/HeaderBar 残留
+- [x] 1.7 对比度复核（正文、muted、选中、主按钮文字），数值写入 result（深色主按钮经决策 A 改为 #B35838 后 4.57:1，见 artifacts/spec-20/contrast-report.md）
+- [x] 1.8 `npm run build`、`npm run test:e2e` 通过；记录字体总大小（预期 < 400 KB）
+- [x] 1.10 落实 2026-10-15 决策：深色 `--color-btn-primary-bg` 改为 `#B35838`，复核深色主按钮文字对比度 ≥ 4.5:1 并更新 `artifacts/spec-20/contrast-report.md`；重新运行 `npm run build`、`npm run test:e2e`
 - [ ] 1.9 实机：浅/深各 6 张截图存 `artifacts/spec-20/`，与预览页对照；左栏按钮与 KDE Global Menu 可用
 
 ## groups-language: SPEC-21 分组树与文本片段语言标记（Schema v4）

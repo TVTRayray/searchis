@@ -1,0 +1,28 @@
+task_id: reviewer-mv994pgq-hnso4
+change_id: phase10-file-templates
+role: reviewer
+target_spec: visual-foundation
+adapter: herdr
+lease_id: lease-mv994pgq-60w0k
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/visual-foundation.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - qa_report
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - npm run test:e2e
+next_on_success: ready
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: reviewer-reviewer-mv994pgq-hnso4
+  pane_id: wZ:pE
+  state: working

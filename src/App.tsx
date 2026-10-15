@@ -18,7 +18,6 @@ import { ManagerWindow } from './components/ManagerWindow';
 import { SettingsModal } from './components/SettingsModal';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { AboutModal } from './components/AboutModal';
-import { HeaderBar } from './components/HeaderBar';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
@@ -96,7 +95,7 @@ const MainContent: React.FC = () => {
   const [settingsRevision, setSettingsRevision] = useState(1);
   const settingsRevisionRef = useRef(1);
   const [config, setConfig] = useState<SettingsConfig>(DEFAULT_CONFIG);
-  const { setTheme } = useTheme();
+  const { setTheme, effectiveTheme } = useTheme();
 
   // SPEC-06: 从后端加载设置；主窗口以持久化后端主题覆盖旧的本地初始值。
   useEffect(() => {
@@ -352,6 +351,12 @@ const MainContent: React.FC = () => {
     showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
   };
 
+  const toggleTheme = () => {
+    const nextTheme = effectiveTheme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    updateConfig('theme', nextTheme);
+  };
+
   const handleOpenSearchWindow = () => {
     windowApi.openSearch().catch(() => showToast('无法打开检索窗口', 'error'));
   };
@@ -378,13 +383,6 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="main-window-shell">
-      <HeaderBar
-        currentView={currentView}
-        onSelectView={setCurrentView}
-        config={config}
-        onUpdateConfig={updateConfig}
-        onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
-      />
       <main className="main-window-content">
         {toast && (
           <div className="main-toast" role="status" aria-live="polite">
@@ -416,6 +414,8 @@ const MainContent: React.FC = () => {
             onCopySnippet={handleCopySnippet}
             onPasteSnippet={handlePasteSnippet}
             onOpenSettings={() => setCurrentView('settings')}
+            onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+            onToggleTheme={toggleTheme}
             editRequestId={editRequestId}
             prefillCreateKey={prefillCreateKey}
             onRequestHandled={handleRequestHandled}

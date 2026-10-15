@@ -1,0 +1,53 @@
+task_id: reviewer-mv994pgq-hnso4
+lease_id: lease-mv994pgq-60w0k
+outcome: completed
+summary: >-
+  完整复审 visual-foundation / SPEC-20，verdict 为 pass（限可自动化验收范围）。
+  contract 20 的三处 2026-10-15 人工授权已核对，S1 关闭；F1 快搜容器焦点环、
+  F2 reduced-motion 主题过渡覆盖及守卫、F3 placeholder 对比度均修复。
+  本轮 build、静态检查、34 组颜色 token 对照与独立 WCAG 复算通过。
+  按用户要求 E2E 仅审核 implementer 最终通过及负向验证证据，未执行前台激活。
+  已填写完整 QA 与 Design Conformance 报告，未修改业务代码、规划或状态，未自行批准归档。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mv994pgq-hnso4.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mv994pgq-hnso4.result.yaml
+  test_results:
+    - command: npm run build
+      result: 'pass（本轮实际执行；tsc + Vite，1667 modules，1.95s；六个新字体进入产物）'
+    - command: git diff --check
+      result: pass（本轮实际执行）
+    - command: "grep -rnE 'backdrop-filter|glass|canvas-glow|Figtree|HeaderBar' src/"
+      result: 无结果（本轮实际执行，预期 exit 1）
+    - command: "grep -rnE '#[0-9a-fA-F]{3,8}\\b|rgba?\\(' src/components src/App.tsx"
+      result: 无结果（本轮实际执行）
+    - command: "grep -rnE 'rounded-|borderRadius' src/components src/App.tsx"
+      result: 无结果（本轮实际执行）
+    - command: git diff HEAD --name-only -- src-tauri/src src/api src/types src/lib
+      result: 无结果（本轮实际执行；无业务数据或 Rust 逻辑改动）
+    - command: Node CSS token 与批准色表对照
+      result: pass（本轮实际执行；34 组明暗颜色，包含表内组合行及深色主按钮人工决策值）
+    - command: Node WCAG 2.x 相对亮度复算（半透明选中底先合成）
+      result: >-
+        pass（本轮实际执行）。浅/深：正文 surface 11.2210/13.7585；muted surface
+        4.8821/5.3792、列表底 4.6758/5.5860；选中正文列表 9.0587/11.3320、
+        快搜 9.3994/10.9176；主按钮 11.2206/4.5680、hover 4.7419/5.0728；
+        placeholder secondary/field 6.6935/7.2480、secondary/surface 7.7008/8.3091。
+        全部 ≥4.5；更多配对见 QA 报告。
+    - command: wc -c src/assets/fonts/*.woff2
+      result: 'pass（本轮实际执行；新增字体 116368 B，全部随包字体 203136 B，低于 400 KB）'
+    - command: cd src-tauri && cargo test <scoped test filter>
+      result: not_applicable（无 Rust 逻辑改动，未运行）
+    - command: npm run test:e2e
+      result: >-
+        reviewed_implementer_evidence（本轮未执行，不做前台激活）。
+        implementer-mv98o4zo-bexgr.result.yaml 报告最终代码 pass，1 passing，6.3s；
+        已核对最终测试源码的 F1 正向焦点环、F2 theme-transition 存在期间时长、
+        F3 placeholder token/对比度及本 spec 其余断言。F2 负向验证删除 CSS 覆盖后
+        按预期测得 220ms 并失败，恢复后最终重跑通过。
+unresolved_issues:
+  - '[pending_human] 浅/深各六张截图与预览对照（含新快搜填充胶囊）；左栏按钮实机交互、KDE Global Menu 五组菜单。'
+  - '[pending_human] KWin 26px、合成器关闭降级、颗粒不透明度实机调定及回写。'
+  - '[pending_human] main 不透明窗口深色冷启动首帧及切换无白闪、Noto CJK 缺失回退、完整键盘/IME 回归。'
+  - '[evidence_limit] E2E 按用户要求仅转引实现者最终证据；本机原生 reduce=true 的分支有通过和负向证据，reduce=false 下的媒体规则注入分支未另在该环境实跑。'
+verdict: pass

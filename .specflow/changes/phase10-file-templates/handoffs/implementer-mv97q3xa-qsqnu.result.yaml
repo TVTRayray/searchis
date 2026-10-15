@@ -1,0 +1,83 @@
+task_id: implementer-mv97q3xa-qsqnu
+lease_id: lease-mv97q3xa-f8ql3
+outcome: needs_decision
+summary: >-
+  visual-foundation（SPEC-20）的所有内容都已实现，build 和 E2E 都通过。只有一项需要决策：
+  两条 MUST 要求互相冲突。按 design-tokens.md 的规定，深色主按钮文字 #FFF8F2 放在主按钮底色
+  #B95C3D 上，对比度只有 4.28:1，达不到“主按钮文字 ≥ 4.5:1（WCAG AA）”的要求。
+  在没有决策之前，token 保持与表格逐项一致，没有自行改值。
+  已完成内容：index.css 换成植物/暖炭两套不透明 token，并新增 highlight、icon-bg、btn-secondary-border、focus-ring、文件类型、语法高亮、radius-window/card/row/pill、font-heading/body/mono、grain-opacity；
+  玻璃效果、氛围光、backdrop-filter 全部删除；Playfair Display 与 Source Sans 3 改为随包发货，Figtree 已删除；
+  SVG 纸张颗粒层通过 ::after 实现，设置了 pointer-events:none；输入框改为填充底、胶囊形、2px 带偏移焦点光环；
+  主按钮实心、次要按钮描边，每个界面最多一个主按钮；lucide 图标统一 1.5 线宽；动效设为快搜 120ms、弹出 180ms、管理窗口 220ms ease-out，并支持 reduced-motion；
+  HeaderBar 已删除，三个按钮移到左栏底部，标题旁重复的设置按钮已删除；主题展示名改为“浅色 植物 / 深色 暖炭 / 跟随系统”，存储值不变；
+  main 窗口 transparent=false；E2E 视觉探针改为断言新主题的不透明背景色。
+decision_needed:
+  question: 深色主按钮文字对比度 4.28:1 低于 4.5:1。应修改 token（同时回写 design-tokens.md），还是接受这项例外？
+  options:
+    - id: A (recommended)
+      change: 深色 --color-btn-primary-bg 由 #B95C3D 改为 #B35838（4.57:1）。色相基本不变，悬停色 #A9522F 保持不变（5.07:1）。需 Planner 同步修改 docs/design/design-tokens.md。
+    - id: B
+      change: 深色主按钮底色直接采用现悬停色 #A9522F（5.07:1），悬停色另行加深。
+    - id: C
+      change: 接受例外，保持 #B95C3D，在 spec 中注明主按钮不受 AA 约束（不推荐，违反 Requirement“主题对比度达标”）。
+  owner: Planner/人（design-tokens.md 与 specs/ 属于 Planner 专属工件，Implementer 不可修改）
+evidence:
+  changed_files:
+    - src/index.css
+    - src/App.tsx
+    - src/components/HeaderBar.tsx (deleted)
+    - src/components/ManagerWindow.tsx
+    - src/components/QuickSearchWindow.tsx
+    - src/components/ui/command.tsx
+    - src/components/SettingsModal.tsx
+    - src/components/AboutModal.tsx
+    - src/components/KeyboardShortcutsModal.tsx
+    - src/components/ThemeProvider.tsx
+    - src/assets/fonts/figtree-latin-{400,500,600,700}-normal.woff2 (deleted)
+    - src/assets/fonts/playfair-display-latin-500-normal.woff2
+    - src/assets/fonts/playfair-display-latin-600-normal.woff2
+    - src/assets/fonts/playfair-display-latin-500-italic.woff2
+    - src/assets/fonts/source-sans-3-latin-400-normal.woff2
+    - src/assets/fonts/source-sans-3-latin-500-normal.woff2
+    - src/assets/fonts/source-sans-3-latin-600-normal.woff2
+    - src/assets/fonts/OFL-playfair-display.txt
+    - src/assets/fonts/OFL-source-sans-3.txt
+    - src-tauri/tauri.conf.json
+    - e2e/create-and-search.e2e.ts
+    - artifacts/spec-20/contrast-report.md
+    - .specflow/changes/phase10-file-templates/tasks.md
+  test_results:
+    - command: cd src-tauri && cargo test
+      result: not_applicable（未修改任何 Rust 代码，允许路径也不包含 src-tauri/src）
+    - command: npm run build
+      result: pass（tsc + vite build，2026-10-15）
+    - command: npm run test:e2e
+      result: pass（1 passing，用时 8.5s；E2E 构建包含新增断言：HeaderBar 零渲染且无 backdrop-filter；body 字体为 Source Sans 3，Playfair Display 与 Source Sans 3 经 document.fonts 加载，Figtree 未声明；
+        左栏底部三个按钮分别打开快捷键速查、切换并持久化主题、打开设置；设置页出现三个新展示名；
+        管理窗口画布 rgb(242,238,226) / rgb(26,25,23)；快搜窗口不透明底 rgb(250,248,241) / rgb(38,38,36)、圆角 26px、颗粒层 pointer-events:none 且为 SVG data URI；
+        浅色与深色颗粒不透明度不同；accent token 为 #5E7056 / #E5916F；管理视图最多一个主按钮，且主按钮颜色为 token 值）
+    - command: grep -rn "backdrop-filter\|glass\|canvas-glow\|Figtree\|HeaderBar" src/
+      result: 无结果（exit 1）
+    - command: grep -rnE "#[0-9a-fA-F]{3,8}\b|rgba?\(" src/components src/App.tsx
+      result: 无结果（组件内无硬编码颜色，同时去掉了 rounded-* 圆角类和 backdrop-blur 类）
+    - command: 对比度复核（node 脚本，WCAG 相对亮度）
+      result: >-
+        详见 artifacts/spec-20/contrast-report.md。浅色/深色：正文 fg/surface 11.22/13.76；muted/surface 4.88/5.38，
+        muted/列表底 4.68/5.59；选中态 fg/选中底 9.06/11.33（列表）、9.40/10.92（快搜）；主按钮文字 11.22/4.28（深色不达标）；
+        主按钮悬停 4.74/5.07；次要按钮强调色文字/surface 5.03/6.22。
+    - command: 字体大小
+      result: 新增 Playfair Display 3 个文件共 69,352 B，Source Sans 3 3 个文件共 46,016 B，合计 116,368 B；加上 JetBrains Mono，随包字体共 203,136 B（低于 400 KB）
+  font_source: >-
+    来自 npm 包 @fontsource/playfair-display@5.3.0 与 @fontsource/source-sans-3@5.3.1 的 files/*-latin-*.woff2，
+    许可证均为 OFL-1.1（package.json 中的 license 字段与 LICENSE 文件已核对，LICENSE 已复制为 src/assets/fonts/OFL-*.txt）；
+    未加入 package.json 依赖。
+unresolved_issues:
+  - "[needs_decision] 深色主按钮文字对比度 4.28:1 < 4.5:1，处理方案见 decision_needed。"
+  - "[minor] 浅色主题下 placeholder 使用 muted 色，放在输入框填充底 #EDE8DC 上为 4.24:1。placeholder 不属于 spec 列出的四类文字，暂按 token 设计意图保留，请 Reviewer 判断是否需要处理。"
+  - "[behavior note] 左栏只在片段管理视图中渲染。设置视图下不再显示三个按钮（原 HeaderBar 在设置视图中仍可见）。设置视图可通过“返回片段管理”按钮或 Esc 返回；主题可在页内切换；快捷键速查可通过 Global Menu 打开。SPEC-24 的设置视图 S1 会重做这部分。"
+  - "[scope note] contract 规定 App.tsx 只能改 HeaderBar 引用和回调传递，所以 App.tsx 中 toast 图标的 strokeWidth 没有改 JSX，而是由 index.css 的全局规则 svg.lucide { stroke-width: 1.5 } 统一生效；其他允许修改的组件已同时在 JSX 中写明 strokeWidth={1.5}。"
+  - "[design note] 编辑区“每个界面最多一个主按钮”：显示“快速粘贴”（按定版预览为主按钮）时，“保存片段数据”改为描边样式；新建模式下没有快速粘贴按钮，保存按钮仍为主按钮。危险按钮默认用描边样式，只在确认对话框中作为该界面唯一的主操作使用实心样式。"
+  - "[design note] 定版预览中侧栏分节标题使用 13px Playfair 斜体，这与“衬线只用于 ≥18px、中文不斜体”冲突，因此没有采用；衬线只用于详情标题 22px、设置页标题 22px、设置分节标题 18px、空状态 20px、确认对话框标题 18px。"
+  - "[pending_human] tasks 1.9 实机项尚未执行：浅/深色各 6 张截图存入 artifacts/spec-20/，与预览页对照，验证 KDE Global Menu 五组菜单、KWin 26px 圆角、颗粒不透明度实机调定，以及 main 窗口 transparent=false 后首帧无白闪。"
+  - "[first-frame] main.tsx 未改动。现有逻辑已在 React 挂载前根据 localStorage 缓存设置 data-theme，html 背景为 --color-canvas；index.html 不在允许路径内，且 CSP 禁止内联脚本，因此模块脚本执行前的极短时间仍取决于 WebView 默认底色，需在实机上确认。"

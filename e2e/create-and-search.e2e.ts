@@ -178,47 +178,79 @@ const shellComputedProbe = async () => inWindow('search', () => {
     : values.length >= 3
       ? (0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2]) / 255
       : -1;
+  const grain = getComputedStyle(shell, '::after');
   return {
     theme: document.documentElement.dataset.theme,
     rootClass: document.documentElement.className,
     backgroundColor,
-    quickCanvas: style.getPropertyValue('--quick-canvas').trim(),
+    backdropFilter: style.backdropFilter || 'none',
+    borderRadius: style.borderTopLeftRadius,
+    grainPointerEvents: grain.pointerEvents,
+    grainImage: grain.backgroundImage.startsWith('url("data:image/svg+xml'),
     colorScheme: style.colorScheme,
     lightness,
   };
-}) as Promise<{ theme?: string; rootClass: string; backgroundColor: string; quickCanvas: string; colorScheme: string; lightness: number } | null>;
+}) as Promise<{ theme?: string; rootClass: string; backgroundColor: string; backdropFilter: string; borderRadius: string; grainPointerEvents: string; grainImage: boolean; colorScheme: string; lightness: number } | null>;
+
+// SPEC-20 token values (docs/design/design-tokens.md); computed colors are rgb().
+const themeSurfaces = {
+  light: { canvas: 'rgb(242, 238, 226)', surface: 'rgb(250, 248, 241)', accent: '#5E7056', primaryBg: 'rgb(45, 58, 49)', primaryFg: 'rgb(249, 248, 244)' },
+  dark: { canvas: 'rgb(26, 25, 23)', surface: 'rgb(38, 38, 36)', accent: '#E5916F', primaryBg: 'rgb(179, 88, 56)', primaryFg: 'rgb(255, 248, 242)' },
+} as const;
 
 const managerComputedProbe = async () => inWindow('main', () => {
   const canvas = getComputedStyle(document.documentElement).getPropertyValue('--color-canvas').trim();
+  const shell = document.querySelector('.main-window-shell');
+  const shellStyle = shell ? getComputedStyle(shell) : null;
+  const grain = shell ? getComputedStyle(shell, '::after') : null;
+  const glass = [...document.querySelectorAll('*')].some(element => {
+    const value = getComputedStyle(element).backdropFilter;
+    return Boolean(value) && value !== 'none';
+  });
   return {
     theme: document.documentElement.dataset.theme,
     canvas,
-    hasHeader: Boolean(document.querySelector('.manager-header')),
+    shellBackground: shellStyle?.backgroundColor ?? '',
+    grainPointerEvents: grain?.pointerEvents ?? '',
+    grainOpacity: grain?.opacity ?? '',
+    glass,
+    hasHeaderBar: Boolean(document.querySelector('.manager-header')),
+    hasSidebarFooter: Boolean(document.querySelector('.manager-sidebar-footer')),
     hasWorkspace: Boolean(document.querySelector('.manager-workspace')),
     hasSettings: Boolean(document.querySelector('.settings-page')),
     themeChoices: document.querySelectorAll('.settings-theme-option').length,
     rootClass: document.documentElement.className,
     bodyText: document.body.textContent ?? '',
   };
-}) as Promise<{ theme?: string; canvas: string; hasHeader: boolean; hasWorkspace: boolean; hasSettings: boolean; themeChoices: number; rootClass: string; bodyText: string }>;
+}) as Promise<{ theme?: string; canvas: string; shellBackground: string; grainPointerEvents: string; grainOpacity: string; glass: boolean; hasHeaderBar: boolean; hasSidebarFooter: boolean; hasWorkspace: boolean; hasSettings: boolean; themeChoices: number; rootClass: string; bodyText: string }>;
 
-const lightAccentProbe = async () => inWindow('main', () => {
+const accentProbe = async () => inWindow('main', () => {
   const root = getComputedStyle(document.documentElement);
-  const accent = root.getPropertyValue('--color-accent').trim();
-  const contrast = root.getPropertyValue('--color-accent-contrast').trim();
-  const lightness = Number(accent.match(/oklch\(\s*([\d.]+)%/)?.[1] ?? -1) / 100;
   const add = document.querySelector('.manager-add-button');
   const primary = document.querySelector('.manager-button-primary');
   const checkedSwitch = document.querySelector('.manager-switch:checked');
   return {
-    accent,
-    contrast,
-    lightness,
-    addBackground: add ? getComputedStyle(add).backgroundColor : '',
+    accent: root.getPropertyValue('--color-accent').trim().toUpperCase(),
+    addColor: add ? getComputedStyle(add).color : '',
     primaryBackground: primary ? getComputedStyle(primary).backgroundColor : '',
+    primaryColor: primary ? getComputedStyle(primary).color : '',
+    primaryCount: document.querySelectorAll('.manager-button-primary, .btn-primary').length,
     switchBackground: checkedSwitch ? getComputedStyle(checkedSwitch).backgroundColor : '',
   };
-}) as Promise<{ accent: string; contrast: string; lightness: number; addBackground: string; primaryBackground: string; switchBackground: string }>;
+}) as Promise<{ accent: string; addColor: string; primaryBackground: string; primaryColor: string; primaryCount: number; switchBackground: string }>;
+
+const fontProbe = async (windowLabel: string) => inWindow(windowLabel, async () => {
+  await Promise.all([
+    document.fonts.load('500 22px "Playfair Display"'),
+    document.fonts.load('400 14px "Source Sans 3"'),
+  ]);
+  return {
+    body: getComputedStyle(document.body).fontFamily,
+    heading: document.fonts.check('500 22px "Playfair Display"'),
+    text: document.fonts.check('400 14px "Source Sans 3"'),
+    figtree: [...document.fonts].some(face => face.family.replace(/["']/g, '') === 'Figtree'),
+  };
+}) as Promise<{ body: string; heading: boolean; text: boolean; figtree: boolean }>;
 
 const setBackendTheme = async (theme: 'light' | 'dark') => {
   const current = await inWindow('main', (tauri: any) => tauri.core.invoke('settings_get')) as { revision: number };
@@ -250,29 +282,53 @@ const createSnippet = async (snippet: typeof snippets[number]) => {
 
 describe('compiled Searchis application', () => {
   it('keeps the quick-search visual and keyboard contract on real data', async () => {
-    await waitFor('main', () => Boolean(document.querySelector('.manager-header')), [], 'manager header did not render');
-    await click('main', 'button[aria-label="打开设置"]');
-    await waitFor('main', () => Boolean(document.querySelector('.settings-page')), [], 'settings page did not render');
-    const settingsSurface = await managerComputedProbe();
-    if (!settingsSurface.hasHeader || !settingsSurface.hasSettings || settingsSurface.themeChoices !== 3) {
-      throw new Error(`SPEC-13 settings surface is incomplete: ${JSON.stringify(settingsSurface)}`);
+    await waitFor('main', () => Boolean(document.querySelector('.manager-sidebar-footer')), [], 'manager sidebar footer did not render');
+    const initialManager = await managerComputedProbe();
+    if (initialManager.hasHeaderBar || initialManager.glass) {
+      throw new Error(`SPEC-20 manager still renders HeaderBar or glass: ${JSON.stringify({ hasHeaderBar: initialManager.hasHeaderBar, glass: initialManager.glass })}`);
+    }
+    const fonts = await fontProbe('main');
+    if (!fonts.body.includes('Source Sans 3') || !fonts.heading || !fonts.text || fonts.figtree) {
+      throw new Error(`bundled fonts did not load: ${JSON.stringify(fonts)}`);
     }
 
-    await clickButtonContaining('main', '浅色');
+    // Sidebar footer keeps the former HeaderBar behavior: shortcuts, theme toggle, settings.
+    await click('main', '.manager-sidebar-footer button[aria-label="键盘快捷键速查"]');
+    await waitFor('main', () => Boolean(document.querySelector('[role="dialog"][aria-labelledby="keyboard-shortcuts-title"]')), [], 'keyboard help did not open from the sidebar footer');
+    await clickButtonContaining('main', '知道了');
+    await waitFor('main', () => !document.querySelector('[aria-labelledby="keyboard-shortcuts-title"]'), [], 'keyboard help did not close');
+    const themeBeforeToggle = await inWindow('main', () => document.documentElement.dataset.theme) as string;
+    const toggledTheme = themeBeforeToggle === 'dark' ? 'light' : 'dark';
+    await click('main', '.manager-sidebar-footer button[aria-label^="切换主题"]');
+    await waitFor('main', (_tauri, expected) => document.documentElement.dataset.theme === expected, [toggledTheme], 'sidebar theme toggle did not switch the theme');
+    await waitFor('main', (tauri: any, expected) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === expected), [toggledTheme], 'sidebar theme toggle was not persisted');
+
+    await click('main', '.manager-sidebar-footer button[aria-label="打开设置"]');
+    await waitFor('main', () => Boolean(document.querySelector('.settings-page')), [], 'settings page did not render');
+    const settingsSurface = await managerComputedProbe();
+    if (!settingsSurface.hasSettings || settingsSurface.themeChoices !== 3 || !['浅色 植物', '深色 暖炭', '跟随系统'].every(label => settingsSurface.bodyText.includes(label))) {
+      throw new Error(`SPEC-20 settings surface is incomplete: ${JSON.stringify({ ...settingsSurface, bodyText: undefined })}`);
+    }
+
+    await clickButtonContaining('main', '浅色 植物');
     await waitFor('main', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'manager light theme did not apply');
     await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'light'), [], 'manager light theme was not persisted');
     const lightManager = await managerComputedProbe();
-    const lightAccent = await lightAccentProbe();
-    if (lightManager.theme !== 'light' || !lightManager.hasHeader || !lightManager.canvas || lightAccent.lightness < 0.35 || lightAccent.lightness > 0.7 || !/^#fff(?:fff)?$/i.test(lightAccent.contrast) || !lightAccent.switchBackground) {
-      throw new Error(`manager light theme/layout/accent mismatch: ${JSON.stringify({ lightManager, lightAccent })}`);
+    const lightAccent = await accentProbe();
+    if (lightManager.theme !== 'light' || lightManager.shellBackground !== themeSurfaces.light.canvas || lightManager.grainPointerEvents !== 'none' || lightManager.glass || lightAccent.accent !== themeSurfaces.light.accent || !lightAccent.switchBackground) {
+      throw new Error(`manager light theme/layout/accent mismatch: ${JSON.stringify({ ...lightManager, bodyText: undefined, lightAccent })}`);
     }
 
-    await clickButtonContaining('main', '深色');
+    await clickButtonContaining('main', '深色 暖炭');
     await waitFor('main', () => document.documentElement.dataset.theme === 'dark' && !document.documentElement.classList.contains('theme-transition'), [], 'manager dark theme did not apply');
     await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'dark'), [], 'manager dark theme was not persisted');
     const darkManager = await managerComputedProbe();
-    if (darkManager.theme !== 'dark' || !darkManager.hasHeader || !darkManager.canvas) {
-      throw new Error(`manager dark theme/layout mismatch: ${JSON.stringify(darkManager)}`);
+    const darkAccent = await accentProbe();
+    if (darkManager.theme !== 'dark' || darkManager.shellBackground !== themeSurfaces.dark.canvas || darkManager.grainPointerEvents !== 'none' || darkManager.glass || darkAccent.accent !== themeSurfaces.dark.accent) {
+      throw new Error(`manager dark theme/layout mismatch: ${JSON.stringify({ ...darkManager, bodyText: undefined, darkAccent })}`);
+    }
+    if (darkManager.grainOpacity === lightManager.grainOpacity) {
+      throw new Error(`grain opacity must differ per theme: ${JSON.stringify([lightManager.grainOpacity, darkManager.grainOpacity])}`);
     }
 
     await clickButtonContaining('main', '跟随系统');
@@ -280,13 +336,83 @@ describe('compiled Searchis application', () => {
     await waitFor('main', (_tauri, expectedTheme) => document.documentElement.dataset.theme === expectedTheme && !document.documentElement.classList.contains('theme-transition'), [systemTheme], 'manager system theme did not follow the OS preference');
     await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((response: any) => response.settings.theme === 'system'), [], 'manager system theme was not persisted');
 
-    await clickButtonContaining('main', '浅色');
+    await clickButtonContaining('main', '浅色 植物');
     await waitFor('main', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'manager did not return to light theme');
     await click('main', 'button[aria-label="返回片段管理"]');
     await waitFor('main', () => Boolean(document.querySelector('.manager-workspace')), [], 'manager workspace did not render');
-    const managerAccent = await lightAccentProbe();
-    if (!managerAccent.addBackground || !managerAccent.primaryBackground) {
-      throw new Error(`manager light actions did not render with the shared accent token: ${JSON.stringify(managerAccent)}`);
+    const managerAccent = await accentProbe();
+    if (managerAccent.addColor !== 'rgb(94, 112, 86)' || managerAccent.primaryCount > 1 || (managerAccent.primaryCount === 1 && (managerAccent.primaryBackground !== themeSurfaces.light.primaryBg || managerAccent.primaryColor !== themeSurfaces.light.primaryFg))) {
+      throw new Error(`manager light actions did not render with the shared tokens: ${JSON.stringify(managerAccent)}`);
+    }
+
+    // F2 regression: the reduced-motion rules must beat .theme-transition while it is applied.
+    // When the desktop already prefers reduced motion the real cascade is measured; otherwise
+    // (WebKitGTK cannot emulate the media query) the @media body is applied unconditionally.
+    const reducedMotion = await inWindow('main', () => {
+      const reduceRules: string[] = [];
+      for (const sheet of [...document.styleSheets]) {
+        for (const rule of [...sheet.cssRules]) {
+          if (rule instanceof CSSMediaRule && rule.media.mediaText.includes('prefers-reduced-motion: reduce')) {
+            reduceRules.push(...[...rule.cssRules].map(inner => inner.cssText));
+          }
+        }
+      }
+      const targets = ['.manager-snippet-row', '.manager-add-button', '.manager-search-field', '.manager-sidebar-footer button']
+        .map(selector => document.querySelector(selector))
+        .filter((element): element is Element => Boolean(element));
+      const root = document.documentElement;
+      const hadClass = root.classList.contains('theme-transition');
+      root.classList.add('theme-transition');
+      const style = document.createElement('style');
+      style.textContent = reduceRules.join('\n');
+      const durations: number[] = [];
+      for (const applyReduce of [false, true]) {
+        if (applyReduce) document.head.append(style);
+        durations.push(Math.max(...targets.flatMap(element => getComputedStyle(element).transitionDuration.split(',')
+          .map(value => parseFloat(value) * (value.trim().endsWith('ms') ? 1 : 1000)))));
+      }
+      style.remove();
+      if (!hadClass) root.classList.remove('theme-transition');
+      const nativeReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      return { nativeReduce, ruleCount: reduceRules.length, targets: targets.length, withoutReduce: durations[0], withReduce: durations[1] };
+    }) as { nativeReduce: boolean; ruleCount: number; targets: number; withoutReduce: number; withReduce: number };
+    const reduceControlOk = reducedMotion.nativeReduce ? reducedMotion.withoutReduce <= 0.01 : reducedMotion.withoutReduce >= 200;
+    if (reducedMotion.ruleCount === 0 || reducedMotion.targets < 3 || !reduceControlOk || reducedMotion.withReduce > 0.01) {
+      throw new Error(`reduced-motion does not override the theme transition: ${JSON.stringify(reducedMotion)}`);
+    }
+
+    // F3 regression: placeholders use a token pair that meets WCAG AA on the filled field in both themes.
+    const placeholderContrast = await inWindow('main', () => {
+      const placeholderColors: string[] = [];
+      for (const sheet of [...document.styleSheets]) {
+        for (const rule of [...sheet.cssRules]) {
+          if (rule instanceof CSSStyleRule && rule.selectorText.includes('::placeholder')) placeholderColors.push(rule.style.color);
+        }
+      }
+      // WCAG 2.x relative luminance contrast, computed inline (page scripts lack esbuild's __name).
+      const root = document.documentElement;
+      const original = root.dataset.theme;
+      const ratios: Record<string, number> = {};
+      for (const theme of ['light', 'dark']) {
+        root.dataset.theme = theme;
+        const tokens = getComputedStyle(root);
+        for (const background of ['--color-field', '--color-surface']) {
+          const [high, low] = [tokens.getPropertyValue('--color-fg-secondary'), tokens.getPropertyValue(background)]
+            .map(hex => hex.trim())
+            .map(hex => [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
+              .map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+            .map(([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b)
+            .sort((x, y) => y - x);
+          ratios[`${theme}/${background}`] = (high + 0.05) / (low + 0.05);
+        }
+      }
+      if (original) root.dataset.theme = original;
+      return { placeholderColors, ratios };
+    }) as { placeholderColors: string[]; ratios: Record<string, number> };
+    if (placeholderContrast.placeholderColors.length < 3
+      || placeholderContrast.placeholderColors.some(color => color !== 'var(--color-fg-secondary)')
+      || Object.values(placeholderContrast.ratios).some(ratio => !(ratio >= 4.5))) {
+      throw new Error(`placeholder contrast is below WCAG AA: ${JSON.stringify(placeholderContrast)}`);
     }
 
     // RF8 regression: a mouse option selection must close the themed listbox.
@@ -332,18 +458,42 @@ describe('compiled Searchis application', () => {
     }
     const focusStyle = await inWindow('search', () => {
       const input = document.querySelector('input[cmdk-input]');
-      if (!(input instanceof HTMLInputElement)) return null;
+      const field = input?.closest('.quick-search-field');
+      if (!(input instanceof HTMLInputElement) || !field) return null;
       input.focus();
-      const style = getComputedStyle(input);
+      // Resolve tokens to rgb() via a probe element (no named helpers: page scripts lack esbuild's __name).
+      const resolved: Record<string, string> = {};
+      for (const token of ['--color-field', '--color-focus-ring']) {
+        const probe = document.createElement('span');
+        probe.style.color = `var(${token})`;
+        document.body.append(probe);
+        resolved[token] = getComputedStyle(probe).color;
+        probe.remove();
+      }
+      const inputStyle = getComputedStyle(input);
+      const fieldStyle = getComputedStyle(field);
       return {
-        outlineStyle: style.outlineStyle,
-        boxShadow: style.boxShadow,
-        borderBottomStyle: style.borderBottomStyle,
-        borderBottomWidth: style.borderBottomWidth,
+        focused: document.activeElement === input && field.matches(':focus-within'),
+        inputBorderWidth: inputStyle.borderBottomWidth,
+        inputOutline: inputStyle.outlineStyle,
+        fieldBackground: fieldStyle.backgroundColor,
+        fieldToken: resolved['--color-field'],
+        ringStyle: fieldStyle.outlineStyle,
+        ringWidth: fieldStyle.outlineWidth,
+        ringOffset: fieldStyle.outlineOffset,
+        ringColor: fieldStyle.outlineColor,
+        ringToken: resolved['--color-focus-ring'],
+        devicePixelRatio: window.devicePixelRatio,
       };
-    }) as { outlineStyle: string; boxShadow: string; borderBottomStyle: string; borderBottomWidth: string } | null;
-    if (!focusStyle || focusStyle.outlineStyle !== 'none' || focusStyle.boxShadow !== 'none' || focusStyle.borderBottomWidth !== '0px') {
-      throw new Error(`search input has an unexpected focus border: ${JSON.stringify(focusStyle)}`);
+    }) as { devicePixelRatio: number; focused: boolean; inputBorderWidth: string; inputOutline: string; fieldBackground: string; fieldToken: string; ringStyle: string; ringWidth: string; ringOffset: string; ringColor: string; ringToken: string } | null;
+    // SPEC-20: filled borderless input, 2px focus-ring with offset (drawn on the field so it is not doubled).
+    // WebKit floors outline widths to whole device pixels, e.g. 2px reads back as 1.6px at DPR 1.25.
+    const snappedRingWidth = focusStyle ? Math.max(1, Math.floor(2 * focusStyle.devicePixelRatio)) / focusStyle.devicePixelRatio : 0;
+    if (!focusStyle || !focusStyle.focused || focusStyle.inputBorderWidth !== '0px' || focusStyle.inputOutline !== 'none'
+      || focusStyle.fieldBackground !== focusStyle.fieldToken || focusStyle.ringStyle !== 'solid'
+      || Math.abs(parseFloat(focusStyle.ringWidth) - snappedRingWidth) > 0.01
+      || focusStyle.ringOffset !== '2px' || focusStyle.ringColor !== focusStyle.ringToken) {
+      throw new Error(`search input focus ring does not match SPEC-20: ${JSON.stringify(focusStyle)}`);
     }
     const mainWindow = (await exec('xdotool', ['search', '--name', '^Searchis$'])).stdout.trim().split('\n').at(-1);
     if (!mainWindow) throw new Error('X11 main window was not found');
@@ -378,7 +528,7 @@ describe('compiled Searchis application', () => {
     await exec('xdotool', ['windowactivate', '--sync', searchWindow]);
     await waitFor('search', () => document.documentElement.dataset.theme === 'dark' && !document.documentElement.classList.contains('theme-transition'), [], 'search window did not refresh the backend theme');
     const darkProbe = await shellComputedProbe();
-    if (!darkProbe || darkProbe.lightness < 0 || darkProbe.lightness > 0.35) {
+    if (!darkProbe || darkProbe.backgroundColor !== themeSurfaces.dark.surface || darkProbe.backdropFilter !== 'none' || darkProbe.borderRadius !== '26px' || darkProbe.grainPointerEvents !== 'none' || !darkProbe.grainImage || darkProbe.lightness < 0 || darkProbe.lightness > 0.35) {
       throw new Error(`search shell is not visually dark: ${JSON.stringify(darkProbe)}`);
     }
     await closeSearch();
@@ -388,7 +538,7 @@ describe('compiled Searchis application', () => {
     await exec('xdotool', ['windowactivate', '--sync', searchWindow]);
     await waitFor('search', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'search window did not switch back to light');
     const lightProbe = await shellComputedProbe();
-    if (!lightProbe || lightProbe.lightness < 0.8) {
+    if (!lightProbe || lightProbe.backgroundColor !== themeSurfaces.light.surface || lightProbe.backdropFilter !== 'none' || lightProbe.borderRadius !== '26px' || lightProbe.grainPointerEvents !== 'none' || !lightProbe.grainImage || lightProbe.lightness < 0.8) {
       throw new Error(`search shell is not visually light: ${JSON.stringify(lightProbe)}`);
     }
     await closeSearch();

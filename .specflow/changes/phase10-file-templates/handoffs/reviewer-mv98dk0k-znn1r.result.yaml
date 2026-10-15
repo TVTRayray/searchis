@@ -1,0 +1,45 @@
+task_id: reviewer-mv98dk0k-znn1r
+lease_id: lease-mv98dk0k-l5tg3
+outcome: completed
+summary: >-
+  完成 visual-foundation / SPEC-20 的真实 diff、设计符合性与测试证据审查，结论 repair（accessibility）。
+  深色主按钮人工决策 #B35838 已正确落地，对比度复算 4.5680:1；本轮 npm run build 通过。
+  三项需修复：快搜输入框取消规范焦点环且 E2E 断言锁定旧行为；theme-transition 的 important shorthand
+  覆盖 reduced-motion duration；浅色 muted placeholder/输入框底仅 4.2435:1。
+  未修改业务代码、规划工件或状态；未创建 subagent；未自动操作真实桌面。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mv98dk0k-znn1r.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mv98dk0k-znn1r.result.yaml
+  test_results:
+    - command: npm run build
+      result: pass（本轮实际执行；tsc + Vite，1667 modules，六个新增字体均进入产物）
+    - command: git diff --check
+      result: pass（本轮实际执行）
+    - command: grep -rnE 'backdrop-filter|glass|canvas-glow|Figtree|HeaderBar' src/
+      result: pass（本轮实际执行；零结果，预期 exit 1）
+    - command: grep -rnE '#[0-9a-fA-F]{3,8}\b|rgba?\(' src/components src/App.tsx
+      result: pass（本轮实际执行；零结果）
+    - command: Node token table comparison
+      result: pass（14 个具完整命名的明暗颜色比较；RGBA 表示规范化后无差异，其余组合表行源码人工对照）
+    - command: Node WCAG relative-luminance calculation
+      result: 深色主按钮 4.5680:1 达标；浅色 muted placeholder/field 4.2435:1 不达标（F3）
+    - command: CSS cascade and E2E assertion inspection
+      result: F1（index.css:1154-1158，E2E:389-402）；F2（index.css:177-184 与 :326 起 reduce 媒体规则）成立，见报告
+    - command: git diff --name-only -- src-tauri/src src/api src/types src/lib
+      result: pass（零结果；本 slice 未改变这些边界）
+    - command: cd src-tauri && cargo test <scoped test filter>
+      result: not_applicable（无 Rust 逻辑变更）
+    - command: npm run test:e2e
+      result: >-
+        not_run_by_reviewer。现有套件含 xdotool 真实窗口激活与桌面键盘路径，未获显式授权不执行。
+        实现者最新 result 声称 1 passing / 7.6s，仅作为转引证据；旧焦点断言与要求相反，不能据其通过判定合规。
+unresolved_issues:
+  - 'F1 [accessibility] 快搜输入框没有要求的 2px 带偏移焦点环，需同步更正 E2E 的无焦点环断言。'
+  - 'F2 [accessibility] reduced-motion 时 theme-transition 的高 specificity important shorthand 仍启用 220ms 过渡，需有效关闭并补回归。'
+  - 'F3 [accessibility] 浅色 placeholder 的 muted/field 对比度 4.2435:1，应使用现有达标 token 配对并补复核，不要求修改批准 token 表。'
+  - '[test limitation] 本轮未重跑桌面 E2E；需显式授权或安全隔离执行方式。'
+  - '[pending_human] 浅深各六张截图与预览对照、KDE Global Menu、KWin 圆角与颗粒调定、冷启动深色首帧及切换无白闪。'
+  - '[pending_human] 字体缺失回退及全键盘/IME 实机回归。'
+verdict: repair
+category: accessibility

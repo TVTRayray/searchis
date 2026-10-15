@@ -2,15 +2,17 @@ runtime_mode: managed
 active_changes:
   - change_id: phase10-file-templates
     state: ready
-    updated_at: 2026-10-15T07:22:45.218Z
+    updated_at: 2026-10-15T08:08:18.154Z
 recent_events:
-  - at: 2026-10-15T07:22:45.218Z
-    event: spec_ready
+  - at: 2026-10-15T08:08:18.154Z
+    event: qa_passed
     detail: visual-foundation
     change_id: phase10-file-templates
-  - at: 2026-10-15T07:22:45.218Z
-    event: plan_approved
+  - at: 2026-10-15T08:08:18.154Z
+    event: spec_ready
+    detail: groups-language
     change_id: phase10-file-templates
-  - at: 2026-10-15T03:43:14.672Z
-    event: plan_submitted
+  - at: 2026-10-15T08:03:17.631Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mv994pgq-hnso4:wZ:pE
     change_id: phase10-file-templates

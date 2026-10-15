@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { SettingsConfig, settingsApi } from '../api/snippets';
-import { useTheme } from './ThemeProvider';
+import { THEME_LABELS, useTheme } from './ThemeProvider';
 import { SelectField } from './ui/SelectField';
 
 interface SettingsModalProps {
@@ -26,9 +26,9 @@ interface SettingsModalProps {
 }
 
 const themes = [
-  { id: 'light', label: '浅色', hint: 'Bloom', icon: Sun },
-  { id: 'dark', label: '深色', hint: 'Aurora', icon: Moon },
-  { id: 'system', label: '跟随系统', hint: '自动', icon: Monitor },
+  { id: 'light', label: THEME_LABELS.light, hint: '米纸底 · 森林绿', icon: Sun },
+  { id: 'dark', label: THEME_LABELS.dark, hint: '暖炭底 · 陶土色', icon: Moon },
+  { id: 'system', label: THEME_LABELS.system, hint: '按系统明暗自动切换', icon: Monitor },
 ] as const;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -76,7 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           onClick={onClose}
           aria-label="返回片段管理"
         >
-          <ArrowLeft className="size-4" aria-hidden />
+          <ArrowLeft strokeWidth={1.5} className="size-4" aria-hidden />
           <span>返回片段管理 (Esc)</span>
         </button>
         <h1 id="settings-title" className="settings-nav-title">偏好设置</h1>
@@ -85,7 +85,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <div className="settings-page-body">
         <section className="settings-section">
           <div className="settings-section-heading">
-            <div className="settings-section-icon"><Keyboard className="size-4" aria-hidden /></div>
+            <div className="settings-section-icon"><Keyboard strokeWidth={1.5} className="size-4" aria-hidden /></div>
             <div><h2>快捷键与启动</h2><p>用一个组合键从桌面任意位置呼出快速检索。</p></div>
           </div>
           <div className="settings-row">
@@ -112,7 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <section className="settings-section">
           <div className="settings-section-heading">
-            <div className="settings-section-icon"><Zap className="size-4" aria-hidden /></div>
+            <div className="settings-section-icon"><Zap strokeWidth={1.5} className="size-4" aria-hidden /></div>
             <div><h2>粘贴行为</h2><p>决定选中片段后是否尝试向原窗口发送 Ctrl+V。</p></div>
           </div>
           <div className="settings-row">
@@ -128,7 +128,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <section className="settings-section">
           <div className="settings-section-heading">
-            <div className="settings-section-icon"><Sun className="size-4" aria-hidden /></div>
+            <div className="settings-section-icon"><Sun strokeWidth={1.5} className="size-4" aria-hidden /></div>
             <div><h2>外观主题</h2><p>管理窗口与独立快速检索窗口共享后端主题设置。</p></div>
           </div>
           <div className="settings-theme-grid" role="group" aria-label="外观主题">
@@ -140,18 +140,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => handleThemeChange(id)}
                 aria-pressed={config.theme === id}
               >
-                <Icon className="size-4" aria-hidden />
+                <Icon strokeWidth={1.5} className="size-4" aria-hidden />
                 <span><strong>{label}</strong><small>{hint}</small></span>
                 {config.theme === id && <span className="settings-theme-check" aria-hidden>✓</span>}
               </button>
             ))}
           </div>
-          <p className="settings-state-note">当前渲染：{effectiveTheme === 'dark' ? '深色 Aurora' : '浅色 Bloom'}</p>
+          <p className="settings-state-note">当前渲染：{THEME_LABELS[effectiveTheme]}</p>
         </section>
 
         <section className="settings-section">
           <div className="settings-section-heading">
-            <div className="settings-section-icon"><Settings className="size-4" aria-hidden /></div>
+            <div className="settings-section-icon"><Settings strokeWidth={1.5} className="size-4" aria-hidden /></div>
             <div><h2>检索与数据</h2><p>这些值会写入本地设置，并在重启后保持。</p></div>
           </div>
           <div className="settings-row">
@@ -184,25 +184,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <section className="settings-section">
           <div className="settings-section-heading">
-            <div className="settings-section-icon"><HardDrive className="size-4" aria-hidden /></div>
+            <div className="settings-section-icon"><HardDrive strokeWidth={1.5} className="size-4" aria-hidden /></div>
             <div><h2>本地备份</h2><p>备份文件为 UTF-8 明文 JSON；含敏感片段时请确认存放位置。</p></div>
           </div>
           <div className="settings-action-row">
             <div><strong>导出 JSON 备份</strong><span>导出当前片段库与允许备份的设置。</span></div>
-            <button type="button" className="manager-button manager-button-secondary" onClick={onExportData}><Download className="size-3.5" aria-hidden />导出</button>
+            <button type="button" className="manager-button manager-button-secondary" onClick={onExportData}><Download strokeWidth={1.5} className="size-3.5" aria-hidden />导出</button>
           </div>
           <div className="settings-rule" />
           <div className="settings-action-row">
             <div><strong>导入 JSON 备份</strong><span>选择文件后由应用服务校验格式，再决定是否写入。</span></div>
             <label className="manager-button manager-button-secondary settings-file-button">
-              <Upload className="size-3.5" aria-hidden />选择文件
+              <Upload strokeWidth={1.5} className="size-3.5" aria-hidden />选择文件
               <input type="file" accept=".json" onChange={onImportData} className="sr-only" />
             </label>
           </div>
           <div className="settings-rule" />
           <div className="settings-action-row settings-danger-row">
             <div><strong>重置内置示例数据</strong><span>这是破坏性操作，确认前不会改变数据库。</span></div>
-            <button type="button" className="manager-button manager-button-danger" onClick={onResetSampleData}><RotateCcw className="size-3.5" aria-hidden />重置</button>
+            <button type="button" className="manager-button manager-button-danger" onClick={onResetSampleData}><RotateCcw strokeWidth={1.5} className="size-3.5" aria-hidden />重置</button>
           </div>
         </section>
       </div>

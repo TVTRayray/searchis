@@ -429,22 +429,22 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
           aria-hidden
         >
           {item.pinned ? (
-            <Star className="size-3.5 fill-current" />
+            <Star className="size-3.5 fill-current" strokeWidth={1.5} />
           ) : (
             item.key.slice(0, 2).toUpperCase()
           )}
         </span>
         <div className="min-w-0 flex-1 flex flex-col gap-1">
-          <span className="truncate text-[13px] font-semibold text-[color:var(--color-fg)]">
+          <span className="quick-search-title truncate">
             {item.title}
           </span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="truncate font-mono text-[11.5px] text-[color:var(--color-fg-secondary)]">
+            <span className="quick-search-key truncate">
               {highlight(item.key, searchQuery)}
             </span>
             {item.sensitive && (
               <span className="quick-sensitive">
-                <Lock className="size-3" />
+                <Lock className="size-3" strokeWidth={1.5} />
                 敏感
               </span>
             )}
@@ -494,7 +494,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
           />
           {error && (
             <div className="quick-error" role="alert">
-              <AlertCircle className="size-4" aria-hidden />
+              <AlertCircle className="size-4" strokeWidth={1.5} aria-hidden />
               {error}
             </div>
           )}
@@ -502,13 +502,13 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
             <CommandEmpty>
               {!loading && (
                 <div className="flex flex-col items-center justify-center gap-3 px-4 text-center">
-                  <span className="text-xs text-[color:var(--color-fg-muted)]">
+                  <span className="quick-search-empty-text">
                     {searchQuery ? "没有匹配的片段" : "暂无片段数据"}
                   </span>
                   {searchQuery && (
                     <button
                       type="button"
-                      className="btn-primary inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all px-2.5 py-1 text-xs rounded-md"
+                      className="btn-primary"
                       onClick={() => void createFromQuery()}
                     >
                       以该查询词为 Key 新建片段{" "}
@@ -544,7 +544,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
             </span>
             <button
               type="button"
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[color:var(--color-fg-muted)] hover:text-[color:var(--color-fg)] hover:bg-[color:var(--color-surface-2)] transition-colors cursor-pointer"
+              className="quick-footer-button"
               onClick={() => {
                 closingRef.current = true;
                 onOpenManager();
@@ -552,7 +552,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
               aria-label="打开管理界面"
               title="打开管理界面"
             >
-              <LayoutGrid className="size-3.5" />
+              <LayoutGrid className="size-3.5" strokeWidth={1.5} />
             </button>
           </span>
           <span className="flex items-center gap-2">

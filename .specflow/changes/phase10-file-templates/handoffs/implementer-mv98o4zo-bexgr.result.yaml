@@ -1,0 +1,55 @@
+task_id: implementer-mv98o4zo-bexgr
+lease_id: lease-mv98o4zo-3ctc3
+outcome: completed
+summary: >-
+  修复 reviewer-mv98dk0k-znn1r 的 F1–F3（accessibility），未改批准的 token 表，未扩张业务行为。
+  F1：快搜搜索图标与输入框包进填充底胶囊 .quick-search-field（--color-field，38px，pill 圆角），
+  焦点环画在 .quick-search-field:focus-within（2px solid --color-focus-ring，offset 2px）；
+  输入框本身保持无边框、无 outline，避免双环；删除原先强制 outline:none !important 的覆盖。
+  E2E 旧的「无焦点环」断言替换为正向断言（容器填充底 = field token、outline solid、宽度 2px（按设备像素取整）、
+  offset 2px、颜色 = focus-ring token、输入框边框 0）。
+  F2：reduced-motion 媒体块内新增 .theme-transition 及其后代 / ::before / ::after 的 transition:none !important
+  （同 specificity、源码在后，胜出）；ThemeProvider 在 reduce 时不再添加 theme-transition class（双保险）。
+  E2E 新增回归：手动挂上 theme-transition 后测按钮/列表行等 computed transition-duration；
+  本机原生 prefers-reduced-motion=reduce，测得的是真实 cascade。
+  F3：三处 placeholder（管理过滤框、编辑输入框/textarea、快搜输入框）改用 --color-fg-secondary；
+  浅/深在 field 底 6.69/7.25、surface 底 7.70/8.31。E2E 新增回归：样式表中所有 ::placeholder 规则必须用
+  secondary，且浅/深两套 token 配对在运行时计算 ≥ 4.5:1。
+evidence:
+  changed_files:
+    - src/index.css（快搜 .quick-search-field 填充胶囊与 focus-within 焦点环；去掉 cmdk-input 的 outline:none !important；reduce 媒体块覆盖 .theme-transition；三处 ::placeholder 改 secondary）
+    - src/components/ui/command.tsx（CommandInput 中搜索图标与输入框包进 .quick-search-field）
+    - src/components/ThemeProvider.tsx（reduce 时不添加 theme-transition class）
+    - e2e/create-and-search.e2e.ts（F1 正向焦点环断言；F2 reduced-motion × theme-transition 回归；F3 placeholder token 与对比度回归）
+    - artifacts/spec-20/contrast-report.md（placeholder 行更新为 secondary 的复算值）
+    - 另含前两轮任务包（implementer-mv97q3xa-qsqnu、implementer-mv98bmof-n2bpf）在工作区内的全部 SPEC-20 改动，未回退
+  test_results:
+    - command: cd src-tauri && cargo test <scoped test filter>
+      result: not_applicable（未修改 Rust 代码）
+    - command: npm run build
+      result: pass（tsc + vite build，1667 modules，2026-10-15，最终代码）
+    - command: npm run test:e2e
+      result: >-
+        pass（1 passing，6.3s，最终代码）。包含新增断言：快搜输入框聚焦时 .quick-search-field 有 solid 焦点环，
+        颜色 rgb(140, 154, 132) = --color-focus-ring，offset 2px，宽度 1.6px（本机 DPR 下 2px 被 WebKit 向下取整到整设备像素，
+        断言按 floor(2*DPR)/DPR 比较），填充底 rgb(237, 232, 220) = --color-field；reduced-motion 回归
+        nativeReduce=true，theme-transition 存在时 transition-duration 为 0；placeholder 全部为 secondary 且四个配对 ≥ 4.5:1。
+    - command: npm run test:e2e（负向验证：临时删掉 reduce 媒体块里的 .theme-transition 覆盖）
+      result: >-
+        按预期 fail：{"nativeReduce":true,"withoutReduce":220,"withReduce":220}，
+        复现 reviewer F2（reduce 下仍有 220ms 主题过渡）；CSS 已恢复，随后在最终代码上重跑 E2E 通过。
+    - command: Node WCAG 2.x 相对亮度复算
+      result: >-
+        placeholder secondary/field 浅 6.6935、深 7.2480；secondary/surface 浅 7.7008、深 8.3091；
+        原 muted/field 浅 4.2435（F3 根因）、深 4.6923。
+    - command: git diff --check
+      result: pass
+    - command: grep -rnE 'backdrop-filter|glass|canvas-glow|Figtree|HeaderBar' src/
+      result: 无结果（exit 1）
+    - command: grep -rnE '#[0-9a-fA-F]{3,8}\b|rgba?\(' src/components src/App.tsx
+      result: 无结果（exit 1）
+unresolved_issues:
+  - "[test note] 本机原生 prefers-reduced-motion=reduce，所以 F2 回归走的是真实 cascade 分支；原生不是 reduce 的环境会改走「把 @media 内规则无条件注入」分支（对照组须 ≥200ms），该分支本轮未在 reduce 关闭的环境中跑过。"
+  - "[test note] 页面内执行的 E2E 回调不能使用具名函数常量（esbuild keepNames 注入的 __name 在页面里不存在），新增探针已按此写法内联。"
+  - "[design note] 快搜输入框改为填充胶囊（满足「输入框为填充底」MUST，并给 offset 焦点环留出空间）；输入行高度 54px 不变，Esc 键帽仍在胶囊外。需在实机截图中与预览页对照确认观感。"
+  - "[pending_human] tasks 1.9 实机项仍未执行：浅/深各 6 张截图、KDE Global Menu 五组菜单、KWin 26px 圆角、颗粒实机调定、transparent=false 冷启动首帧无白闪、字体缺失回退与全键盘/IME 回归。"

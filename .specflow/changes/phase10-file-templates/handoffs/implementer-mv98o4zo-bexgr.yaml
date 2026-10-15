@@ -1,0 +1,44 @@
+task_id: implementer-mv98o4zo-bexgr
+change_id: phase10-file-templates
+role: implementer
+target_spec: visual-foundation
+adapter: herdr
+lease_id: lease-mv98o4zo-3ctc3
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/visual-foundation.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src/index.css
+  - src/main.tsx
+  - src/App.tsx
+  - src/components/HeaderBar.tsx
+  - src/components/ManagerWindow.tsx
+  - src/components/QuickSearchWindow.tsx
+  - src/components/ui/command.tsx
+  - src/components/ui/SelectField.tsx
+  - src/components/SettingsModal.tsx
+  - src/components/AboutModal.tsx
+  - src/components/KeyboardShortcutsModal.tsx
+  - src/components/ThemeProvider.tsx
+  - src/assets/fonts/**
+  - src-tauri/tauri.conf.json
+  - src-tauri/tauri.e2e.conf.json
+  - e2e/**
+  - artifacts/spec-20/**
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - npm run test:e2e
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mv98o4zo
+  pane_id: wZ:pC
+  state: working

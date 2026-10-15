@@ -1,0 +1,34 @@
+task_id: implementer-mv98bmof-n2bpf
+lease_id: lease-mv98bmof-7e8rs
+outcome: completed
+summary: >-
+  落实 tasks 1.10（2026-10-15 人工决策 A）：深色 --color-btn-primary-bg 由 #B95C3D 改为 #B35838，
+  主按钮文字 #FFF8F2 对比度 4.28:1 → 4.57:1（≥ 4.5:1，满足 AA），悬停色 #A9522F（5.07:1）不变。
+  E2E 深色主按钮探针同步为 rgb(179, 88, 56)；contrast-report.md 更新；tasks 1.7、1.10 勾选。
+  SPEC-20 其余实现沿用工作区已有改动（见 implementer-mv97q3xa-qsqnu.result.yaml），未回退。
+evidence:
+  changed_files:
+    - src/index.css（深色 --color-btn-primary-bg: #B35838）
+    - e2e/create-and-search.e2e.ts（深色 primaryBg 断言 rgb(179, 88, 56)）
+    - artifacts/spec-20/contrast-report.md
+    - .specflow/changes/phase10-file-templates/tasks.md（1.7、1.10 勾选）
+    - 另含上一任务包 implementer-mv97q3xa-qsqnu 在工作区内的全部 SPEC-20 改动（清单见其 result）
+  test_results:
+    - command: cd src-tauri && cargo test
+      result: not_applicable（未修改 Rust 代码）
+    - command: npm run build
+      result: pass（tsc + vite build，2026-10-15）
+    - command: npm run test:e2e
+      result: pass（1 passing，7.6s；含深色主按钮底色 = rgb(179, 88, 56)、文字 = rgb(255, 248, 242) 断言）
+    - command: grep -rni "b95c3d\|185, 92, 61" src e2e
+      result: 无结果（旧值无残留）
+    - command: 对比度复核（node，WCAG 2.x 相对亮度）
+      result: >-
+        主按钮文字/主按钮底：浅色 #F9F8F4/#2D3A31 11.22，深色 #FFF8F2/#B35838 4.57；
+        主按钮悬停：浅色 4.74，深色 5.07。正文、muted、选中态数值不变（浅/深：正文 11.22/13.76，
+        muted/surface 4.88/5.38，muted/列表底 4.68/5.59，选中 fg/选中底 9.06/11.33、快搜 9.40/10.92），
+        全部 ≥ 4.5:1。完整表见 artifacts/spec-20/contrast-report.md。
+unresolved_issues:
+  - "[minor] 浅色 placeholder（muted）/输入框底 4.24:1，不在 spec MUST 列表内，沿用上一轮结论，交由 Reviewer 判断。"
+  - "[pending_human] tasks 1.9 实机项（浅/深各 6 张截图、KDE Global Menu、KWin 圆角、颗粒实机调定、transparent=false 首帧无白闪）未执行，需人工完成。"
+  - "上一轮 result 中的 behavior/scope/design/first-frame 说明仍然适用，未在本轮变更。"
