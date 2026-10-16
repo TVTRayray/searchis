@@ -1,0 +1,6 @@
+$ grep -rnE "#[0-9a-fA-F]{3,8}\\b|rgba?\\(" src/components src/App.tsx
+grep_exit=1 (1 means no match)
+$ grep -rn "backdrop-filter" src/
+grep_exit=1
+$ rg -n "console\\.|eprintln!|println!|log::|tracing::" template paths
+src-tauri/src/service/templates.rs:1767:        eprintln!("NFR-PERF-07: unchanged scan of 2000 files took {elapsed:?}");

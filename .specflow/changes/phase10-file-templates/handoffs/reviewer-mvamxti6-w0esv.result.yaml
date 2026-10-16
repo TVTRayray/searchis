@@ -1,0 +1,29 @@
+task_id: reviewer-mvamxti6-w0esv
+lease_id: lease-mvamxti6-jqlwp
+outcome: completed
+summary: |
+  修复轮 #2 复审通过，仅关闭上轮 D1 missing_test，R1/D2 保持通过。
+  hold/release/fail 闸门调用点和函数均仅在 e2e-webdriver feature 下编译；
+  非 E2E 默认二进制未检出闸门标记。E2E 已断言 pending 状态节点及文案，
+  并覆盖成功与失败后清理。完整 Rust、前端构建、隔离 E2E 均通过，未发现回归。
+  Design Conformance 保留全部 27 条结论，仅第 12 条更新为通过；人工项仍 pending_human。
+  未修改业务源码、state.yaml，未标记 QA passed、批准或归档。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvamxti6-w0esv.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvamxti6-w0esv.result.yaml
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/cargo-test.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/frontend-build.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/e2e-isolated.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/production-boundary.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/source-review.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamxti6-w0esv/design-recheck.log
+  test_results:
+    - 'cd src-tauri && cargo test: exit 0; 143 passed, 0 failed; main/doc tests 0 failed'
+    - 'npm run build: exit 0; tsc + Vite 成功，仅既有 chunk 大小提示'
+    - '.specflow/bin/e2e-isolated.sh: exit 0; 4 passing, 1 spec file passed; Xvfb + 私有 D-Bus + KWin'
+    - 'cd src-tauri && cargo build --no-default-features --bin searchis: exit 0; strings 检查无闸门环境变量、注入错误码及函数名'
+    - '源码与 token 检查: cfg 双重隔离、共用状态 finally、pending 正断言及成功/失败清理已核对；组件硬编码颜色/圆角与玻璃 grep 无匹配'
+unresolved_issues:
+  - '非阻断 pending_human：tasks 3.13、真实 Dolphin 拖入/改名移动、WPS 保存及打开方式、设计截图/对比度/字体/首帧/焦点/IME/快捷键/KWin/Global Menu，归档前由人验收。'
+verdict: pass

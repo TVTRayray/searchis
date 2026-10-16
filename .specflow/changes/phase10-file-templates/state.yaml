@@ -1,7 +1,7 @@
 change_id: phase10-file-templates
 state: ready
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-16T03:26:02.094Z
+updated_at: 2026-10-16T07:22:19.578Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
@@ -55,7 +55,7 @@ specs:
     qa_report: reviews/reviewer-mvaegruz-699id.md
   - id: file-templates
     title: SPEC-22 文件模板管理：模板目录、导入、外部打开与目录扫描（Schema v5）
-    state: ready
+    state: qa_passed
     depends_on:
       - groups-language
     paths:
@@ -69,11 +69,11 @@ specs:
       - src/App.tsx
       - src/index.css
       - e2e/**
-    qa_attempts: 0
-    qa_report: null
+    qa_attempts: 2
+    qa_report: reviews/reviewer-mvamxti6-w0esv.md
   - id: formatted-copy-export
     title: SPEC-23 快搜窗口文件动作：带格式复制、导出与打开
-    state: todo
+    state: ready
     depends_on:
       - file-templates
     paths:
@@ -277,5 +277,163 @@ history:
   - at: 2026-10-16T03:26:02.094Z
     event: spec_ready
     detail: file-templates
+  - at: 2026-10-16T03:26:16.452Z
+    event: task_dispatched
+    detail: implementer:implementer-mvaeodqa-1ggei:file-templates:route=implementer
+  - at: 2026-10-16T03:26:20.950Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvaeodqa:wZ:pN
+  - at: 2026-10-16T04:02:15.599Z
+    event: decision_required
+    detail: |
+      SPEC-22（file-templates）在 allowed_paths 内的实现已全部完成并验证，只剩一项需要人工授权：
+      规格要求“快搜窗口结果行图标按扩展名、徽标为大写扩展名；文件模板按 Enter/Ctrl+Enter 不执行操作，
+      底栏只显示 编辑 Ctrl+E / 关闭 Esc”，这些都落在 src/components/QuickSearchWindow.tsx，
+      而该文件不在本任务 allowed_paths（它属于 formatted-copy-export 的范围）。
+      按规则不越权修改，故写 needs_decision。后端已提供 kind='file' 与 fileExt，快搜只差渲染与按键处理。
+      需要决策：授权本任务对 QuickSearchWindow.tsx 做最小修改（行图标/徽标/底栏/Enter 与 Ctrl+Enter 对 file 项空操作），
+      或把这一条移交 formatted-copy-export；其余条目（tasks.md 3.1–3.8、3.10–3.12）已完成并勾选，3.9 保持未勾选，3.13 为实机项（pending_human）。
+
+      已完成内容：
+      - Schema v5：snippets 新增 file_* 列、file_rel_path 唯一索引、kind 约束触发器；迁移前备份 searchis.db.v4.bak；v3/v4 迁移链单事务。
+      - 模板目录 `<应用数据目录>/templates/` 与 `.trash/`（0700）；启动与每次扫描补建分组目录；分组新建/重命名/移动/删除同步目录与文件相对路径（删除时上移并按 (2) 规则改名，失败整体撤销）。
+      - 导入（多文件、20 MB 与 10,000 条上限、requestId 幂等、Key 自动生成与“自动导入”标记、保存元数据后清除）、新建空白 md/xlsx（umya-spreadsheet）。
+      - 标题↔文件名联动与 (2) 后缀；先文件后数据库的补偿，撤销失败返回 TEMPLATE_RECONCILE_PENDING，由下次扫描收敛。
+      - platform/files.rs：xdg-open、xdg-mime（2 秒超时+扩展名回退）、.desktop 枚举与 Exec 字段码替换、打开方式按扩展名记忆（settings.openWithByExtension）、kdialog/zenity 文件选择。
+      - 扫描：纯函数核心（路径→inode→SHA-256 唯一候选）+ IO 层；缺失/恢复、新文件、新子目录成分组、超 3 层跳过、忽略规则、符号链接不跟随、500 条分批事务、并发合并、完成后计数提示、“重新扫描”。
+      - 回收站：.trash/<id>.<ext>、还原（原分组不存在则未分组，重名加后缀）、彻底删除/清空/自动清理只删 .trash 内文件；SearchIndex 同步。
+      - 前端：“+”菜单、新建空白 md/xlsx 对话框、拖入与选择文件导入、右栏文件模板视图（元数据表单、文件信息卡片、打开/打开方式…、导出与带格式复制禁用、右上角放入回收站、无敏感开关/预览）、列表扩展名图标与徽标、“文件缺失”标记、扫描摘要与“重新扫描”。
+      - E2E 替身：e2e 构建里 template_open 与文件选择器只记录/读取文件（不启动外部应用、不弹对话框）。
+  - at: 2026-10-16T06:27:58.692Z
+    event: human_resolution
+    detail: "ready: 人工决策 B：快搜窗口文件模板部分移交 SPEC-23；非阻断项接受"
+  - at: 2026-10-16T06:27:58.856Z
+    event: task_dispatched
+    detail: implementer:implementer-mval622u-6arcg:file-templates:route=implementer
+  - at: 2026-10-16T06:28:03.074Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mval622u:wZ:pP
+  - at: 2026-10-16T06:30:19.957Z
+    event: implementation_completed
+    detail: file-templates
+  - at: 2026-10-16T06:30:20.798Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mval93lm-1vk1p:file-templates:route=reviewer
+  - at: 2026-10-16T06:30:24.184Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mval93lm-1vk1p:wZ:pQ
+  - at: 2026-10-16T06:34:05.525Z
+    event: decision_required
+    detail: |
+      SPEC-22 审查发现路径安全阻断 S1：safe_join 只校验 joined 的父目录，导入将分组目录本身作为参数，
+      随后直接在返回路径下创建文件。已有顶层分组目录被替换为指向根外目录的符号链接时，
+      可绕过边界检查并写入模板根外。依据任务规则停止后续审查，等待人工决策；未修改实现或状态。
+      已遵循决策 B，不把 SPEC-23 的 QuickSearchWindow.tsx 文件模板展示或已接受的文件选择限制作为缺陷。
+  - at: 2026-10-16T06:35:13.834Z
+    event: spec_returned_to_implementer
+    detail: file-templates
+  - at: 2026-10-16T06:35:13.834Z
+    event: human_resolution
+    detail: "repairing: 人工决策 A：S1 符号链接逃逸安全修复"
+  - at: 2026-10-16T06:35:17.886Z
+    event: task_dispatched
+    detail: implementer:implementer-mvalfgu5-pn4sn:file-templates:route=implementer
+  - at: 2026-10-16T06:35:22.179Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvalfgu5:wZ:pR
+  - at: 2026-10-16T06:38:59.484Z
+    event: implementation_completed
+    detail: file-templates
+  - at: 2026-10-16T06:39:00.332Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvalk8gz-kryr9:file-templates:route=reviewer
+  - at: 2026-10-16T06:39:03.716Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvalk8gz-kryr9:wZ:pS
+  - at: 2026-10-16T06:42:06.766Z
+    event: decision_required
+    detail: 上轮 S1 的静态分组目录符号链接绕过已在源码层面修复，但实现者披露的目录级 TOCTOU 仍允许最后校验后的目录替换使导入写出模板根；叶子
+      O_NOFOLLOW 不固定父目录。 决策 B 未接受此安全残余，依任务要求停止并升级。分组删除同设备 rename 链接本身
+      不等于跟随目标，不单独据此阻断；跨设备回退尚未验证。 完整复审及 Design Conformance 未完成，逐项待验记录于报告，不声称 QA
+      通过。
+  - at: 2026-10-16T06:43:11.904Z
+    event: human_resolution
+    detail: "reviewing: 人工决策 B：接受目录级 TOCTOU 残余，威胁模型见 contracts/22"
+  - at: 2026-10-16T06:43:19.140Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvalps6a-rgrqq:file-templates:route=reviewer
+  - at: 2026-10-16T06:43:22.527Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvalps6a-rgrqq:wZ:pT
+  - at: 2026-10-16T06:49:13.373Z
+    event: decision_required
+    detail: 已复审 S1 逐段路径校验与相关测试；目录级 TOCTOU 按 contracts/22 人工例外不再阻断。 本轮 cargo
+      定向/全量测试、前端构建、隔离 E2E 均通过。 独立 EXDEV
+      复现确认分组删除使用的移动回退会跟随静态源链接，将外部目标内容实体化为普通模板文件； 属于
+      security_risk，不在已接受的目录级竞态例外内。按工作单停止并请求决策。 Design Conformance
+      已逐项记录已查证据与未验项，不宣称完整视觉验收。
+  - at: 2026-10-16T06:49:58.627Z
+    event: spec_returned_to_implementer
+    detail: file-templates
+  - at: 2026-10-16T06:49:58.627Z
+    event: human_resolution
+    detail: "repairing: 人工决策 A：S2 跨设备移动时跟随链接，采用拒绝策略"
+  - at: 2026-10-16T06:49:58.809Z
+    event: task_dispatched
+    detail: implementer:implementer-mvalyck7-wzbvo:file-templates:route=implementer
+  - at: 2026-10-16T06:50:03.110Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvalyck7:wZ:pV
+  - at: 2026-10-16T06:54:13.978Z
+    event: implementation_completed
+    detail: file-templates
+  - at: 2026-10-16T06:54:14.792Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvam3u2u-ho1u1:file-templates:route=reviewer
+  - at: 2026-10-16T06:54:18.174Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvam3u2u-ho1u1:wZ:pW
+  - at: 2026-10-16T07:04:20.425Z
+    event: repair_dispatched
+    detail: file-templates:attempt-1
+  - at: 2026-10-16T07:04:31.032Z
+    event: task_dispatched
+    detail: implementer:implementer-mvamh1kn-i144m:file-templates:route=implementer
+  - at: 2026-10-16T07:04:35.322Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvamh1kn:wZ:pX
+  - at: 2026-10-16T07:06:33.906Z
+    event: implementation_completed
+    detail: file-templates
+  - at: 2026-10-16T07:06:34.690Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvamjozk-8fsj4:file-templates:route=reviewer
+  - at: 2026-10-16T07:06:38.090Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvamjozk-8fsj4:wZ:pZ
+  - at: 2026-10-16T07:12:17.766Z
+    event: repair_dispatched
+    detail: file-templates:attempt-2
+  - at: 2026-10-16T07:12:26.653Z
+    event: task_dispatched
+    detail: implementer:implementer-mvamr8kc-t3zz9:file-templates:route=implementer
+  - at: 2026-10-16T07:12:30.946Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvamr8kc:wZ:p0
+  - at: 2026-10-16T07:17:32.871Z
+    event: implementation_completed
+    detail: file-templates
+  - at: 2026-10-16T07:17:33.727Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvamxti6-w0esv:file-templates:route=reviewer
+  - at: 2026-10-16T07:17:37.119Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvamxti6-w0esv:wZ:p11
+  - at: 2026-10-16T07:22:19.578Z
+    event: qa_passed
+    detail: file-templates
+  - at: 2026-10-16T07:22:19.578Z
+    event: spec_ready
+    detail: formatted-copy-export
 labels:
   - visual

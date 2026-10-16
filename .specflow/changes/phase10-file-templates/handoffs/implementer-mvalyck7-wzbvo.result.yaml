@@ -1,0 +1,26 @@
+task_id: implementer-mvalyck7-wzbvo
+lease_id: lease-mvalyck7-u8x4r
+outcome: completed
+summary: |
+  仅处理 reviewer-mvalps6a-rgrqq 的 S2（EXDEV 回退跟随符号链接）。
+  a) 所有移动路径（分组删除/上移、重命名、改分组、回收站放入与还原）均经 fsops::move_file；
+     现在移动前用 symlink_metadata 识别条目，符号链接只允许同设备 rename（移动链接本身）；
+     遇 EXDEV 且源为链接时直接返回 TEMPLATE_FS_FAILED，不复制、不删除链接、不读取目标，调用方既有补偿/回滚生效。
+  b) copy_with_hash 源端改用 O_NOFOLLOW 打开（纵深防御），源是链接时报错；copy_verify_remove 因此同样拒绝链接源并保留源链接、不留临时文件。
+  c) 新增回归测试：fsops::copy_with_hash_rejects_symlink_source、fsops::copy_verify_remove_rejects_symlink_source_and_keeps_link、
+     service::group_delete_with_symlink_entry_on_exdev_is_rejected_and_fully_rolled_back（cfg(test) FORCE_EXDEV 钩子模拟 EXDEV；
+     断言返回 TEMPLATE_FS_FAILED、链接仍为链接、文件/分组/数据库行完全回滚、模板目录无 EXTERNAL_SENTINEL 内容、外部目标未变）。
+evidence:
+  changed_files:
+    - src-tauri/src/templates/fsops.rs
+    - src-tauri/src/service/templates.rs
+  test_results:
+    - "cd src-tauri && cargo test template：55 passed, 0 failed"
+    - "cd src-tauri && cargo test：142 passed, 0 failed"
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：4 passing, 0 failing, exit 0（KDE portal KCrash 诊断为环境噪声）"
+unresolved_issues:
+  - "导入源路径若本身是符号链接，现因 O_NOFOLLOW 被拒绝（复制失败），属预期的纵深防御。"
+  - "EXDEV 测试使用 cfg(test) 钩子模拟，未在真实跨挂载点上端到端运行。"
+  - "回滚时此前已用复制方式跨设备移动的普通文件无法 rename 回原处，仍走既有 TEMPLATE_RECONCILE_PENDING（未改动）。"
+  - "目录级 TOCTOU 为 contracts/22 已接受例外；3.13 实机验收与设计专项仍为 pending_human。"

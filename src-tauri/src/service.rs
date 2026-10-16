@@ -12,13 +12,21 @@ use crate::{
     validation::{normalize_key, validate_create, validate_group_name, validate_update},
 };
 
+mod templates;
+pub use templates::TemplateFs;
+
 pub struct SnippetService {
     repository: Repository,
+    /// SPEC-22：模板目录；未绑定时（单元测试）文件相关操作返回 TEMPLATE_FS_FAILED。
+    templates: Option<TemplateFs>,
 }
 
 impl SnippetService {
     pub fn new(repository: Repository) -> Self {
-        Self { repository }
+        Self {
+            repository,
+            templates: None,
+        }
     }
 
     /// 结果条目：分组名在返回时按 group_id 解析，不进入片段本身。
@@ -41,14 +49,12 @@ impl SnippetService {
             return Err(AppError::validation("requestId", "requestId 必须是 UUID。"));
         }
         let name = validate_group_name(&input.name)?;
-        self.repository
-            .group_create(&name, input.parent_id.as_deref(), &input.request_id)
+        self.fs_group_create(input, &name)
     }
 
     pub fn group_update(&self, input: GroupUpdateInput) -> Result<Group, AppError> {
         let name = validate_group_name(&input.name)?;
-        self.repository
-            .group_update(&input.id, input.revision, &name, input.parent_id.as_deref())
+        self.fs_group_update(input, &name)
     }
 
     pub fn group_delete_preview(&self, id: &str) -> Result<GroupDeletePreview, AppError> {
@@ -56,7 +62,7 @@ impl SnippetService {
     }
 
     pub fn group_delete(&self, input: GroupDeleteInput) -> Result<GroupDeleteOutcome, AppError> {
-        self.repository.group_delete(&input.id, input.revision)
+        self.fs_group_delete(input)
     }
 
     pub fn create(&self, input: CreateSnippetInput) -> Result<Snippet, AppError> {
@@ -74,8 +80,27 @@ impl SnippetService {
         self.repository.list()
     }
 
+    /// v1 备份只含文本片段；文件模板由 SPEC-24 的 v2 备份承载。
+    fn list_text(&self) -> Result<Vec<Snippet>, AppError> {
+        Ok(self
+            .list()?
+            .into_iter()
+            .filter(|s| s.kind != "file")
+            .collect())
+    }
+
     pub fn update(&self, input: UpdateSnippetInput) -> Result<Snippet, AppError> {
         let fields = validate_update(&input)?;
+        if self
+            .repository
+            .get(&input.id)?
+            .is_some_and(|existing| existing.kind == "file")
+        {
+            return Err(AppError::validation(
+                "id",
+                "文件模板请使用 template_update 保存。",
+            ));
+        }
         self.repository.update(&input.id, input.revision, fields)
     }
 
@@ -104,6 +129,7 @@ impl SnippetService {
                 "片段不存在或已删除。请重新搜索后重试。",
             ));
         }
+        reject_file_content_action(&snippet)?;
         // AC-14：同一 operationId 只处理一次。重复投递在写剪贴板之前即短路，
         // 避免覆盖用户两次投递之间复制的新内容。
         if self
@@ -162,6 +188,7 @@ impl SnippetService {
         if snippet.deleted_at.is_some() {
             return Err(AppError::new("NOT_FOUND", "片段不存在或已删除。"));
         }
+        reject_file_content_action(&snippet)?;
         // 2. 幂等检查
         if self.is_operation_processed(&input.operation_id)? {
             return Ok(crate::model::PasteOutcome {
@@ -205,20 +232,33 @@ impl SnippetService {
 
     // === SPEC-05: 回收站操作 ===
 
+    fn is_file(&self, id: &str) -> Result<bool, AppError> {
+        Ok(self.repository.get(id)?.is_some_and(|s| s.kind == "file"))
+    }
+
     pub fn trash_move(&self, id: &str) -> Result<Snippet, AppError> {
+        if self.is_file(id)? {
+            return self.file_trash_move(id);
+        }
         self.repository.trash_move(id)
     }
 
     pub fn trash_restore(&self, id: &str) -> Result<Snippet, AppError> {
+        if self.is_file(id)? {
+            return self.file_trash_restore(id);
+        }
         self.repository.trash_restore(id)
     }
 
     pub fn trash_purge_one(&self, id: &str) -> Result<(), AppError> {
+        if self.is_file(id)? {
+            return self.file_trash_purge_one(id);
+        }
         self.repository.trash_purge_one(id)
     }
 
     pub fn trash_empty(&self) -> Result<i64, AppError> {
-        self.repository.trash_empty()
+        self.files_trash_empty()
     }
 
     pub fn auto_purge(&self, days: Option<i64>) -> Result<i64, AppError> {
@@ -227,7 +267,7 @@ impl SnippetService {
             Some(d) => {
                 let threshold = (Utc::now() - chrono::Duration::days(d))
                     .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-                self.repository.auto_purge(&threshold)
+                self.files_auto_purge(&threshold)
             }
         }
     }
@@ -320,6 +360,19 @@ impl SnippetService {
                     }
                 };
             }
+            "openWithByExtension" => {
+                let map = value
+                    .as_object()
+                    .ok_or_else(|| AppError::validation("openWithByExtension", "必须是对象。"))?;
+                let mut result = std::collections::BTreeMap::new();
+                for (ext, desktop_id) in map {
+                    let desktop_id = desktop_id.as_str().ok_or_else(|| {
+                        AppError::validation("openWithByExtension", "值必须是字符串。")
+                    })?;
+                    result.insert(ext.clone(), desktop_id.to_owned());
+                }
+                settings.open_with_by_extension = result;
+            }
             "onboardingCompletedAt" => {
                 settings.onboarding_completed_at = value.as_str().map(String::from);
             }
@@ -339,7 +392,7 @@ impl SnippetService {
     // === SPEC-07: 导出 ===
 
     pub fn export_preview(&self, _path: &str) -> Result<crate::model::ExportPreview, AppError> {
-        let snippets = self.list()?;
+        let snippets = self.list_text()?;
         let settings_resp = self.get_settings(false)?;
         let settings = settings_resp.settings;
         let sensitive_count = snippets.iter().filter(|s| s.sensitive).count() as i64;
@@ -365,7 +418,7 @@ impl SnippetService {
 
     pub fn export_confirm(&self, path: &str) -> Result<crate::model::ExportOutcome, AppError> {
         use std::io::Write;
-        let snippets = self.list()?;
+        let snippets = self.list_text()?;
         let settings_resp = self.get_settings(false)?;
         let settings = settings_resp.settings;
         let backup = serde_json::json!({
@@ -654,7 +707,19 @@ fn to_search_item(snippet: &Snippet, group_name: Option<String>) -> SearchResult
         language: snippet.language.clone(),
         group_name,
         kind: snippet.kind.clone(),
+        file_ext: snippet.file_ext.clone(),
     }
+}
+
+/// 文件模板没有文本正文；复制/粘贴由 SPEC-23 提供。
+fn reject_file_content_action(snippet: &Snippet) -> Result<(), AppError> {
+    if snippet.kind == "file" {
+        return Err(AppError::new(
+            "TEMPLATE_ACTION_UNSUPPORTED",
+            "文件模板暂不支持复制或粘贴。",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1139,5 +1204,73 @@ mod tests {
             .unwrap();
         assert!(!retry.counted);
         assert_eq!(retry.snippet.usage_count, 1);
+    }
+
+    #[test]
+    fn file_template_is_searchable_but_copy_and_paste_are_unsupported() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let service =
+            SnippetService::new(repo).with_templates(directory.path().join("templates"));
+        let source = directory.path().join("报销单.xlsx");
+        std::fs::write(&source, b"PK-fake").unwrap();
+        let outcome = service
+            .template_import(crate::model::TemplateImportInput {
+                source_paths: vec![source.to_string_lossy().into_owned()],
+                group_id: None,
+                request_id: uuid::Uuid::new_v4().to_string(),
+            })
+            .unwrap();
+        let file = &outcome.created[0];
+
+        // 按 key 检索得到 kind=file、fileExt=xlsx
+        let found = service
+            .search(crate::model::SearchInput {
+                query: file.key.clone(),
+                limit: 20,
+            })
+            .unwrap();
+        let item = found.items.iter().find(|i| i.id == file.id).unwrap();
+        assert_eq!(item.kind, "file");
+        assert_eq!(item.file_ext.as_deref(), Some("xlsx"));
+
+        // 文本复制：拒绝、不写剪贴板、不计数
+        let clipboard = FakeClipboard {
+            fail: false,
+            written: std::sync::Mutex::new(vec![]),
+        };
+        let err = service
+            .copy(
+                CopyInput {
+                    id: file.id.clone(),
+                    operation_id: uuid::Uuid::new_v4().to_string(),
+                    keep_open: false,
+                },
+                &clipboard,
+            )
+            .unwrap_err();
+        assert_eq!(err.code, "TEMPLATE_ACTION_UNSUPPORTED");
+
+        // 文本粘贴：同样拒绝
+        let wm = FakeWindowManager {
+            inject_available: true,
+            activate_succeeds: true,
+            inject_succeeds: true,
+        };
+        let err = service
+            .paste(
+                PasteInput {
+                    snippet_id: file.id.clone(),
+                    operation_id: uuid::Uuid::new_v4().to_string(),
+                    auto_paste: true,
+                },
+                &clipboard,
+                &wm,
+            )
+            .unwrap_err();
+        assert_eq!(err.code, "TEMPLATE_ACTION_UNSUPPORTED");
+
+        assert!(clipboard.written.lock().unwrap().is_empty());
+        assert_eq!(service.get(&file.id).unwrap().usage_count, 0);
     }
 }

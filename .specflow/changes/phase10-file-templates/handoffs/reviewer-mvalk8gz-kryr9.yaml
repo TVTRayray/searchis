@@ -1,0 +1,28 @@
+task_id: reviewer-mvalk8gz-kryr9
+change_id: phase10-file-templates
+role: reviewer
+target_spec: file-templates
+adapter: herdr
+lease_id: lease-mvalk8gz-sm3xk
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/file-templates.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - qa_report
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: ready
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: reviewer-reviewer-mvalk8gz-kryr9
+  pane_id: wZ:pS
+  state: working

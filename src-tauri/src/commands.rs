@@ -9,9 +9,10 @@ use crate::{
     model::{
         AutostartInput, CopyInput, CopyOutcome, CreateSnippetInput, Group, GroupCreateInput,
         GroupDeleteInput, GroupDeleteOutcome, GroupDeletePreview, GroupUpdateInput, ManagerRequest,
-        PasteInput, PasteOutcome, SearchInput, SearchResponse, SettingsResponse,
-        SettingsUpdateInput, ShortcutInfo, Snippet, TrashEmptyInput, TrashEmptyResult,
-        TrashPurgeInput, UpdateSnippetInput,
+        OpenWithCandidate, PasteInput, PasteOutcome, ScanResult, SearchInput, SearchResponse,
+        SettingsResponse, SettingsUpdateInput, ShortcutInfo, Snippet, TemplateCreateBlankInput,
+        TemplateImportInput, TemplateImportOutcome, TemplateOpenInput, TemplateUpdateInput,
+        TrashEmptyInput, TrashEmptyResult, TrashPurgeInput, UpdateSnippetInput,
     },
     platform::{WindowHandle, WindowManager},
     service::SnippetService,
@@ -125,6 +126,87 @@ pub fn group_delete(
     input: GroupDeleteInput,
 ) -> Result<GroupDeleteOutcome, AppError> {
     audited(&state, "group_delete", |s| s.group_delete(input))
+}
+
+// SPEC-22：文件模板。日志只记录操作名与错误码，不含文件名、路径或分组名。
+#[tauri::command(async)]
+pub fn template_import(
+    state: tauri::State<'_, AppState>,
+    input: TemplateImportInput,
+) -> Result<TemplateImportOutcome, AppError> {
+    #[cfg(feature = "e2e-webdriver")]
+    e2e_import_gate()?;
+    audited(&state, "template_import", |s| s.template_import(input))
+}
+
+/// 仅 E2E 构建：`SEARCHIS_E2E_IMPORT_GATE` 指向的文件内容为 `hold` 时，导入在此挂起，
+/// 直到内容变为 `release`（放行）或 `fail`（返回注入的错误）。文件不存在则不拦截。
+#[cfg(feature = "e2e-webdriver")]
+fn e2e_import_gate() -> Result<(), AppError> {
+    let Some(gate) = std::env::var_os("SEARCHIS_E2E_IMPORT_GATE") else {
+        return Ok(());
+    };
+    for _ in 0..1500 {
+        match std::fs::read_to_string(&gate).as_deref().map(str::trim) {
+            Ok("hold") => std::thread::sleep(std::time::Duration::from_millis(20)),
+            Ok("fail") => {
+                return Err(AppError::new(
+                    "E2E_INJECTED_FAILURE",
+                    "injected import failure",
+                ))
+            }
+            _ => return Ok(()),
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn template_create_blank(
+    state: tauri::State<'_, AppState>,
+    input: TemplateCreateBlankInput,
+) -> Result<Snippet, AppError> {
+    audited(&state, "template_create_blank", |s| {
+        s.template_create_blank(input)
+    })
+}
+
+#[tauri::command(async)]
+pub fn template_update(
+    state: tauri::State<'_, AppState>,
+    input: TemplateUpdateInput,
+) -> Result<Snippet, AppError> {
+    audited(&state, "template_update", |s| s.template_update(input))
+}
+
+#[tauri::command(async)]
+pub fn template_open(
+    state: tauri::State<'_, AppState>,
+    input: TemplateOpenInput,
+) -> Result<(), AppError> {
+    audited(&state, "template_open", |s| s.template_open(input))
+}
+
+#[tauri::command(async)]
+pub fn template_open_with_candidates(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<Vec<OpenWithCandidate>, AppError> {
+    audited(&state, "template_open_with_candidates", |s| {
+        s.template_open_with_candidates(&id)
+    })
+}
+
+/// 目录扫描在后台线程池执行，不阻塞界面。
+#[tauri::command(async)]
+pub fn template_scan(state: tauri::State<'_, AppState>) -> Result<ScanResult, AppError> {
+    audited(&state, "template_scan", SnippetService::template_scan)
+}
+
+/// 原生文件选择对话框；取消时返回空列表。
+#[tauri::command(async)]
+pub fn template_pick_files() -> Result<Vec<String>, AppError> {
+    crate::platform::files::pick_files()
 }
 
 #[tauri::command]

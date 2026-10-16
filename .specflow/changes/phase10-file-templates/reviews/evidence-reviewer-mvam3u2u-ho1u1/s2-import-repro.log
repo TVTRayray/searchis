@@ -1,0 +1,3 @@
+S2 real EXDEV: rejected; link unchanged; destination absent; target unchanged
+Import helper: user-selected external source link rejected with ELOOP; link unchanged
+Control: regular source succeeds; copied contents match

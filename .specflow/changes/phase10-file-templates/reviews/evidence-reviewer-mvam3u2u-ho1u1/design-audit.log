@@ -1,0 +1,473 @@
+COMPONENT COLOR/RADIUS AUDIT
+#[0-9a-fA-F]{3,8}\b|rgba?\( NONE
+rounded(?:-\[[^]]+\]|-[\w]+)? NONE
+borderRadius\s*: NONE
+LEGACY AUDIT
+backdrop-filter []
+Figtree []
+HeaderBar []
+surface-glass []
+canvas-glow []
+FONT RESOURCES
+./assets/fonts/playfair-display-latin-500-normal.woff2 EXISTS
+./assets/fonts/playfair-display-latin-600-normal.woff2 EXISTS
+./assets/fonts/playfair-display-latin-500-italic.woff2 EXISTS
+./assets/fonts/source-sans-3-latin-400-normal.woff2 EXISTS
+./assets/fonts/source-sans-3-latin-500-normal.woff2 EXISTS
+./assets/fonts/source-sans-3-latin-600-normal.woff2 EXISTS
+./assets/fonts/jetbrains-mono-latin-400-normal.woff2 EXISTS
+./assets/fonts/jetbrains-mono-latin-500-normal.woff2 EXISTS
+./assets/fonts/jetbrains-mono-latin-600-normal.woff2 EXISTS
+./assets/fonts/jetbrains-mono-latin-700-normal.woff2 EXISTS
+EXPORTED COMPONENT IMPORTS (module-edge check, not dead-code proof)
+src/components/ThemeProvider.tsx src/App.tsx, src/components/ManagerWindow.tsx, src/components/QuickSearchWindow.tsx, src/components/SettingsModal.tsx
+src/components/AboutModal.tsx src/App.tsx
+src/components/SettingsModal.tsx src/App.tsx
+src/components/QuickSearchWindow.tsx src/App.tsx
+src/components/ManagerWindow.tsx src/App.tsx
+src/components/KeyboardShortcutsModal.tsx src/App.tsx
+src/components/ui/GroupTree.tsx src/components/ManagerWindow.tsx
+src/components/ui/GroupDialog.tsx src/components/ManagerWindow.tsx
+src/components/ui/SelectField.tsx src/components/ManagerWindow.tsx, src/components/SettingsModal.tsx, src/components/ui/FileTemplateDetail.tsx, src/components/ui/GroupDialog.tsx
+src/components/ui/PlusMenu.tsx src/components/ManagerWindow.tsx
+src/components/ui/command.tsx src/components/QuickSearchWindow.tsx
+src/components/ui/NewTemplateDialog.tsx src/components/ManagerWindow.tsx
+src/components/ui/FileTypeIcon.tsx src/components/ManagerWindow.tsx, src/components/ui/FileTemplateDetail.tsx
+src/components/ui/CodeEditor.tsx src/components/ManagerWindow.tsx
+src/components/ui/FileTemplateDetail.tsx src/App.tsx, src/components/ManagerWindow.tsx
+CSS RADIUS DECLARATIONS NOT USING TOKENS
+227 inherit
+1034 3px
+TOKENS AND CONTRAST
+light
+--radius-window 26px
+--radius-card 18px
+--radius-row 14px
+--radius-pill 999px
+--font-heading "Playfair Display", "Noto Serif CJK SC", serif
+--font-body "Source Sans 3", "Noto Sans CJK SC", sans-serif
+--font-mono "JetBrains Mono", "Noto Sans Mono CJK SC", ui-monospace, monospace
+--motion-quick 120ms
+--motion-popup 180ms
+--motion-manager 220ms
+--color-canvas #F2EEE2
+--color-surface #FAF8F1
+--color-surface-sidebar #EDE8DA
+--color-surface-list #F6F3EA
+--color-field #EDE8DC
+--color-surface-code #F2EEE3
+--color-surface-footer #F3EFE5
+--color-surface-hover rgba(140, 154, 132, 0.10)
+--color-backdrop rgba(45, 58, 49, 0.32)
+--color-fg #2D3A31
+--color-fg-secondary #46524A
+--color-fg-muted #66705F
+--color-fg-disabled #A8AE9F
+--color-border #E3DDD0
+--color-border-strong #CFC7B6
+--color-accent #5E7056
+--color-btn-primary-bg #2D3A31
+--color-btn-primary-fg #F9F8F4
+--color-btn-primary-hover #A65A44
+--color-btn-secondary-border #8C9A84
+--color-selected-bg rgba(140, 154, 132, 0.20)
+--color-selected-border rgba(140, 154, 132, 0.60)
+--color-quick-selected-border rgba(140, 154, 132, 0.60)
+--color-icon-bg rgba(140, 154, 132, 0.16)
+--color-focus-ring #8C9A84
+--color-highlight rgba(214, 180, 90, 0.34)
+--color-success #4D7C3A
+--color-warning #A86A12
+--color-danger #B23A2E
+--color-danger-fg #FAF8F1
+--color-warning-subtle color-mix(in srgb, var(--color-warning) 10%, transparent)
+--color-warning-border color-mix(in srgb, var(--color-warning) 35%, transparent)
+--color-danger-subtle color-mix(in srgb, var(--color-danger) 10%, transparent)
+--color-danger-border color-mix(in srgb, var(--color-danger) 45%, transparent)
+--color-file-doc #5F7183
+--color-file-sheet #5E7056
+--color-file-pdf #B0664F
+--color-file-code #4B5850
+--color-syntax-keyword #A65A44
+--color-syntax-string #5E7056
+--color-syntax-comment #8A8F84
+--color-syntax-number #5F7183
+--grain-opacity 0.06
+contrast --color-fg / --color-canvas: 10.279
+contrast --color-fg / --color-surface: 11.221
+contrast --color-fg / --color-surface-sidebar: 9.741
+contrast --color-fg / --color-surface-list: 10.747
+contrast --color-fg / --color-field: 9.753
+contrast --color-fg-secondary / --color-canvas: 7.055
+contrast --color-fg-secondary / --color-surface: 7.701
+contrast --color-fg-secondary / --color-surface-sidebar: 6.685
+contrast --color-fg-secondary / --color-surface-list: 7.375
+contrast --color-fg-secondary / --color-field: 6.694
+contrast --color-fg-muted / --color-canvas: 4.472
+contrast --color-fg-muted / --color-surface: 4.882
+contrast --color-fg-muted / --color-surface-sidebar: 4.238
+contrast --color-fg-muted / --color-surface-list: 4.676
+contrast --color-fg-muted / --color-field: 4.243
+contrast primary-fg / --color-btn-primary-bg: 11.221
+contrast primary-fg / --color-btn-primary-hover: 4.742
+contrast selected --color-fg / --color-canvas: 8.722
+contrast selected --color-fg-secondary / --color-canvas: 5.985
+contrast selected --color-fg-muted / --color-canvas: 3.795
+contrast selected --color-fg / --color-surface: 9.399
+contrast selected --color-fg-secondary / --color-surface: 6.451
+contrast selected --color-fg-muted / --color-surface: 4.089
+contrast selected --color-fg / --color-surface-sidebar: 8.332
+contrast selected --color-fg-secondary / --color-surface-sidebar: 5.718
+contrast selected --color-fg-muted / --color-surface-sidebar: 3.625
+contrast selected --color-fg / --color-surface-list: 9.059
+contrast selected --color-fg-secondary / --color-surface-list: 6.217
+contrast selected --color-fg-muted / --color-surface-list: 3.941
+dark
+--radius-window 26px
+--radius-card 18px
+--radius-row 14px
+--radius-pill 999px
+--font-heading "Playfair Display", "Noto Serif CJK SC", serif
+--font-body "Source Sans 3", "Noto Sans CJK SC", sans-serif
+--font-mono "JetBrains Mono", "Noto Sans Mono CJK SC", ui-monospace, monospace
+--motion-quick 120ms
+--motion-popup 180ms
+--motion-manager 220ms
+--color-canvas #1A1917
+--color-surface #262624
+--color-surface-sidebar #1F1E1D
+--color-surface-list #232321
+--color-field #30302E
+--color-surface-code #1F1E1D
+--color-surface-footer #1F1E1D
+--color-surface-hover rgba(217, 119, 87, 0.08)
+--color-backdrop rgba(0, 0, 0, 0.55)
+--color-fg #F5F4EE
+--color-fg-secondary #C2C0B6
+--color-fg-muted #9C9A92
+--color-fg-disabled #6B6A64
+--color-border rgba(222, 220, 209, 0.11)
+--color-border-strong rgba(222, 220, 209, 0.22)
+--color-accent #E5916F
+--color-btn-primary-bg #B35838
+--color-btn-primary-fg #FFF8F2
+--color-btn-primary-hover #A9522F
+--color-btn-secondary-border rgba(229, 145, 111, 0.55)
+--color-selected-bg rgba(217, 119, 87, 0.16)
+--color-selected-border rgba(217, 119, 87, 0.45)
+--color-quick-selected-border transparent
+--color-icon-bg rgba(217, 119, 87, 0.14)
+--color-focus-ring #D97757
+--color-highlight rgba(214, 170, 80, 0.30)
+--color-success #8FBF7A
+--color-warning #E0B05A
+--color-danger #E5806F
+--color-danger-fg #1A1917
+--color-warning-subtle color-mix(in srgb, var(--color-warning) 10%, transparent)
+--color-warning-border color-mix(in srgb, var(--color-warning) 35%, transparent)
+--color-danger-subtle color-mix(in srgb, var(--color-danger) 10%, transparent)
+--color-danger-border color-mix(in srgb, var(--color-danger) 45%, transparent)
+--color-file-doc #93A9C6
+--color-file-sheet #9BBF84
+--color-file-pdf #E3907C
+--color-file-code #B5AFA2
+--color-syntax-keyword #E59A7A
+--color-syntax-string #A9C98F
+--color-syntax-comment #8A877E
+--color-syntax-number #9DB4D3
+--grain-opacity 0.035
+contrast --color-fg / --color-canvas: 15.943
+contrast --color-fg / --color-surface: 13.759
+contrast --color-fg / --color-surface-sidebar: 15.104
+contrast --color-fg / --color-surface-list: 14.288
+contrast --color-fg / --color-field: 12.002
+contrast --color-fg-secondary / --color-canvas: 9.628
+contrast --color-fg-secondary / --color-surface: 8.309
+contrast --color-fg-secondary / --color-surface-sidebar: 9.122
+contrast --color-fg-secondary / --color-surface-list: 8.629
+contrast --color-fg-secondary / --color-field: 7.248
+contrast --color-fg-muted / --color-canvas: 6.233
+contrast --color-fg-muted / --color-surface: 5.379
+contrast --color-fg-muted / --color-surface-sidebar: 5.905
+contrast --color-fg-muted / --color-surface-list: 5.586
+contrast --color-fg-muted / --color-field: 4.692
+contrast primary-fg / --color-btn-primary-bg: 4.568
+contrast primary-fg / --color-btn-primary-hover: 5.073
+contrast selected --color-fg / --color-canvas: 12.725
+contrast selected --color-fg-secondary / --color-canvas: 7.685
+contrast selected --color-fg-muted / --color-canvas: 4.975
+contrast selected --color-fg / --color-surface: 10.918
+contrast selected --color-fg-secondary / --color-surface: 6.593
+contrast selected --color-fg-muted / --color-surface: 4.268
+contrast selected --color-fg / --color-surface-sidebar: 11.992
+contrast selected --color-fg-secondary / --color-surface-sidebar: 7.243
+contrast selected --color-fg-muted / --color-surface-sidebar: 4.689
+contrast selected --color-fg / --color-surface-list: 11.332
+contrast selected --color-fg-secondary / --color-surface-list: 6.844
+contrast selected --color-fg-muted / --color-surface-list: 4.430
+HEADING / MOTION / FOCUS DECLARATIONS
+@import "tailwindcss";
+
+/* Bundled latin subsets (OFL, @fontsource). CJK falls back to system Noto CJK. */
+@font-face { font-family: 'Playfair Display'; src: url('./assets/fonts/playfair-display-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Playfair Display'; src: url('./assets/fonts/playfair-display-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Playfair Display'; src: url('./assets/fonts/playfair-display-latin-500-italic.woff2') format('woff2'); font-weight: 500; font-style: italic; font-display: swap; }
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after { transition: background-color var(--motion-manager) ease-out,
+              color var(--motion-manager) ease-out,
+              border-color var(--motion-manager) ease-out,
+              box-shadow var(--motion-manager) ease-out !important; }
+:focus-visible { outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px; }
+.btn-primary { display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--color-btn-primary-bg);
+  border-radius: var(--radius-pill);
+  color: var(--color-btn-primary-fg);
+  background: var(--color-btn-primary-bg);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-button);
+  cursor: pointer;
+  transition: background-color var(--motion-manager) ease-out, border-color var(--motion-manager) ease-out; }
+.brand-mark { color: var(--color-accent);
+  background: var(--color-icon-bg);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-heading); }
+.animate-pop-in { animation: popIn var(--motion-popup) var(--ease-out) forwards; }
+/* Same specificity and later than .theme-transition, so it wins the cascade. */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after { transition: none !important; }
+.animate-pop-in { animation: none !important; }
+.manager-icon-button { display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  color: var(--color-fg-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--motion-manager) ease-out, color var(--motion-manager) ease-out, border-color var(--motion-manager) ease-out; }
+.manager-side-item { display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-row);
+  padding: 0 10px;
+  color: var(--color-fg-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  transition: background-color var(--motion-manager) ease-out, color var(--motion-manager) ease-out; }
+.manager-side-icon { display: inline-flex;
+  width: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-fg-secondary);
+  transition: color var(--motion-manager) ease-out; }
+.manager-search-field:focus-within { outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px; }
+.manager-search-field input { width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-fg);
+  background: transparent;
+  font-size: 13px; }
+.manager-add-button { display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-btn-secondary-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-accent);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--motion-manager) ease-out; }
+.theme-select-trigger { display: flex;
+  width: 100%;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  color: var(--color-fg);
+  background: var(--color-field);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  transition: background-color var(--motion-manager) ease-out; }
+.theme-select-chevron { width: 7px;
+  height: 7px;
+  flex: none;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--motion-manager) ease-out; }
+.theme-select-option { min-height: 30px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-row);
+  padding: 6px 10px;
+  color: var(--color-fg-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background-color var(--motion-manager) ease-out; }
+.manager-snippet-row { position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-row);
+  padding: 8px 10px;
+  color: var(--color-fg);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--motion-manager) ease-out, border-color var(--motion-manager) ease-out; }
+.manager-editor-empty strong { color: var(--color-fg); font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.manager-editor-title-group h1 { overflow: hidden; margin: 0; color: var(--color-fg); font-family: var(--font-heading); font-size: 22px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.manager-button { display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 0 14px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-button);
+  white-space: nowrap;
+  transition: background-color var(--motion-manager) ease-out, border-color var(--motion-manager) ease-out, color var(--motion-manager) ease-out; }
+/* Filled, borderless controls; focus = 2px offset ring. */
+.manager-control { width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  color: var(--color-fg);
+  background: var(--color-field);
+  outline: none;
+  font-size: 13px; }
+.manager-control:focus-visible,
+.manager-control:focus { outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px; }
+.manager-control.has-error { outline: 2px solid var(--color-danger); outline-offset: 2px; }
+.manager-field-error { color: var(--color-danger); font-size: 11px; font-style: normal; font-weight: 600; }
+.manager-toggle-row { display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-row);
+  padding: 11px 14px;
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: background-color var(--motion-manager) ease-out; }
+.manager-switch { appearance: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  cursor: pointer;
+  transition: background-color var(--motion-manager) ease-out; }
+.manager-switch::after { position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  content: '';
+  transition: transform var(--motion-manager) ease-out; }
+.manager-confirm-dialog h2 { margin: 0; font-family: var(--font-heading); font-size: 18px; font-weight: 600; }
+.settings-nav-title { margin: 0;
+  color: var(--color-fg);
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600; }
+.settings-section-heading h2 { margin: 1px 0 0; color: var(--color-fg); font-family: var(--font-heading); font-size: 18px; font-weight: 600; }
+.settings-theme-option { display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-row);
+  padding: 10px 14px;
+  color: var(--color-fg-secondary);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--motion-manager) ease-out, border-color var(--motion-manager) ease-out; }
+.quick-search-field:focus-within { outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px; }
+.quick-search-input { height: 100%;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  color: var(--color-fg);
+  background: transparent;
+  font-size: 16px; }
+.quick-search-item { position: relative;
+  z-index: 10;
+  display: flex;
+  margin: 2px 4px;
+  cursor: pointer;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-row);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: background-color var(--motion-quick) ease-out, border-color var(--motion-quick) ease-out; }
+.quick-footer-button { display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: 3px 6px;
+  color: var(--color-fg-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--motion-quick) ease-out, color var(--motion-quick) ease-out; }
+/* The focus ring is drawn by .quick-search-field:focus-within. */
+.quick-search-shell input[cmdk-input]:focus,
+.quick-search-shell input[cmdk-input]:focus-visible { border: 0;
+  outline: none;
+  box-shadow: none; }
+.quick-search-window { animation: none !important; }
+.manager-code-editor:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.is-spinning { animation: manager-spin 1s linear infinite; }
+.is-spinning { animation: none; }
+.manager-drop-overlay strong { font-family: var(--font-heading); font-size: 18px; font-weight: 600; }

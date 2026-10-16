@@ -23,6 +23,16 @@
 - **WHEN** 用户按 Enter、Shift+Enter 或 Ctrl+O
 - **THEN** 不执行任何条目动作
 
+### Requirement: 快搜结果行显示文件模板
+
+快搜窗口结果行中的文件模板必须（MUST）按扩展名显示类型图标（淡色圆形底）与大写扩展名徽标，副标题与文本片段一致（`Key · 分组 · 使用次数`）（2026-10-16 人工决策 B：快搜窗口中文件模板的行图标、徽标、按键与底栏移交 SPEC-23）。
+
+#### Scenario: 文件模板结果行
+
+- **GIVEN** 文件模板 Key 为 `bxd`、扩展名 xlsx
+- **WHEN** 在快搜窗口输入 `bxd`
+- **THEN** 结果行显示表格图标与 `XLSX` 徽标
+
 ### Requirement: autoPaste 设置生效
 
 后端必须（MUST）以“请求标志 且 `settings.autoPaste`”作为最终自动粘贴判定，前端不再自行决定；`autoPaste=false` 时文本片段与文件模板的 Ctrl+Enter、Ctrl+数字均退化为仅复制并关闭窗口，提示“自动粘贴已在设置中关闭”。

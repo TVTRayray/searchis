@@ -9,7 +9,7 @@ import {
   Keyboard,
   Layers,
   Moon,
-  Plus,
+  RefreshCw,
   RotateCcw,
   Search,
   Settings,
@@ -19,13 +19,20 @@ import {
   Tag,
   Terminal,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { OpenWithCandidate } from '../api/snippets';
 import { Group, GROUP_FILTER_PREFIX, Snippet, SidebarFilter, SnippetLanguage, SortOption, TypeFilter } from '../types/snippet';
 import { SelectField } from './ui/SelectField';
 import { CodeEditor } from './ui/CodeEditor';
 import { GroupTree } from './ui/GroupTree';
 import { GroupDialog } from './ui/GroupDialog';
+import { PlusMenu } from './ui/PlusMenu';
+import { NewTemplateDialog } from './ui/NewTemplateDialog';
+import { FileTemplateDetail, TemplateFormFields } from './ui/FileTemplateDetail';
+import { FileTypeIcon, fileCategory } from './ui/FileTypeIcon';
 import { THEME_LABELS, useTheme } from './ThemeProvider';
 
 interface ManagerWindowProps {
@@ -54,6 +61,22 @@ interface ManagerWindowProps {
   triggerAction?: { type: string; timestamp: number } | null;
   /** 外部指定的初始分类 (如回收站) */
   initialFilter?: SidebarFilter;
+  // === SPEC-22: 文件模板 ===
+  openWithByExtension?: Record<string, string>;
+  scanning?: boolean;
+  /** 文件导入进行中。 */
+  importing?: boolean;
+  /** 最近一次扫描的摘要（如“新增 1 · 更新 0 · 缺失 0”），空表示尚未扫描。 */
+  scanSummary?: string | null;
+  onRescan?: () => void;
+  onCreateBlank?: (kind: 'md' | 'xlsx', title: string, key: string, groupId: string | null) => Promise<string | null>;
+  /** 选择文件对话框 → 导入到分组。 */
+  onPickImport?: (groupId: string | null) => void;
+  /** 拖入文件 → 导入到分组。 */
+  onImportPaths?: (paths: string[], groupId: string | null) => void;
+  onSaveTemplate?: (snippet: Snippet, fields: TemplateFormFields) => Promise<string | null>;
+  onOpenTemplate?: (snippet: Snippet, desktopId?: string) => void;
+  onLoadOpenWith?: (snippet: Snippet) => Promise<OpenWithCandidate[]>;
 }
 
 const LANGUAGE_OPTIONS: Array<{ value: SnippetLanguage; label: string }> = [
@@ -179,6 +202,17 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   onRequestHandled,
   triggerAction,
   initialFilter,
+  openWithByExtension,
+  scanning = false,
+  importing = false,
+  scanSummary = null,
+  onRescan,
+  onCreateBlank,
+  onPickImport,
+  onImportPaths,
+  onSaveTemplate,
+  onOpenTemplate,
+  onLoadOpenWith,
 }) => {
   const [activeFilter, setActiveFilter] = useState<SidebarFilter>(initialFilter || 'all');
   const [searchQuery, setSearchQuery, resetSearchQuery, onSearchKeyDown] = useUndoableInput('');
@@ -197,6 +231,8 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const [languageInput, setLanguageInput] = useState<SnippetLanguage>('plain');
   const [groupInput, setGroupInput] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [newTemplateKind, setNewTemplateKind] = useState<'md' | 'xlsx' | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [groupDialog, setGroupDialog] = useState<{ group: Group | null; parentId: string | null } | null>(null);
   const [aliasesInput, setAliasesInput, resetAliasesInput, onAliasesKeyDown] = useUndoableInput('');
   const [tagsInput, setTagsInput, resetTagsInput, onTagsKeyDown] = useUndoableInput('');
@@ -261,6 +297,38 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     setKeyError('');
     setTimeout(() => keyInputRef.current?.focus(), 50);
   }, [resetKeyInput, resetTitleInput, resetContentInput, resetAliasesInput, resetTagsInput]);
+
+  /** 当前所在分组视图的分组 id；其他视图为 null（未分组）。 */
+  const currentGroupId = (): string | null => (
+    activeFilterRef.current.startsWith(GROUP_FILTER_PREFIX)
+      ? activeFilterRef.current.slice(GROUP_FILTER_PREFIX.length) || null
+      : null
+  );
+
+  // 拖入文件到管理窗口：导入到当前分组。
+  const importPathsRef = useRef(onImportPaths);
+  importPathsRef.current = onImportPaths;
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    try {
+      getCurrentWebview()
+        .onDragDropEvent(event => {
+          const payload = event.payload;
+          if (payload.type === 'enter' || payload.type === 'over') setDragActive(true);
+          else if (payload.type === 'leave') setDragActive(false);
+          else if (payload.type === 'drop') {
+            setDragActive(false);
+            if (payload.paths.length > 0) importPathsRef.current?.(payload.paths, currentGroupId());
+          }
+        })
+        .then(fn => { if (cancelled) fn(); else unlisten = fn; })
+        .catch(() => {});
+    } catch {
+      // 非 Tauri 环境（纯浏览器预览）没有拖入事件
+    }
+    return () => { cancelled = true; unlisten?.(); };
+  }, []);
 
   const handleCopy = useCallback((snippet: Snippet) => {
     onCopySnippet(snippet);
@@ -411,6 +479,11 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       groupId: groupInput || null,
       language: languageInput,
       kind: 'text',
+      fileExt: null,
+      fileSize: null,
+      fileMtime: null,
+      fileMissing: false,
+      fileAutoImported: false,
     };
 
     onSaveSnippet(nextSnippet);
@@ -506,9 +579,12 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                 </button>
               )}
             </label>
-            <button type="button" className="manager-add-button" aria-label="新建片段" title="新建片段" onClick={handleStartCreateNew}>
-              <Plus strokeWidth={1.5} className="size-4" aria-hidden />
-            </button>
+            <PlusMenu
+              onNewText={handleStartCreateNew}
+              onNewMarkdown={() => setNewTemplateKind('md')}
+              onNewXlsx={() => setNewTemplateKind('xlsx')}
+              onImport={() => onPickImport?.(currentGroupId())}
+            />
           </div>
           <div className="manager-type-filter" role="group" aria-label="类型筛选">
             {TYPE_FILTER_OPTIONS.map(([value, label]) => (
@@ -523,8 +599,24 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
               </button>
             ))}
           </div>
+          {importing && (
+            <div className="manager-scan-summary" role="status" data-testid="import-progress">导入中…</div>
+          )}
+          {scanSummary && !scanning && (
+            <div className="manager-scan-summary" role="status" data-testid="scan-summary">{scanSummary}</div>
+          )}
           <div className="manager-list-meta">
             <span>{activeFilter === 'trash' ? '回收站' : `${filteredSnippets.length} 条结果`}</span>
+            <button
+              type="button"
+              className="manager-text-action manager-rescan"
+              onClick={onRescan}
+              disabled={scanning || !onRescan}
+              title="重新扫描模板目录"
+            >
+              <RefreshCw strokeWidth={1.5} className={`size-3 ${scanning ? 'is-spinning' : ''}`} aria-hidden />
+              {scanning ? '扫描中…' : '重新扫描'}
+            </button>
             <div>
               <span className="sr-only">排序方式</span>
               <SelectField
@@ -542,8 +634,8 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
           {filteredSnippets.length === 0 ? (
             <div className="manager-empty-state">
               <div className="manager-empty-mark"><Layers strokeWidth={1.5} className="size-5" aria-hidden /></div>
-              <strong>{typeFilter === 'file' ? '暂无文件' : '暂无匹配的文本片段'}</strong>
-              <span>{activeFilter === 'trash' ? '回收站为空' : typeFilter === 'file' ? '文件模板将在后续版本提供。' : '从一个简短、可重复使用的 Key 开始。'}</span>
+              <strong>{typeFilter === 'file' ? '暂无文件模板' : '暂无匹配的条目'}</strong>
+              <span>{activeFilter === 'trash' ? '回收站为空' : typeFilter === 'file' ? '通过“+”菜单导入文件，或把文件拖进窗口。' : '从一个简短、可重复使用的 Key 开始。'}</span>
               {activeFilter !== 'trash' && typeFilter !== 'file' && <button type="button" className="manager-text-action" onClick={handleStartCreateNew}>新建第一条片段</button>}
             </div>
           ) : (
@@ -562,8 +654,10 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                       setIsCreatingNew(false);
                     }}
                   >
-                    <span className="manager-snippet-mark" aria-hidden>
-                      {snippet.pinned
+                    <span className={`manager-snippet-mark ${snippet.kind === 'file' ? 'file-mark' : ''}`} data-category={snippet.kind === 'file' ? fileCategory(snippet.fileExt) : undefined} aria-hidden>
+                      {snippet.kind === 'file'
+                        ? <FileTypeIcon ext={snippet.fileExt} />
+                        : snippet.pinned
                         ? <Star strokeWidth={1.5} className="size-3.5" fill="currentColor" />
                         : snippet.language && snippet.language !== 'plain'
                           ? <Terminal strokeWidth={1.5} className="size-3.5" />
@@ -573,7 +667,13 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                       <span className="manager-snippet-title">{snippet.title}</span>
                       <span className="manager-snippet-subline">
                         <span className="manager-snippet-key">{snippet.key}</span>
-                        {snippet.language && snippet.language !== 'plain' && (
+                        {snippet.kind === 'file' && snippet.fileExt && (
+                          <span className="manager-language-badge manager-file-badge" data-testid="file-badge">{snippet.fileExt.toUpperCase()}</span>
+                        )}
+                        {snippet.kind === 'file' && snippet.fileMissing && (
+                          <span className="manager-missing-badge" data-testid="missing-badge">文件缺失</span>
+                        )}
+                        {snippet.kind !== 'file' && snippet.language && snippet.language !== 'plain' && (
                           <span className="manager-language-badge" data-testid="language-badge">{snippet.language.toUpperCase()}</span>
                         )}
                         {snippet.groupId && groupNames.get(snippet.groupId) && (
@@ -591,8 +691,21 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
         </div>
       </section>
 
-      <main className="manager-editor" aria-label={isCreatingNew ? '创建片段' : '编辑片段'}>
-        {selectedSnippet || isCreatingNew ? (
+      <main className="manager-editor" aria-label={isCreatingNew ? '创建片段' : selectedSnippet?.kind === 'file' ? '文件模板' : '编辑片段'}>
+        {selectedSnippet?.kind === 'file' && !isCreatingNew ? (
+          <FileTemplateDetail
+            key={selectedSnippet.id}
+            snippet={selectedSnippet}
+            groupOptions={groupOptions}
+            rememberedDesktopId={openWithByExtension?.[selectedSnippet.fileExt ?? '']}
+            onSave={fields => onSaveTemplate?.(selectedSnippet, fields) ?? Promise.resolve('当前版本无法保存文件模板。')}
+            onOpen={desktopId => onOpenTemplate?.(selectedSnippet, desktopId)}
+            onLoadOpenWith={() => onLoadOpenWith?.(selectedSnippet) ?? Promise.resolve([])}
+            onTrash={() => onDeleteSnippet(selectedSnippet.id)}
+            onRestore={() => onRestoreSnippet(selectedSnippet.id)}
+            onPermanentDelete={() => onPermanentDeleteSnippet(selectedSnippet.id)}
+          />
+        ) : selectedSnippet || isCreatingNew ? (
           <div className="manager-editor-inner">
             <div className="manager-editor-toolbar">
               <div className="manager-editor-title-group">
@@ -772,6 +885,32 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
           </div>
         )}
       </main>
+
+      {dragActive && (
+        <div className="manager-drop-overlay" role="status" data-testid="drop-overlay">
+          <Upload strokeWidth={1.5} className="size-6" aria-hidden />
+          <strong>松开以导入文件</strong>
+          <span>
+            {(() => {
+              const id = currentGroupId();
+              return id && groupNames.get(id) ? `导入到分组「${groupNames.get(id)}」` : '导入到未分组';
+            })()}
+            ；单个文件不超过 20 MB。
+          </span>
+        </div>
+      )}
+
+      {newTemplateKind && (
+        <NewTemplateDialog
+          kind={newTemplateKind}
+          onClose={() => setNewTemplateKind(null)}
+          onSubmit={async (title, key) => {
+            const message = await (onCreateBlank?.(newTemplateKind, title, key, currentGroupId()) ?? Promise.resolve('当前版本无法新建文件模板。'));
+            if (!message) setNewTemplateKind(null);
+            return message;
+          }}
+        />
+      )}
 
       {groupDialog && (
         <GroupDialog

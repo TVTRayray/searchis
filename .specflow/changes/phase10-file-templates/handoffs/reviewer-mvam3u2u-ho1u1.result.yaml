@@ -1,0 +1,37 @@
+task_id: reviewer-mvam3u2u-ho1u1
+lease_id: lease-mvam3u2u-4caz5
+outcome: completed
+summary: |
+  S2 按人工决策 A 的 EXDEV 链接拒绝策略已修复，服务回滚测试与本轮真实 EXDEV helper 复现通过。
+  确认根外用户主动选择的链接导入源仍被 O_NOFOLLOW 拒绝；按 Planner 裁定为 implementation_defect，verdict repair。
+  完整记录全部 27 条 Design Conformance（含证据、失败与 pending_human），另发现导入中反馈缺失、模板动作 toast 文件名隐私不合清单。
+  本轮 cargo test、npm run build、隔离 E2E 均通过；没有修改产品代码或流程状态，没有操作真实桌面/剪贴板，没有创建 subagent。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvam3u2u-ho1u1.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvam3u2u-ho1u1.result.yaml
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/cargo-template.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/cargo-test.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/npm-build.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/e2e-isolated.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/make-repro.py
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/s2-import-repro.rs
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/s2-import-repro.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/design-audit.py
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/design-audit.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvam3u2u-ho1u1/grep-design.log
+  test_results:
+    - 'cd src-tauri && cargo test template: 55 passed, 0 failed'
+    - 'cd src-tauri && cargo test: 142 passed, 0 failed; main/doc tests 0 failed'
+    - 'npm run build: exit 0; tsc + Vite succeeded; chunk size warning only'
+    - '.specflow/bin/e2e-isolated.sh: exit 0; 4 passing, 1 spec file passed; Xvfb + private D-Bus + KWin; portal/KCrash and dependency diagnostics recorded'
+    - 'Current fsops helper extraction compiled with rustc and executed: real EXDEV symlink rejected, source link retained, external synthetic target unchanged, no destination; external import-source symlink rejected with ELOOP; regular-source control succeeds'
+    - 'Design audit using /home/ray/.venvs/python-scripts/bin/python: executed; explicit color/backdrop grep no matches; token/contrast/font-resource/component-import/radius evidence saved; does not imply all visual acceptance passed'
+unresolved_issues:
+  - 'R1 / implementation_defect: import_one passes the original external source symlink to O_NOFOLLOW copy_with_hash and rejects it. Resolve import sources separately (e.g. canonicalize and validate target), keep internal move defenses, and add successful link-import/content/link-preservation/target-unchanged regression coverage.'
+  - 'D1 / design_conformance: handleImportPaths has no in-progress UI state for picker/drop import. Add minimal loading feedback and reliable success/failure cleanup plus a delayed-response assertion.'
+  - 'D2 / design_conformance: template import/new/rename action toasts interpolate filenames/titles, contrary to the visual checklist prompt-privacy item. Use count/error/next-step messages without changing required metadata cards or IPC fields.'
+  - 'pending_human: dual-theme screenshots; actual rendered contrast combinations (including low-contrast muted token pairings), first-frame theme behavior, actual font loading, full focus/IME/shortcut paths, density, real KDE corners/Global Menu, Dolphin/WPS/open-with acceptance; see complete 27-item report.'
+  - 'Non-blocking boundaries: directory-level TOCTOU is an accepted contract exception; actual cross-device group-delete end-to-end is not established by helper reproduction; existing compensation failure uses TEMPLATE_RECONCILE_PENDING; pre-existing quick-search mark radius is recorded but not part of this repair; file quick-search UI/actions belong to SPEC-23.'
+verdict: repair
+category: implementation_defect

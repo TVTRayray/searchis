@@ -7,6 +7,7 @@ mod platform;
 mod search_index;
 mod service;
 mod storage;
+mod templates;
 mod validation;
 
 use std::sync::Arc;
@@ -248,7 +249,9 @@ pub fn run() {
 
             let state = match Repository::open_with_paths(&data_dir, &config_dir) {
                 Ok(repository) => AppState {
-                    service: Some(Arc::new(SnippetService::new(repository))),
+                    service: Some(Arc::new(
+                        SnippetService::new(repository).with_templates(data_dir.join("templates")),
+                    )),
                     startup_error: None,
                     logger: Arc::clone(&logger),
                     manager_request: std::sync::Mutex::new(None),
@@ -296,6 +299,14 @@ pub fn run() {
             commands::group_update,
             commands::group_delete_preview,
             commands::group_delete,
+            // SPEC-22
+            commands::template_import,
+            commands::template_create_blank,
+            commands::template_update,
+            commands::template_open,
+            commands::template_open_with_candidates,
+            commands::template_scan,
+            commands::template_pick_files,
             commands::search_snippets,
             commands::copy_snippet,
             commands::prepare_new_snippet,

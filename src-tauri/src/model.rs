@@ -21,6 +21,12 @@ pub struct Snippet {
     pub group_id: Option<String>,
     pub language: String,
     pub kind: String,
+    // SPEC-22：文件模板字段。仅 kind='file' 时有值；相对路径、inode、哈希不对外暴露。
+    pub file_ext: Option<String>,
+    pub file_size: Option<i64>,
+    pub file_mtime: Option<String>,
+    pub file_missing: bool,
+    pub file_auto_imported: bool,
 }
 
 /// SPEC-21：文本片段允许的语言标记。
@@ -107,6 +113,8 @@ pub struct SearchResultItem {
     pub language: String,
     pub group_name: Option<String>,
     pub kind: String,
+    /// kind='file' 时的小写扩展名（不含点）。
+    pub file_ext: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -231,6 +239,9 @@ pub struct Settings {
     pub trash_auto_purge_days: Option<i64>,
     pub onboarding_completed_at: Option<String>,
     pub schema_version: i64,
+    /// SPEC-22：按扩展名记住的“打开方式”（扩展名 → desktop id）。
+    #[serde(default)]
+    pub open_with_by_extension: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for Settings {
@@ -245,6 +256,7 @@ impl Default for Settings {
             trash_auto_purge_days: None,
             onboarding_completed_at: None,
             schema_version: 1,
+            open_with_by_extension: Default::default(),
         }
     }
 }
@@ -464,4 +476,93 @@ pub struct MenuModel {
 #[serde(rename_all = "camelCase")]
 pub struct AppMenuCommandInput {
     pub command_id: String,
+}
+
+// === SPEC-22: 文件模板 ===
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateImportInput {
+    pub source_paths: Vec<String>,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    pub request_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateImportRejected {
+    pub name: String,
+    pub code: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateImportOutcome {
+    pub created: Vec<Snippet>,
+    pub rejected: Vec<TemplateImportRejected>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateCreateBlankInput {
+    /// "md" | "xlsx"
+    pub kind: String,
+    pub title: String,
+    pub key: String,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    pub request_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateUpdateInput {
+    pub id: String,
+    pub revision: i64,
+    pub title: String,
+    pub key: String,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    #[serde(default)]
+    pub pinned: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateOpenInput {
+    pub id: String,
+    #[serde(default)]
+    pub desktop_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenWithCandidate {
+    pub desktop_id: String,
+    pub name: String,
+    pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanSkip {
+    /// 固定原因码：symlink / too_large / depth_exceeded / invalid_name / limit / group_conflict。
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanResult {
+    pub added: i64,
+    pub updated: i64,
+    pub missing: i64,
+    pub restored: i64,
+    pub skipped: Vec<ScanSkip>,
+    /// 单个批次事务失败的次数（该批已回滚，下次扫描会重试）。
+    pub failed_batches: i64,
 }

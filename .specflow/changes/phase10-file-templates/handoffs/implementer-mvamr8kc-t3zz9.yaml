@@ -1,0 +1,37 @@
+task_id: implementer-mvamr8kc-t3zz9
+change_id: phase10-file-templates
+role: implementer
+target_spec: file-templates
+adapter: herdr
+lease_id: lease-mvamr8kc-y895z
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/file-templates.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src-tauri/src/**
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src/api/**
+  - src/types/**
+  - src/components/ManagerWindow.tsx
+  - src/components/ui/**
+  - src/App.tsx
+  - src/index.css
+  - e2e/**
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mvamr8kc
+  pane_id: wZ:p0
+  state: working

@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { promisify } from 'node:util';
 import { browser } from '@wdio/globals';
 import { withExecuteOptions } from '@wdio/tauri-service';
@@ -294,8 +296,20 @@ const setBackendTheme = async (theme: 'light' | 'dark') => {
   }, { timeout: 5_000, interval: 100, timeoutMsg: `backend theme did not become ${theme}` });
 };
 
+// SPEC-22：中栏“+”改为菜单（新建文本片段 / 新建空白 md / 新建空白 xlsx / 导入文件）。
+const plusMenuItem = async (label: string) => {
+  await click('main', 'button[aria-label="新建或导入"]');
+  await waitFor('main', (_tauri, text) => [...document.querySelectorAll('[role="menuitem"]')].some(item => item.textContent?.includes(text as string)), [label], `missing menu item ${label}`);
+  await inWindow('main', (_tauri, text) => {
+    const item = [...document.querySelectorAll('[role="menuitem"]')].find(element => element.textContent?.includes(text as string));
+    if (!(item instanceof HTMLElement)) return false;
+    item.click();
+    return true;
+  }, label);
+};
+
 const createSnippet = async (snippet: typeof snippets[number]) => {
-  await click('main', 'button[aria-label="新建片段"]');
+  await plusMenuItem('新建文本片段');
   await setValue('main', inputSelectors.key, snippet.key);
   await setValue('main', inputSelectors.title, snippet.title);
   await setCodeContent('main', snippet.content);
@@ -729,7 +743,7 @@ describe('compiled Searchis application', () => {
     if (tooDeep !== 'GROUP_DEPTH_EXCEEDED') throw new Error(`expected GROUP_DEPTH_EXCEEDED, got ${tooDeep}`);
 
     // 新建 bash 片段并放进分组。
-    await click('main', 'button[aria-label="新建片段"]');
+    await plusMenuItem('新建文本片段');
     await setValue('main', inputSelectors.key, bashKey);
     await setValue('main', inputSelectors.title, `Nginx 重载 ${groupSuffix}`);
     await setCodeContent('main', bashContent);
@@ -811,5 +825,187 @@ describe('compiled Searchis application', () => {
     if ((saved as { content?: string } | undefined)?.content !== crlfBody) {
       throw new Error(`CRLF body changed on save: ${JSON.stringify((saved as { content?: string } | undefined)?.content)}`);
     }
+  });
+
+  it('imports, edits, opens, trashes and rescans file templates (SPEC-22)', async function () {
+    this.timeout(120_000);
+    const data = process.env.XDG_DATA_HOME;
+    const files = process.env.SEARCHIS_E2E_FILES_DIR;
+    const pickList = process.env.SEARCHIS_E2E_PICK_LIST;
+    const openLog = process.env.SEARCHIS_E2E_OPEN_LOG;
+    if (!data || !files || !pickList || !openLog) throw new Error('E2E file-template environment is not set');
+    const templates = path.join(data, 'io.searchis.desktop', 'templates');
+    const short = suffix.slice(-6);
+    const mdName = `周报${short}`;
+    const xlsxName = `预算${short}`;
+    const bigName = `超大${short}`;
+    const sources = path.join(files, 'sources');
+    mkdirSync(sources, { recursive: true });
+    const mdSource = path.join(sources, `${mdName}.md`);
+    const xlsxSource = path.join(sources, `${xlsxName}.xlsx`);
+    const bigSource = path.join(sources, `${bigName}.bin`);
+    writeFileSync(mdSource, '# 周报\n正文\n');
+    writeFileSync(xlsxSource, Buffer.from('PK-e2e-fake-xlsx'));
+    writeFileSync(bigSource, '');
+    truncateSync(bigSource, 20 * 1024 * 1024 + 1);
+
+    type FileRecord = SnippetRecord & { kind?: string; fileExt?: string | null; fileMissing?: boolean; fileAutoImported?: boolean; groupId?: string | null; revision?: number; pinned?: boolean };
+    const fileRecords = async () => (await listSnippetRecords() as FileRecord[]).filter(item => item.kind === 'file');
+    const recordByKey = async (key: string) => (await fileRecords()).find(item => item.key === key);
+    const selectRow = async (text: string) => {
+      await waitFor('main', (_t, k) => [...document.querySelectorAll('.manager-snippet-row')].some(e => e.textContent?.includes(k as string)), [text], `row ${text} missing`);
+      await inWindow('main', (_t, k) => ([...document.querySelectorAll('.manager-snippet-row')].find(e => e.textContent?.includes(k as string)) as HTMLElement).click(), text);
+      await waitFor('main', () => Boolean(document.querySelector('[data-testid="file-template-detail"]')), [], 'file template detail did not open');
+    };
+    const clickChip = async (label: string) => {
+      await inWindow('main', (_t, text) => ([...document.querySelectorAll('.manager-type-chip')].find(c => c.textContent?.trim() === text) as HTMLElement).click(), label);
+    };
+    // 先在后端扫描两次（合并中的扫描可能早于文件改动），再点界面按钮让列表刷新。
+    const rescan = async () => {
+      await invokeMain('template_scan');
+      await invokeMain('template_scan');
+      await waitFor('main', () => [...document.querySelectorAll('.manager-rescan')].some(b => !(b as HTMLButtonElement).disabled && b.textContent?.includes('重新扫描')), [], 'rescan button never became idle');
+      await clickButtonContaining('main', '重新扫描');
+      await waitFor('main', () => Boolean(document.querySelector('[data-testid="scan-summary"]')), [], 'scan summary did not render');
+    };
+    const openCalls = () => (existsSync(openLog) ? readFileSync(openLog, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line) as { kind: string; path: string; desktopId: string | null }) : []);
+
+    await clickButtonContaining('main', '全部片段');
+    if (!existsSync(path.join(templates, '.trash'))) throw new Error('templates/.trash was not created at startup');
+
+    // 导入 md + xlsx + 超大文件：超大文件被拒，其余正常，原文件不动，导入提示附明文说明。
+    // 测试侧闸门：E2E 构建的 template_import 在 SEARCHIS_E2E_IMPORT_GATE 文件内容为 hold 时挂起，
+    // 由测试写入 release / fail 决定放行或注入失败（不依赖时序）。
+    const importGate = process.env.SEARCHIS_E2E_IMPORT_GATE;
+    if (!importGate) throw new Error('E2E import gate is not set');
+    const holdImport = () => writeFileSync(importGate, 'hold');
+    const releaseImport = (fail: boolean) => writeFileSync(importGate, fail ? 'fail' : 'release');
+    const importPending = (visible: boolean) => waitFor('main', (_t, v) => Boolean(document.querySelector('[data-testid="import-progress"]')) === v, [visible], `import-progress visible=${visible} not reached`);
+
+    // 失败轮：pending 期间可见；注入失败后清除，且没有任何文件被导入。
+    writeFileSync(pickList, mdSource);
+    holdImport();
+    await plusMenuItem('导入文件');
+    await importPending(true);
+    if (!await hasText('main', '导入中…')) throw new Error('import progress text missing while pending');
+    releaseImport(true);
+    await importPending(false);
+    if (!await hasText('main', '导入失败')) throw new Error('failed import must report an error toast');
+    if (existsSync(path.join(templates, `${mdName}.md`))) throw new Error('failed import must not create files');
+
+    // 成功轮：pending 期间可见，放行后清除。
+    writeFileSync(pickList, [mdSource, xlsxSource, bigSource].join('\n'));
+    holdImport();
+    await plusMenuItem('导入文件');
+    await importPending(true);
+    releaseImport(false);
+    await importPending(false);
+    await waitFor('main', (_t, a, b) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(a as string)) && [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(b as string)), [mdName, xlsxName], 'imported rows did not appear');
+    if (!await hasText('main', '文件以明文保存在模板目录')) throw new Error('import toast must mention plaintext storage');
+    if (!await hasText('main', '已导入 2 个文件，1 个未导入')) throw new Error('import toast must report counts');
+    if (await hasText('main', bigName)) throw new Error('import toast must not include template file names');
+    if (await hasText('main', '导入中…')) throw new Error('import progress must clear after completion');
+    if (!existsSync(path.join(templates, `${mdName}.md`)) || !existsSync(path.join(templates, `${xlsxName}.xlsx`))) throw new Error('imported files are missing from the template directory');
+    if (existsSync(path.join(templates, `${bigName}.bin`))) throw new Error('oversize file must not be copied');
+    if (readFileSync(mdSource, 'utf8') !== '# 周报\n正文\n') throw new Error('source file was modified');
+    if (readdirSync(templates).some(name => name.endsWith('.tmp'))) throw new Error('temporary import files were left behind');
+    const md = await recordByKey(mdName.toLowerCase());
+    const xlsx = await recordByKey(xlsxName.toLowerCase());
+    if (!md || !xlsx || md.fileExt !== 'md' || xlsx.fileExt !== 'xlsx' || !md.fileAutoImported) throw new Error(`unexpected imported records: ${JSON.stringify([md, xlsx])}`);
+    await waitFor('main', (_t, a) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(a as string) && r.querySelector('[data-testid="file-badge"]')?.textContent === 'MD'), [mdName], 'MD badge missing');
+
+    // 搜索 DTO：kind=file + fileExt；扩展名与正文都不参与检索。
+    const hit = (await searchItems('main', mdName.toLowerCase()))[0] as SearchItem & { fileExt?: string };
+    if (hit?.kind !== 'file' || hit.fileExt !== 'md') throw new Error(`unexpected search DTO: ${JSON.stringify(hit)}`);
+
+    // 类型筛选：文件。
+    await clickChip('文件');
+    await waitFor('main', () => document.querySelectorAll('.manager-snippet-row').length > 0 && ![...document.querySelectorAll('.manager-snippet-row')].some(r => !r.querySelector('[data-testid="file-badge"]')), [], 'file filter should list only file templates');
+    await clickChip('全部');
+
+    // 详情：无敏感开关、导出/带格式复制可见但禁用、“打开”经替身记录 xdg-open 参数。
+    await selectRow(mdName);
+    const detail = await inWindow('main', () => {
+      // 注意：脚本在页面里执行，不能声明具名内部函数（esbuild 会注入页面里不存在的 __name）。
+      const root = document.querySelector('[data-testid="file-template-detail"]') as HTMLElement;
+      const buttons = [...root.querySelectorAll('button')] as HTMLButtonElement[];
+      return {
+        hasSensitive: root.textContent?.includes('敏感内容防护') ?? false,
+        hasEditor: Boolean(document.querySelector('.cm-content')),
+        exportDisabled: buttons.find(b => b.textContent?.includes('导出'))?.disabled ?? null,
+        copyDisabled: buttons.find(b => b.textContent?.includes('带格式复制'))?.disabled ?? null,
+        fileName: root.querySelector('[data-testid="file-name"]')?.textContent ?? '',
+        hasOpenWith: buttons.some(b => b.textContent?.includes('打开方式')),
+      };
+    }) as { hasSensitive: boolean; hasEditor: boolean; exportDisabled: boolean | null; copyDisabled: boolean | null; fileName: string; hasOpenWith: boolean };
+    if (detail.hasSensitive || detail.hasEditor || detail.exportDisabled !== true || detail.copyDisabled !== true || detail.fileName !== `${mdName}.md` || !detail.hasOpenWith) {
+      throw new Error(`unexpected file template detail: ${JSON.stringify(detail)}`);
+    }
+    await inWindow('main', () => {
+      const root = document.querySelector('[data-testid="file-template-detail"]') as HTMLElement;
+      ([...root.querySelectorAll('button')].find(b => b.textContent?.trim() === '打开') as HTMLElement).click();
+    });
+    await browser.waitUntil(() => openCalls().some(call => call.kind === 'xdg-open' && call.path === path.join(templates, `${mdName}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'template_open stub did not record the xdg-open call' });
+    // “打开方式…”弹出：有候选应用或明确的空提示。
+    await clickButtonContaining('main', '打开方式');
+    await waitFor('main', () => Boolean(document.querySelector('[role="menu"][aria-label="打开方式"]')), [], 'open-with menu did not appear');
+    await clickButtonContaining('main', '打开方式');
+
+    // 改标题同步文件名；同目录重名加 (2)。
+    const renamed = `月报${short}`;
+    writeFileSync(path.join(templates, `${renamed}.md`), 'existing');
+    await rescan();
+    await waitFor('main', (_t, n) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(n as string)), [renamed], 'externally added file was not imported by rescan');
+    await selectRow(mdName);
+    await setValue('main', 'input[aria-label="模板标题"]', renamed);
+    await clickButtonContaining('main', '保存模板信息');
+    await browser.waitUntil(() => existsSync(path.join(templates, `${renamed} (2).md`)) && !existsSync(path.join(templates, `${mdName}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'title change did not rename the file with a (2) suffix' });
+    const afterRename = (await fileRecords()).find(item => item.id === md.id);
+    if (afterRename?.title !== `${renamed} (2)` || afterRename.fileAutoImported) throw new Error(`unexpected renamed record: ${JSON.stringify(afterRename)}`);
+
+    // 外部改名 + 重新扫描：同一条目，标题随文件名变化（AC-26 的 E2E 代理）。
+    const externalName = `外部改名${short}`;
+    renameSync(path.join(templates, `${renamed} (2).md`), path.join(templates, `${externalName}.md`));
+    await rescan();
+    await browser.waitUntil(async () => (await fileRecords()).some(item => item.id === md.id && item.title === externalName), { timeout: 8_000, interval: 150, timeoutMsg: 'rescan did not keep the entry after an external rename' });
+
+    // 回收站：放入 → .trash/<id>.md；还原；再放入并彻底删除。
+    await selectRow(externalName);
+    await click('main', 'button[aria-label="放入回收站"]');
+    await browser.waitUntil(() => existsSync(path.join(templates, '.trash', `${md.id}.md`)) && !existsSync(path.join(templates, `${externalName}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'trashed file did not move to .trash/<id>.md' });
+    if ((await searchItems('main', externalName.toLowerCase())).some(item => item.id === md.id)) throw new Error('trashed file template must leave the search index');
+    await clickButtonContaining('main', '回收站');
+    await selectRow(externalName);
+    await clickButtonContaining('main', '恢复');
+    await browser.waitUntil(() => existsSync(path.join(templates, `${externalName}.md`)) && !existsSync(path.join(templates, '.trash', `${md.id}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'restore did not move the file back' });
+    await clickButtonContaining('main', '全部片段');
+    await selectRow(externalName);
+    await click('main', 'button[aria-label="放入回收站"]');
+    await clickButtonContaining('main', '回收站');
+    await selectRow(externalName);
+    await clickButtonContaining('main', '彻底删除');
+    await clickButtonContaining('main', '确认永久删除');
+    await browser.waitUntil(async () => !existsSync(path.join(templates, '.trash', `${md.id}.md`)) && !(await fileRecords()).some(item => item.id === md.id), { timeout: 5_000, interval: 100, timeoutMsg: 'purge did not remove the file and the record' });
+    await clickButtonContaining('main', '全部片段');
+
+    // 外部删除 → 缺失；放回 → 自动恢复。
+    const xlsxPath = path.join(templates, `${xlsxName}.xlsx`);
+    const xlsxBytes = readFileSync(xlsxPath);
+    rmSync(xlsxPath);
+    await rescan();
+    await browser.waitUntil(async () => (await fileRecords()).some(item => item.id === xlsx.id && item.fileMissing && item.deletedAt), { timeout: 8_000, interval: 150, timeoutMsg: 'external delete was not marked missing' });
+    if ((await searchItems('main', xlsxName.toLowerCase())).length !== 0) throw new Error('missing file template must not be searchable');
+    writeFileSync(xlsxPath, xlsxBytes);
+    await rescan();
+    await browser.waitUntil(async () => (await fileRecords()).some(item => item.id === xlsx.id && !item.fileMissing && !item.deletedAt), { timeout: 8_000, interval: 150, timeoutMsg: 'returned file was not restored' });
+
+    // 新建空白 md。
+    const blankTitle = `空白${short}`;
+    await plusMenuItem('新建空白 md');
+    await setValue('main', 'input[aria-label="新模板标题"]', blankTitle);
+    await setValue('main', 'input[aria-label="新模板 Key"]', `blank-${short}`);
+    await clickButtonContaining('main', '创建');
+    await browser.waitUntil(() => existsSync(path.join(templates, `${blankTitle}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'blank md was not created' });
+    if (readFileSync(path.join(templates, `${blankTitle}.md`), 'utf8') !== `# ${blankTitle}\n`) throw new Error('blank md must contain the title heading');
   });
 });

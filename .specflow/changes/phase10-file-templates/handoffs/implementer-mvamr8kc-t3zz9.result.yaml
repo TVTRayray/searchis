@@ -1,0 +1,20 @@
+task_id: implementer-mvamr8kc-t3zz9
+lease_id: lease-mvamr8kc-y895z
+outcome: completed
+summary: |
+  仅处理 reviewer-mvamjozk-8fsj4 的 D1 missing_test，未改动其他行为。
+  页面侧无法拦截 IPC（__TAURI_INTERNALS__.invoke 为不可写、不可配置属性），故按 Guide 建议在
+  cfg(feature = "e2e-webdriver") 下为 template_import 加确定性闸门：SEARCHIS_E2E_IMPORT_GATE 文件内容为
+  hold 时导入挂起，release 放行，fail 返回注入错误 E2E_INJECTED_FAILURE；生产构建不编译该代码。
+  E2E：失败轮——hold→触发导入→断言 import-progress 可见与“导入中…”→fail→断言 progress 清除、出现“导入失败”、无文件被创建；
+  成功轮——hold→导入→progress 可见→release→progress 清除，随后沿用原有成功断言。
+evidence:
+  changed_files:
+    - src-tauri/src/commands.rs
+    - e2e/tauri-service.mjs
+    - e2e/create-and-search.e2e.ts
+  test_results:
+    - ".specflow/bin/e2e-isolated.sh：4 passing, exit 0（含新增延迟/失败断言）"
+    - "cd src-tauri && cargo check（非 e2e feature）：通过，仅既有 dead_code 警告"
+unresolved_issues:
+  - "3.13 实机项与设计 pending_human 项仍待人验。"

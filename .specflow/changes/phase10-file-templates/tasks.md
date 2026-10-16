@@ -32,18 +32,18 @@
 
 ## file-templates: SPEC-22 文件模板管理（Schema v5）
 
-- [ ] 3.1 模板目录与 `.trash/`（0700），首次补建分组目录；分组写操作同步目录
-- [ ] 3.2 Schema v5 迁移与约束、`.v4.bak`
-- [ ] 3.3 导入（多文件、拖入、20 MB 与 10,000 条上限、Key 自动生成与“自动导入”标记）与新建空白 md/xlsx
-- [ ] 3.4 右栏文件模板视图、标题与文件名双向联动、`(2)` 后缀
-- [ ] 3.5 `platform/files.rs`：xdg-open、MIME、`.desktop` 枚举与 Exec 字段码替换；打开方式记忆
-- [ ] 3.6 扫描纯函数核心 + IO 层：路径/inode/哈希识别、缺失与恢复、新文件与新子目录、超 3 层跳过、忽略规则、符号链接、分批事务、计数提示、“重新扫描”
-- [ ] 3.7 回收站文件生命周期与 SearchIndex 一致性
-- [ ] 3.8 先文件后数据库的补偿与 `TEMPLATE_RECONCILE_PENDING`；路径校验；日志隐私
-- [ ] 3.9 快搜与管理检索包含文件模板（key/aliases/title/tags），扩展名图标与徽标；Enter/Ctrl+Enter 暂不执行
-- [ ] 3.10 单元测试：文件名清洗、Key 生成、扫描计划全部分支、路径校验、补偿、迁移、`.desktop` 解析
-- [ ] 3.11 E2E（临时 XDG、template_open 替身）：导入 md/xlsx、改标题同步文件名、回收站位置、外部改名后重新扫描
-- [ ] 3.12 性能：2,000 文件无变化扫描 ≤ 2 s（NFR-PERF-07）
+- [x] 3.1 模板目录与 `.trash/`（0700），首次补建分组目录；分组写操作同步目录
+- [x] 3.2 Schema v5 迁移与约束、`.v4.bak`
+- [x] 3.3 导入（多文件、拖入、20 MB 与 10,000 条上限、Key 自动生成与“自动导入”标记）与新建空白 md/xlsx
+- [x] 3.4 右栏文件模板视图、标题与文件名双向联动、`(2)` 后缀
+- [x] 3.5 `platform/files.rs`：xdg-open、MIME、`.desktop` 枚举与 Exec 字段码替换；打开方式记忆
+- [x] 3.6 扫描纯函数核心 + IO 层：路径/inode/哈希识别、缺失与恢复、新文件与新子目录、超 3 层跳过、忽略规则、符号链接、分批事务、计数提示、“重新扫描”
+- [x] 3.7 回收站文件生命周期与 SearchIndex 一致性
+- [x] 3.8 先文件后数据库的补偿与 `TEMPLATE_RECONCILE_PENDING`；路径校验；日志隐私
+- [x] 3.9 检索服务与管理检索包含文件模板（key/aliases/title/tags），管理列表扩展名图标与徽标；文本复制/粘贴对文件模板返回 TEMPLATE_ACTION_UNSUPPORTED；快搜窗口部分移交 4.5（2026-10-16 人工决策 B：快搜窗口中文件模板的行图标、徽标、按键与底栏移交 SPEC-23）
+- [x] 3.10 单元测试：文件名清洗、Key 生成、扫描计划全部分支、路径校验、补偿、迁移、`.desktop` 解析
+- [x] 3.11 E2E（临时 XDG、template_open 替身）：导入 md/xlsx、改标题同步文件名、回收站位置、外部改名后重新扫描
+- [x] 3.12 性能：2,000 文件无变化扫描 ≤ 2 s（NFR-PERF-07）
 - [ ] 3.13 实机：AC-26（Dolphin 改名移动）、AC-27（WPS 保存）、“打开方式…”列出 WPS/LibreOffice
 
 ## formatted-copy-export: SPEC-23 快搜窗口文件动作：带格式复制、导出与打开
@@ -52,7 +52,7 @@
 - [ ] 4.2 格式转换纯函数：md→HTML/plain（转义原始 HTML、链接白名单）；xlsx→XML Spreadsheet/HTML/TSV（50,000 单元格上限、公式缓存值）；其他文件→uri-list/gnome-copied-files/plain
 - [ ] 4.3 `template_format_copy` 计数幂等与失败不计数；`template_export` 文件名、`(2)`、不覆盖改名、无残留
 - [ ] 4.4 `execute_paste` autoPaste 后端判定修正
-- [ ] 4.5 快搜按键（Enter/Ctrl+Enter/Shift+Enter/Ctrl+O/Ctrl+数字）、底栏切换、IME 防护；快捷键速查按类型分组；管理窗口“导出”“带格式复制”按钮启用
+- [ ] 4.5 快搜结果行文件模板图标与大写扩展名徽标（自 3.9 移交）；快搜按键（Enter/Ctrl+Enter/Shift+Enter/Ctrl+O/Ctrl+数字）、底栏切换、IME 防护；快捷键速查按类型分组；管理窗口“导出”“带格式复制”按钮启用
 - [ ] 4.6 单元测试：md、xlsx（含预研样本）、HTML/TSV、上限、导出命名与失败、autoPaste、operationId
 - [ ] 4.7 E2E（剪贴板替身）：底栏切换、Enter 格式集合与计数、Shift+Enter 写临时导出目录且窗口保持、autoPaste=false 不注入
 - [ ] 4.8 性能：1 MB md、5,000 单元格 xlsx 各 100 次 p95（NFR-PERF-06）

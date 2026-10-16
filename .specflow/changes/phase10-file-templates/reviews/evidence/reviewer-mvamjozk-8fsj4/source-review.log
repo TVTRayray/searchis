@@ -1,0 +1,313 @@
+--- D1/D2 frontend source ---
+   195	    } catch (e) {
+   196	      showToast(`读取片段失败：${errorMessage(e)}`, 'error');
+   197	    }
+   198	  }, []);
+   199	
+   200	  // === SPEC-22: 文件模板 ===
+   201	  const [scanning, setScanning] = useState(false);
+   202	  const [importing, setImporting] = useState(false);
+   203	  const [scanSummary, setScanSummary] = useState<string | null>(null);
+   204	  const scanningRef = useRef(false);
+   205	  const lastScanAtRef = useRef(0);
+   495	  };
+   496	
+   497	  const importCodeText = (code: string): string => (
+   498	    code === 'TEMPLATE_TOO_LARGE' ? '超过 20 MB 或条目已满' : code
+   499	  );
+   500	
+   501	  const handleImportPaths = async (paths: string[], groupId: string | null) => {
+   502	    if (paths.length === 0) return;
+   503	    setImporting(true);
+   504	    try {
+   505	      const outcome = await templatesApi.import(paths, groupId, crypto.randomUUID());
+   506	      await refresh();
+   507	      if (outcome.created.length > 0) selectCreated(outcome.created[0]);
+   508	      const rejectedCodes = [...new Set(outcome.rejected.map(item => importCodeText(item.code)))];
+   509	      const rejectedNote = outcome.rejected.length
+   510	        ? `，${outcome.rejected.length} 个未导入（${rejectedCodes.join('、')}）`
+   511	        : '';
+   512	      if (outcome.created.length > 0) {
+   513	        showToast(`已导入 ${outcome.created.length} 个文件${rejectedNote}；文件以明文保存在模板目录。`);
+   514	      } else {
+   515	        showToast(`没有文件被导入${rejectedNote}`, 'error');
+   516	      }
+   517	    } catch (e) {
+   518	      showToast(`导入失败：${templateErrorText(e)}`, 'error');
+   519	    } finally {
+   520	      setImporting(false);
+   521	    }
+   522	  };
+   523	
+   524	  const handlePickImport = async (groupId: string | null) => {
+   525	    try {
+   526	      const paths = await templatesApi.pickFiles();
+   527	      await handleImportPaths(paths, groupId);
+   528	    } catch (e) {
+   529	      showToast(`无法打开文件选择器：${templateErrorText(e)}`, 'error');
+   530	    }
+   531	  };
+   532	
+   533	  const handleCreateBlank = async (
+   534	    kind: 'md' | 'xlsx',
+   535	    title: string,
+   536	    key: string,
+   537	    groupId: string | null,
+   538	  ): Promise<string | null> => {
+   539	    try {
+   540	      const created = await templatesApi.createBlank(kind, title.trim(), key.trim(), groupId, crypto.randomUUID());
+   541	      await refresh();
+   542	      selectCreated(created);
+   543	      showToast(`已新建 ${kind === 'md' ? 'Markdown' : 'Excel'} 模板；文件以明文保存在模板目录`);
+   544	      return null;
+   545	    } catch (e) {
+   546	      const err = e as AppError;
+   547	      if (err.code === 'KEY_CONFLICT') return `Key "${err.conflictKey ?? key}" 已被使用。`;
+   548	      return templateErrorText(e);
+   549	    }
+   550	  };
+   551	
+   552	  const handleSaveTemplate = async (snippet: PersistedSnippet, fields: TemplateFormFields): Promise<string | null> => {
+   553	    try {
+   554	      const saved = await templatesApi.update(snippet, fields);
+   555	      await refresh();
+   556	      showToast(saved.title !== fields.title ? '已保存，文件名已同步（重名已自动加序号）' : '模板信息已保存');
+   557	      return null;
+   558	    } catch (e) {
+   559	      const err = e as AppError;
+   560	      if (err.code === 'REVISION_CONFLICT') {
+   561	        await refresh();
+   562	        return '模板已被其他窗口修改，已重新载入最新数据，请重新编辑。';
+   563	      }
+   564	      if (err.code === 'KEY_CONFLICT') return `Key "${err.conflictKey ?? fields.key}" 已被使用。`;
+   565	      if (err.code === 'TEMPLATE_RECONCILE_PENDING') await refresh();
+   678	            onOpenKeyboardHelp={() => setIsKeyboardHelpOpen(true)}
+   679	            onToggleTheme={toggleTheme}
+   680	            editRequestId={editRequestId}
+   681	            prefillCreateKey={prefillCreateKey}
+   682	            onRequestHandled={handleRequestHandled}
+   683	            triggerAction={menuTriggerAction}
+   684	            initialFilter={activeFilterFromMenu}
+   685	            openWithByExtension={config.openWithByExtension}
+   686	            scanning={scanning}
+   687	            importing={importing}
+   688	            scanSummary={scanSummary}
+   689	            onRescan={() => void runScan(true)}
+   690	            onCreateBlank={handleCreateBlank}
+   691	            onPickImport={groupId => void handlePickImport(groupId)}
+   692	            onImportPaths={(paths, groupId) => void handleImportPaths(paths, groupId)}
+   693	            onSaveTemplate={handleSaveTemplate}
+   694	            onOpenTemplate={(snippet, desktopId) => void handleOpenTemplate(snippet, desktopId)}
+   695	            onLoadOpenWith={handleLoadOpenWith}
+   593	                type="button"
+   594	                className={`manager-type-chip ${typeFilter === value ? 'is-active' : ''}`}
+   595	                aria-pressed={typeFilter === value}
+   596	                onClick={() => setTypeFilter(value)}
+   597	              >
+   598	                {label}
+   599	              </button>
+   600	            ))}
+   601	          </div>
+   602	          {importing && (
+   603	            <div className="manager-scan-summary" role="status" data-testid="import-progress">导入中…</div>
+   604	          )}
+   605	          {scanSummary && !scanning && (
+   606	            <div className="manager-scan-summary" role="status" data-testid="scan-summary">{scanSummary}</div>
+   607	          )}
+   608	          <div className="manager-list-meta">
+   609	            <span>{activeFilter === 'trash' ? '回收站' : `${filteredSnippets.length} 条结果`}</span>
+   610	            <button
+--- current E2E assertions ---
+   870	    };
+   871	    const openCalls = () => (existsSync(openLog) ? readFileSync(openLog, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line) as { kind: string; path: string; desktopId: string | null }) : []);
+   872	
+   873	    await clickButtonContaining('main', '全部片段');
+   874	    if (!existsSync(path.join(templates, '.trash'))) throw new Error('templates/.trash was not created at startup');
+   875	
+   876	    // 导入 md + xlsx + 超大文件：超大文件被拒，其余正常，原文件不动，导入提示附明文说明。
+   877	    writeFileSync(pickList, [mdSource, xlsxSource, bigSource].join('\n'));
+   878	    await plusMenuItem('导入文件');
+   879	    await waitFor('main', (_t, a, b) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(a as string)) && [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(b as string)), [mdName, xlsxName], 'imported rows did not appear');
+   880	    if (!await hasText('main', '文件以明文保存在模板目录')) throw new Error('import toast must mention plaintext storage');
+   881	    if (!await hasText('main', '已导入 2 个文件，1 个未导入')) throw new Error('import toast must report counts');
+   882	    if (await hasText('main', bigName)) throw new Error('import toast must not include template file names');
+   883	    if (await hasText('main', '导入中…')) throw new Error('import progress must clear after completion');
+   884	    if (!existsSync(path.join(templates, `${mdName}.md`)) || !existsSync(path.join(templates, `${xlsxName}.xlsx`))) throw new Error('imported files are missing from the template directory');
+   885	    if (existsSync(path.join(templates, `${bigName}.bin`))) throw new Error('oversize file must not be copied');
+   886	    if (readFileSync(mdSource, 'utf8') !== '# 周报\n正文\n') throw new Error('source file was modified');
+   977	
+   978	    // 新建空白 md。
+   979	    const blankTitle = `空白${short}`;
+   980	    await plusMenuItem('新建空白 md');
+   981	    await setValue('main', 'input[aria-label="新模板标题"]', blankTitle);
+   982	    await setValue('main', 'input[aria-label="新模板 Key"]', `blank-${short}`);
+   983	    await clickButtonContaining('main', '创建');
+   984	    await browser.waitUntil(() => existsSync(path.join(templates, `${blankTitle}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'blank md was not created' });
+   985	    if (readFileSync(path.join(templates, `${blankTitle}.md`), 'utf8') !== `# ${blankTitle}\n`) throw new Error('blank md must contain the title heading');
+   986	  });
+   987	});
+--- R1 source and regression ---
+   435	            }
+   436	            // 用户主动选择的根外来源：解析链接后复制目标内容，命名沿用所选路径。
+   437	            let Ok(resolved) = fs::canonicalize(source_path) else {
+   438	                reject(&mut rejected, "TEMPLATE_FS_FAILED");
+   439	                first_hard_error.get_or_insert_with(|| fs_error("无法读取要导入的文件。"));
+   440	                continue;
+   441	            };
+   442	            match self.import_one(fs, &dir, &dir_path, source_path, &resolved, &request_id) {
+   443	                Ok(snippet) => {
+   444	                    active += 1;
+   445	                    created.push(snippet);
+   446	                }
+   447	                Err(error) => {
+   448	                    reject(&mut rejected, error.code);
+   449	                    first_hard_error.get_or_insert(error);
+   450	                }
+   451	            }
+   452	        }
+   453	        if created.is_empty() {
+   454	            if let Some(error) = first_hard_error {
+   455	                return Err(error);
+  1147	    #[test]
+  1148	    fn import_resolves_symlink_source_outside_root_and_copies_target_content() {
+  1149	        let env = env();
+  1150	        let target = env.source("真实.md", b"# hello");
+  1151	        let link = env.scratch.join("链接.md");
+  1152	        std::os::unix::fs::symlink(Path::new(&target), &link).unwrap();
+  1153	        let out = env.import(&[link.to_string_lossy().into_owned()], None);
+  1154	        assert_eq!(out.created.len(), 1);
+  1155	        let created = &out.created[0];
+  1156	        assert_eq!(created.title, "链接");
+  1157	        assert_eq!(fs::read(env.root.join("链接.md")).unwrap(), b"# hello");
+  1158	        assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+  1159	        assert_eq!(fs::read(&target).unwrap(), b"# hello");
+  1160	        let dump = format!("{created:?}");
+  1161	        assert!(!dump.contains(env.scratch.to_str().unwrap()));
+  1162	    }
+  1163	
+  1164	    #[test]
+  1165	    fn import_rejects_oversize_but_keeps_other_files_and_is_idempotent() {
+  1850	
+  1851	    #[test]
+  1852	    fn group_delete_with_symlink_entry_on_exdev_is_rejected_and_fully_rolled_back() {
+  1853	        let env = env();
+  1854	        let parent = env.group("父", None);
+  1855	        let child = env.group("子", Some(&parent.id));
+  1856	        let file = env
+  1857	            .import(&[env.source("a.md", b"a")], Some(&child.id))
+  1858	            .created
+  1859	            .remove(0);
+  1860	        let outside = tempfile::tempdir().unwrap();
+  1861	        let secret = outside.path().join("secret.txt");
+  1862	        fs::write(&secret, "EXTERNAL_SENTINEL").unwrap();
+  1863	        // 在 .md 之前排序的链接条目，确保普通文件之前/之后都被覆盖。
+  1864	        std::os::unix::fs::symlink(&secret, env.root.join("父/子/z-link.md")).unwrap();
+  1865	        std::os::unix::fs::symlink(&secret, env.root.join("父/子/0-link.md")).unwrap();
+  1866	        let row_before = env.row(&file.id).rel_path;
+  1867	
+  1868	        super::fsops::FORCE_EXDEV.with(|f| f.set(true));
+  1869	        let result = env.service.group_delete(GroupDeleteInput {
+  1870	            id: child.id.clone(),
+  1871	            revision: child.revision,
+  1872	        });
+  1873	        super::fsops::FORCE_EXDEV.with(|f| f.set(false));
+  1874	
+  1875	        assert_fs_rejected(result);
+  1876	        // 完全回滚：目录、链接（仍是链接）、文件、数据库行均原样。
+  1877	        for name in ["z-link.md", "0-link.md"] {
+  1878	            let meta = fs::symlink_metadata(env.root.join("父/子").join(name)).unwrap();
+  1879	            assert!(meta.file_type().is_symlink());
+  1880	            assert!(fs::symlink_metadata(env.root.join("父").join(name)).is_err());
+  1881	        }
+  1882	        assert!(env.on_disk("父/子/a.md"));
+  1883	        assert!(!env.on_disk("父/a.md"));
+  1884	        assert_eq!(env.row(&file.id).rel_path, row_before);
+  1885	        assert!(env
+  1886	            .service
+  1887	            .repository
+  1888	            .group_list()
+  1889	            .unwrap()
+  1890	            .iter()
+  1891	            .any(|g| g.id == child.id));
+  1892	        // 根外文件内容未出现在模板目录中，且目标未被改动。
+  1893	        let mut stack = vec![env.root.clone()];
+  1894	        while let Some(dir) = stack.pop() {
+  1895	            for entry in fs::read_dir(&dir).unwrap().flatten() {
+  1896	                let meta = fs::symlink_metadata(entry.path()).unwrap();
+  1897	                if meta.is_dir() {
+  1898	                    stack.push(entry.path());
+  1899	                } else if meta.is_file() {
+  1900	                    assert_ne!(fs::read(entry.path()).unwrap(), b"EXTERNAL_SENTINEL");
+  1901	                }
+  1902	            }
+  1903	        }
+  1904	        assert_eq!(fs::read_to_string(&secret).unwrap(), "EXTERNAL_SENTINEL");
+  1905	    }
+  1906	
+  1907	    #[test]
+  1908	    fn symlinked_group_directory_rejects_every_write_path() {
+  1909	        let env = env();
+  1910	        let admin = env.group("行政", None);
+  1911	        let other = env.group("资料", None);
+  1912	        let outside = tempfile::tempdir().unwrap();
+  1913	        // 已有条目，用于移动/还原/重命名场景。
+  1914	        let mover = env
+  1915	            .import(&[env.source("m.md", b"m")], Some(&other.id))
+  1916	            .created
+  1917	            .remove(0);
+  1918	        let trashed = env
+  1919	            .import(&[env.source("t.md", b"t")], Some(&admin.id))
+  1920	            .created
+  1921	            .remove(0);
+  1922	        env.service.trash_move(&trashed.id).unwrap();
+  1923	        swap_for_symlink(&env, "行政", outside.path());
+  1924	        let before = tree(outside.path());
+  1925	
+  1926	        // 导入
+  1927	        let src = env.source("x.md", b"x");
+  1928	        let outcome = env.service.template_import(TemplateImportInput {
+  1929	            source_paths: vec![src.clone()],
+  1930	            group_id: Some(admin.id.clone()),
+  1931	            request_id: uuid::Uuid::new_v4().to_string(),
+  1932	        });
+  1933	        assert_fs_rejected(outcome);
+  1934	        // 新建空白 md / xlsx
+  1935	        for kind in ["md", "xlsx"] {
+    92	pub fn copy_with_hash(src: &Path, dst: &Path) -> std::io::Result<(String, u64)> {
+    93	    // 源端 O_NOFOLLOW：源是符号链接时报错，不跟随读取链接目标。
+    94	    let mut input = fs::OpenOptions::new()
+    95	        .read(true)
+    96	        .custom_flags(libc::O_NOFOLLOW)
+    97	        .open(src)?;
+    98	    let mut output = fs::OpenOptions::new()
+    99	        .write(true)
+   100	        .create_new(true)
+   101	        .mode_600()
+   102	        .custom_flags(libc::O_NOFOLLOW)
+   103	        .open(dst)?;
+   104	    let mut hasher = Sha256::new();
+   153	pub fn move_file(src: &Path, dst: &Path) -> Result<(), AppError> {
+   154	    if dst.symlink_metadata().is_ok() {
+   155	        return Err(fs_error("目标位置已存在同名文件。"));
+   156	    }
+   157	    if let Some(parent) = dst.parent() {
+   158	        ensure_dir(parent)?;
+   159	    }
+   160	    // 移动前先识别条目类型：符号链接只允许同设备 rename（移动链接本身）。
+   161	    let src_is_symlink = fs::symlink_metadata(src)
+   162	        .map_err(|_| fs_error("无法移动模板文件。"))?
+   163	        .file_type()
+   164	        .is_symlink();
+   165	    match rename_for_move(src, dst) {
+   166	        Ok(()) => Ok(()),
+   167	        Err(error) if error.raw_os_error() == Some(libc::EXDEV) => {
+   168	            if src_is_symlink {
+   169	                return Err(fs_error("无法跨设备移动符号链接。"));
+   170	            }
+   171	            copy_verify_remove(src, dst)
+   172	        }
+   173	        Err(_) => Err(fs_error("无法移动模板文件。")),
+   174	    }
+   175	}
+   176	
+   177	#[cfg(test)]

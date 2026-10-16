@@ -1,0 +1,18 @@
+$ cd src-tauri && cargo build --no-default-features --bin searchis
+   Compiling searchis v0.1.0 (/home/ray/Projects/CodeRepo/searchis/src-tauri)
+warning: method `group_name` is never used
+  --> src/search_index.rs:76:12
+   |
+68 | impl SearchIndex {
+   | ---------------- method in this implementation
+...
+76 |     pub fn group_name(&self, group_id: &str) -> Option<String> {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `searchis` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.47s
+BUILD_EXIT=0
+$ strings src-tauri/target/debug/searchis | grep -E SEARCHIS_E2E_IMPORT_GATE\|E2E_INJECTED_FAILURE\|e2e_import_gate
+PASS: no gate markers in non-E2E binary

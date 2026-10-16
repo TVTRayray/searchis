@@ -8,12 +8,16 @@ import {
   Group,
   groupsApi,
   ManagerRequest,
+  OpenWithCandidate,
   PersistedSnippet,
+  ScanResult,
   SearchResultItem,
   settingsApi,
   snippetsApi,
+  templatesApi,
   windowApi,
 } from './api/snippets';
+import { TemplateFormFields } from './components/ui/FileTemplateDetail';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { QuickSearchWindow } from './components/QuickSearchWindow';
 import { ManagerWindow } from './components/ManagerWindow';
@@ -41,10 +45,36 @@ const DEFAULT_CONFIG: SettingsConfig = {
   trashAutoPurgeDays: null,
   onboardingCompletedAt: null,
   schemaVersion: 1,
+  openWithByExtension: {},
 };
 
 const errorMessage = (e: unknown): string =>
   (e as AppError)?.message ?? (e as { message?: string })?.message ?? '操作失败';
+
+/** 文件模板错误：带上错误码，方便对照文档与日志。 */
+const templateErrorText = (e: unknown): string => {
+  const err = e as AppError;
+  return err?.code?.startsWith('TEMPLATE_') ? `${errorMessage(e)}（${err.code}）` : errorMessage(e);
+};
+
+const SCAN_SKIP_TEXT: Record<string, string> = {
+  symlink: '符号链接',
+  too_large: '超过 20 MB',
+  depth_exceeded: '目录超过 3 层',
+  invalid_name: '名称不合法',
+  group_conflict: '分组重名',
+  limit: '超过 10,000 条上限',
+};
+
+const summarizeScan = (result: ScanResult): string => {
+  const parts = [`新增 ${result.added}`, `更新 ${result.updated}`, `缺失 ${result.missing}`];
+  if (result.restored > 0) parts.push(`恢复 ${result.restored}`);
+  const skipped = new Map<string, number>();
+  result.skipped.forEach(item => skipped.set(item.reason, (skipped.get(item.reason) ?? 0) + 1));
+  skipped.forEach((count, reason) => parts.push(`跳过 ${count}（${SCAN_SKIP_TEXT[reason] ?? reason}）`));
+  if (result.failedBatches > 0) parts.push(`${result.failedBatches} 批失败，稍后重试`);
+  return parts.join(' · ');
+};
 
 /* ============ 检索窗口（独立无边框窗口） ============ */
 const SearchWindowApp: React.FC = () => {
@@ -106,7 +136,7 @@ const MainContent: React.FC = () => {
   const { setTheme, effectiveTheme } = useTheme();
 
   // SPEC-06: 从后端加载设置；主窗口以持久化后端主题覆盖旧的本地初始值。
-  useEffect(() => {
+  const reloadSettings = useCallback(() => (
     settingsApi.get().then(res => {
       setConfig(prev => ({ ...prev, ...res.settings }));
       setTheme(res.settings.theme as 'light' | 'dark' | 'system');
@@ -114,8 +144,12 @@ const MainContent: React.FC = () => {
       setSettingsRevision(res.revision);
     }).catch(() => {
       // 后端失败时保留默认值
-    });
-  }, [setTheme]);
+    })
+  ), [setTheme]);
+
+  useEffect(() => {
+    void reloadSettings();
+  }, [reloadSettings]);
 
   // SPEC-06 / RF3: 快捷键先注册，成功后再提交 Settings；任一步失败保留旧值。
   const updateConfig = useCallback((key: string, value: unknown) => {
@@ -163,10 +197,40 @@ const MainContent: React.FC = () => {
     }
   }, []);
 
-  // 初始加载真实数据（不使用 mock）
-  useEffect(() => {
-    refresh().finally(() => setLoading(false));
+  // === SPEC-22: 文件模板 ===
+  const [scanning, setScanning] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const scanningRef = useRef(false);
+  const lastScanAtRef = useRef(0);
+
+  /** 后台扫描模板目录；完成后显示变化计数，有变化时刷新列表。 */
+  const runScan = useCallback(async (manual: boolean) => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    setScanning(true);
+    try {
+      const result = await templatesApi.scan();
+      lastScanAtRef.current = Date.now();
+      setScanSummary(summarizeScan(result));
+      if (manual || result.added + result.updated + result.missing + result.restored > 0) await refresh();
+      if (manual) showToast(`扫描完成：${summarizeScan(result)}`);
+    } catch (e) {
+      setScanSummary(null);
+      showToast(`扫描模板目录失败：${templateErrorText(e)}`, 'error');
+    } finally {
+      scanningRef.current = false;
+      setScanning(false);
+    }
   }, [refresh]);
+
+  // 初始加载真实数据（不使用 mock），随后在后台扫描模板目录。
+  useEffect(() => {
+    refresh().finally(() => {
+      setLoading(false);
+      void runScan(false);
+    });
+  }, [refresh, runScan]);
 
   // 监听来自 KDE 原生菜单的全局事件分发
   useEffect(() => {
@@ -214,6 +278,8 @@ const MainContent: React.FC = () => {
   }, []);
 
   // 消费检索窗口跳转请求（Ctrl+E 编辑 / Ctrl+N 预填新建）
+  const runScanRef = useRef(runScan);
+  runScanRef.current = runScan;
   const consumeManagerRequest = useCallback(async () => {
     try {
       const request = await windowApi.takeManagerRequest();
@@ -246,7 +312,11 @@ const MainContent: React.FC = () => {
     try {
       getCurrentWindow()
         .onFocusChanged(({ payload }) => {
-          if (payload) consumeManagerRequest();
+          if (payload) {
+            consumeManagerRequest();
+            // 管理窗口重新获得焦点时补一次扫描（距上次不足 10 秒则跳过）。
+            if (Date.now() - lastScanAtRef.current > 10_000) void runScanRef.current(false);
+          }
         })
         .then(fn => { unlisten = fn; })
         .catch(() => {});
@@ -377,7 +447,8 @@ const MainContent: React.FC = () => {
       showToast(`片段 "${target.key}" 已移入回收站`);
       await refresh();
     } catch (error) {
-      showToast(`移入回收站失败：${errorMessage(error)}`, 'error');
+      if ((error as AppError).code === 'TEMPLATE_FILE_MISSING') await handleTemplateFileMissing(error);
+      else showToast(`移入回收站失败：${templateErrorText(error)}`, 'error');
     }
   };
 
@@ -389,7 +460,7 @@ const MainContent: React.FC = () => {
       showToast(`片段 "${target.key}" 已恢复`);
       await refresh();
     } catch (error) {
-      showToast(`恢复片段失败：${errorMessage(error)}`, 'error');
+      showToast(`恢复片段失败：${templateErrorText(error)}`, 'error');
     }
   };
 
@@ -409,13 +480,116 @@ const MainContent: React.FC = () => {
       showToast(`片段 "${target.key}" 已永久删除`);
       await refresh();
     } catch (error) {
-      showToast(`永久删除失败：${errorMessage(error)}`, 'error');
+      showToast(`永久删除失败：${templateErrorText(error)}`, 'error');
     }
   };
 
   // 导入导出/重置仍由后续 UI slice 接入既有 Rust 命令。
   const notYet = (feature: string) => () => {
     showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
+  };
+
+  const selectCreated = (snippet: PersistedSnippet) => {
+    setPrefillCreateKey(undefined);
+    setEditRequestId(snippet.id);
+  };
+
+  const importCodeText = (code: string): string => (
+    code === 'TEMPLATE_TOO_LARGE' ? '超过 20 MB 或条目已满' : code
+  );
+
+  const handleImportPaths = async (paths: string[], groupId: string | null) => {
+    if (paths.length === 0) return;
+    setImporting(true);
+    try {
+      const outcome = await templatesApi.import(paths, groupId, crypto.randomUUID());
+      await refresh();
+      if (outcome.created.length > 0) selectCreated(outcome.created[0]);
+      const rejectedCodes = [...new Set(outcome.rejected.map(item => importCodeText(item.code)))];
+      const rejectedNote = outcome.rejected.length
+        ? `，${outcome.rejected.length} 个未导入（${rejectedCodes.join('、')}）`
+        : '';
+      if (outcome.created.length > 0) {
+        showToast(`已导入 ${outcome.created.length} 个文件${rejectedNote}；文件以明文保存在模板目录。`);
+      } else {
+        showToast(`没有文件被导入${rejectedNote}`, 'error');
+      }
+    } catch (e) {
+      showToast(`导入失败：${templateErrorText(e)}`, 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handlePickImport = async (groupId: string | null) => {
+    try {
+      const paths = await templatesApi.pickFiles();
+      await handleImportPaths(paths, groupId);
+    } catch (e) {
+      showToast(`无法打开文件选择器：${templateErrorText(e)}`, 'error');
+    }
+  };
+
+  const handleCreateBlank = async (
+    kind: 'md' | 'xlsx',
+    title: string,
+    key: string,
+    groupId: string | null,
+  ): Promise<string | null> => {
+    try {
+      const created = await templatesApi.createBlank(kind, title.trim(), key.trim(), groupId, crypto.randomUUID());
+      await refresh();
+      selectCreated(created);
+      showToast(`已新建 ${kind === 'md' ? 'Markdown' : 'Excel'} 模板；文件以明文保存在模板目录`);
+      return null;
+    } catch (e) {
+      const err = e as AppError;
+      if (err.code === 'KEY_CONFLICT') return `Key "${err.conflictKey ?? key}" 已被使用。`;
+      return templateErrorText(e);
+    }
+  };
+
+  const handleSaveTemplate = async (snippet: PersistedSnippet, fields: TemplateFormFields): Promise<string | null> => {
+    try {
+      const saved = await templatesApi.update(snippet, fields);
+      await refresh();
+      showToast(saved.title !== fields.title ? '已保存，文件名已同步（重名已自动加序号）' : '模板信息已保存');
+      return null;
+    } catch (e) {
+      const err = e as AppError;
+      if (err.code === 'REVISION_CONFLICT') {
+        await refresh();
+        return '模板已被其他窗口修改，已重新载入最新数据，请重新编辑。';
+      }
+      if (err.code === 'KEY_CONFLICT') return `Key "${err.conflictKey ?? fields.key}" 已被使用。`;
+      if (err.code === 'TEMPLATE_RECONCILE_PENDING') await refresh();
+      return templateErrorText(e);
+    }
+  };
+
+  /** 文件已被外部删除/改动时：提示并触发一次扫描。 */
+  const handleTemplateFileMissing = async (e: unknown) => {
+    showToast(templateErrorText(e), 'error');
+    await runScan(false);
+  };
+
+  const handleOpenTemplate = async (snippet: PersistedSnippet, desktopId?: string) => {
+    try {
+      await templatesApi.open(snippet.id, desktopId);
+      if (desktopId) await reloadSettings();
+    } catch (e) {
+      if ((e as AppError).code === 'TEMPLATE_FILE_MISSING') await handleTemplateFileMissing(e);
+      else showToast(`打开失败：${templateErrorText(e)}`, 'error');
+    }
+  };
+
+  const handleLoadOpenWith = async (snippet: PersistedSnippet): Promise<OpenWithCandidate[]> => {
+    try {
+      return await templatesApi.openWithCandidates(snippet.id);
+    } catch (e) {
+      if ((e as AppError).code === 'TEMPLATE_FILE_MISSING') await handleTemplateFileMissing(e);
+      throw e;
+    }
   };
 
   const toggleTheme = () => {
@@ -508,6 +682,17 @@ const MainContent: React.FC = () => {
             onRequestHandled={handleRequestHandled}
             triggerAction={menuTriggerAction}
             initialFilter={activeFilterFromMenu}
+            openWithByExtension={config.openWithByExtension}
+            scanning={scanning}
+            importing={importing}
+            scanSummary={scanSummary}
+            onRescan={() => void runScan(true)}
+            onCreateBlank={handleCreateBlank}
+            onPickImport={groupId => void handlePickImport(groupId)}
+            onImportPaths={(paths, groupId) => void handleImportPaths(paths, groupId)}
+            onSaveTemplate={handleSaveTemplate}
+            onOpenTemplate={(snippet, desktopId) => void handleOpenTemplate(snippet, desktopId)}
+            onLoadOpenWith={handleLoadOpenWith}
           />
         )}
 

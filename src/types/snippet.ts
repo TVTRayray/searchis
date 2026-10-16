@@ -17,6 +17,12 @@ export interface Snippet {
   groupId: string | null;
   language: SnippetLanguage;
   kind: 'text' | 'file';
+  /** SPEC-22：文件模板字段，kind='file' 时有值。 */
+  fileExt: string | null;
+  fileSize: number | null;
+  fileMtime: string | null;
+  fileMissing: boolean;
+  fileAutoImported: boolean;
 }
 
 export type SnippetLanguage = 'plain' | 'bash' | 'sql' | 'yaml' | 'json' | 'toml' | 'ini';

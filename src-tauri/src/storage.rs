@@ -19,14 +19,20 @@ use crate::{
     search_index::SearchIndex,
 };
 
-const SCHEMA_VERSION: i64 = 4;
+mod files;
+pub use files::{FileMove, FileRow, GroupDeleteFs, NewFile, UpdateFile};
+
+const SCHEMA_VERSION: i64 = 5;
 const SCHEMA_V3: i64 = 3;
+const SCHEMA_V4: i64 = 4;
 const KEY_BYTES: usize = 32;
 
 #[derive(Debug)]
 pub struct Repository {
     connection: Mutex<Connection>,
     search_index: Mutex<SearchIndex>,
+    /// 测试注入：让文件模板相关的数据库事务在提交前失败。
+    fail_file_writes: std::sync::atomic::AtomicBool,
 }
 
 impl Repository {
@@ -57,6 +63,7 @@ impl Repository {
         Ok(Self {
             connection: Mutex::new(connection),
             search_index: Mutex::new(SearchIndex::default()),
+            fail_file_writes: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -650,6 +657,18 @@ impl Repository {
         name: &str,
         parent_id: Option<&str>,
     ) -> Result<Group, AppError> {
+        self.group_update_with_rewrite(id, revision, name, parent_id, None)
+    }
+
+    /// 分组改名/移动。`path_rewrite` 为 (旧目录前缀, 新目录前缀)：同一事务内改写所有文件模板的相对路径。
+    pub fn group_update_with_rewrite(
+        &self,
+        id: &str,
+        revision: i64,
+        name: &str,
+        parent_id: Option<&str>,
+        path_rewrite: Option<(&str, &str)>,
+    ) -> Result<Group, AppError> {
         let group = {
             let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
             let transaction = connection.transaction().map_err(|_| db_write_error())?;
@@ -717,6 +736,15 @@ impl Repository {
                     )
                     .map_err(|_| db_write_error())?;
             }
+            if let Some((old_prefix, new_prefix)) = path_rewrite {
+                files::rewrite_prefix(&transaction, old_prefix, new_prefix)?;
+            }
+            if self
+                .fail_file_writes
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(db_write_error());
+            }
             let group = get_group_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
             transaction.commit().map_err(|_| db_write_error())?;
             group
@@ -744,7 +772,17 @@ impl Repository {
     }
 
     pub fn group_delete(&self, id: &str, revision: i64) -> Result<GroupDeleteOutcome, AppError> {
-        self.group_delete_impl(id, revision, false)
+        self.group_delete_impl(id, revision, false, &files::GroupDeleteFs::default())
+    }
+
+    /// 删除分组并在同一事务内改写文件模板相对路径（目录已由调用方先行移动）。
+    pub fn group_delete_with_fs(
+        &self,
+        id: &str,
+        revision: i64,
+        fs: &files::GroupDeleteFs,
+    ) -> Result<GroupDeleteOutcome, AppError> {
+        self.group_delete_impl(id, revision, false, fs)
     }
 
     /// 删除分组：条目与子分组上移到父级，重名子分组加 `(2)`，全部单事务。
@@ -754,6 +792,7 @@ impl Repository {
         id: &str,
         revision: i64,
         inject_failure: bool,
+        fs: &files::GroupDeleteFs,
     ) -> Result<GroupDeleteOutcome, AppError> {
         let outcome = {
             let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
@@ -855,9 +894,20 @@ impl Repository {
                 )
                 .map_err(|_| db_write_error())?;
             transaction
+                .execute(
+                    "UPDATE snippets SET file_original_group_id = ?1 WHERE file_original_group_id = ?2",
+                    params![parent_id, id],
+                )
+                .map_err(|_| db_write_error())?;
+            files::apply_delete_fs(&transaction, fs, &now)?;
+            transaction
                 .execute("DELETE FROM groups WHERE id = ?1", params![id])
                 .map_err(|_| db_write_error())?;
-            if inject_failure {
+            if inject_failure
+                || self
+                    .fail_file_writes
+                    .load(std::sync::atomic::Ordering::SeqCst)
+            {
                 return Err(db_write_error());
             }
             transaction.commit().map_err(|_| db_write_error())?;
@@ -897,7 +947,7 @@ impl Repository {
         id: &str,
         revision: i64,
     ) -> Result<GroupDeleteOutcome, AppError> {
-        self.group_delete_impl(id, revision, true)
+        self.group_delete_impl(id, revision, true, &files::GroupDeleteFs::default())
     }
 
     // === SPEC-07: 导入 ===
@@ -1040,7 +1090,7 @@ impl Repository {
     }
 }
 
-const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision, group_id, language, kind";
+const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision, group_id, language, kind, file_ext, file_size, file_mtime, file_missing, file_auto_imported";
 
 /// 在事务内收集按给定 WHERE 子句匹配的待删除 snippet id，供提交后定向同步索引。
 /// `condition` 从 "WHERE " 之后开始，`params` 必须与占位符一一对应。
@@ -1223,6 +1273,11 @@ fn row_to_snippet(row: &Row<'_>) -> rusqlite::Result<Snippet> {
         group_id: row.get(15)?,
         language: row.get(16)?,
         kind: row.get(17)?,
+        file_ext: row.get(18)?,
+        file_size: row.get(19)?,
+        file_mtime: row.get(20)?,
+        file_missing: row.get(21)?,
+        file_auto_imported: row.get(22)?,
     })
 }
 
@@ -1349,17 +1404,24 @@ fn migrate_inner(connection: &mut Connection, inject_failure: bool) -> Result<()
                 )
                 .map_err(|_| db_open_error("无法写入数据库 Schema 版本。"))?;
             migrate_v3_to_v4(&transaction, inject_failure)?;
+            migrate_v4_to_v5(&transaction)?;
         }
         Some(1) => {
             migrate_v1_request_fingerprints(&transaction)?;
             migrate_v2_to_v3(&transaction)?;
             migrate_v3_to_v4(&transaction, inject_failure)?;
+            migrate_v4_to_v5(&transaction)?;
         }
         Some(2) => {
             migrate_v2_to_v3(&transaction)?;
             migrate_v3_to_v4(&transaction, inject_failure)?;
+            migrate_v4_to_v5(&transaction)?;
         }
-        Some(3) => migrate_v3_to_v4(&transaction, inject_failure)?,
+        Some(3) => {
+            migrate_v3_to_v4(&transaction, inject_failure)?;
+            migrate_v4_to_v5(&transaction)?;
+        }
+        Some(4) => migrate_v4_to_v5(&transaction)?,
         Some(SCHEMA_VERSION) => {}
         Some(_) => {
             return Err(db_open_error(
@@ -1518,6 +1580,59 @@ fn migrate_v3_to_v4(transaction: &Transaction<'_>, inject_failure: bool) -> Resu
     if inject_failure {
         return Err(db_write_error());
     }
+    transaction
+        .execute(
+            "UPDATE metadata SET schema_version = ?1",
+            params![SCHEMA_V4],
+        )
+        .map_err(failed)?;
+    Ok(())
+}
+
+/// Schema v4 → v5：snippets 新增 file_* 列、相对路径唯一索引与 kind 约束触发器。
+fn migrate_v4_to_v5(transaction: &Transaction<'_>) -> Result<(), AppError> {
+    let failed = |_| db_write_error();
+    for (column, definition) in [
+        ("file_rel_path", "TEXT"),
+        ("file_ext", "TEXT"),
+        ("file_size", "INTEGER"),
+        ("file_inode", "INTEGER"),
+        ("file_sha256", "TEXT"),
+        ("file_mtime", "TEXT"),
+        ("file_original_group_id", "TEXT"),
+        ("file_auto_imported", "INTEGER NOT NULL DEFAULT 0"),
+        ("file_missing", "INTEGER NOT NULL DEFAULT 0"),
+    ] {
+        if !column_exists(transaction, "snippets", column)? {
+            transaction
+                .execute_batch(&format!(
+                    "ALTER TABLE snippets ADD COLUMN {column} {definition};"
+                ))
+                .map_err(failed)?;
+        }
+    }
+    // SQLite 的 ALTER 不能追加 CHECK，约束用触发器表达。
+    const KIND_RULE: &str = "(NEW.kind NOT IN ('text', 'file'))
+        OR (NEW.kind = 'file' AND (NEW.file_rel_path IS NULL OR NEW.file_ext IS NULL
+            OR NEW.file_size IS NULL OR NEW.file_sha256 IS NULL
+            OR NEW.sensitive <> 0 OR NEW.content <> ''))
+        OR (NEW.kind = 'text' AND (NEW.file_rel_path IS NOT NULL OR NEW.file_ext IS NOT NULL
+            OR NEW.file_size IS NOT NULL OR NEW.file_inode IS NOT NULL
+            OR NEW.file_sha256 IS NOT NULL OR NEW.file_mtime IS NOT NULL
+            OR NEW.file_original_group_id IS NOT NULL
+            OR NEW.file_auto_imported <> 0 OR NEW.file_missing <> 0))";
+    transaction
+        .execute_batch(&format!(
+            "CREATE UNIQUE INDEX IF NOT EXISTS snippets_file_rel_path_unique
+                ON snippets(file_rel_path) WHERE file_rel_path IS NOT NULL;
+             CREATE TRIGGER IF NOT EXISTS snippets_kind_check_insert
+                BEFORE INSERT ON snippets WHEN {KIND_RULE}
+                BEGIN SELECT RAISE(ABORT, 'snippets kind constraint'); END;
+             CREATE TRIGGER IF NOT EXISTS snippets_kind_check_update
+                BEFORE UPDATE ON snippets WHEN {KIND_RULE}
+                BEGIN SELECT RAISE(ABORT, 'snippets kind constraint'); END;"
+        ))
+        .map_err(failed)?;
     transaction
         .execute(
             "UPDATE metadata SET schema_version = ?1",
@@ -2878,7 +2993,7 @@ mod tests {
             .raw_connection()
             .query_row("SELECT schema_version FROM metadata", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
     }
 
     #[test]
@@ -2911,6 +3026,186 @@ mod tests {
                 .query_row("SELECT COUNT(*) FROM snippets", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
             3
+        );
+    }
+
+    /// 把当前库降回 v4 形态（去掉 v5 的列、索引与触发器），用来验证真实的 v4 → v5 升级。
+    fn downgrade_to_v4(directory: &Path) {
+        let repo = Repository::open(directory).unwrap();
+        repo.group_create("运维", None, "00000000-0000-4000-8000-000000000001")
+            .unwrap();
+        repo.create(
+            crate::validation::validate_create(&crate::model::CreateSnippetInput {
+                key: "hello".into(),
+                title: "你好".into(),
+                content: "world".into(),
+                aliases: vec![],
+                tags: vec![],
+                sensitive: false,
+                pinned: false,
+                group_id: None,
+                language: None,
+                request_id: "00000000-0000-4000-8000-000000000002".into(),
+            })
+            .unwrap(),
+            "00000000-0000-4000-8000-000000000002",
+        )
+        .unwrap();
+        let mut sql = String::from(
+            "DROP TRIGGER snippets_kind_check_insert; DROP TRIGGER snippets_kind_check_update;
+             DROP INDEX snippets_file_rel_path_unique;",
+        );
+        for column in [
+            "file_rel_path",
+            "file_ext",
+            "file_size",
+            "file_inode",
+            "file_sha256",
+            "file_mtime",
+            "file_original_group_id",
+            "file_auto_imported",
+            "file_missing",
+        ] {
+            sql.push_str(&format!("ALTER TABLE snippets DROP COLUMN {column};"));
+        }
+        sql.push_str("UPDATE metadata SET schema_version = 4;");
+        repo.raw_connection().execute_batch(&sql).unwrap();
+    }
+
+    #[test]
+    fn migrates_v4_to_v5_keeping_data_and_writing_backup() {
+        let directory = tempfile::tempdir().unwrap();
+        downgrade_to_v4(directory.path());
+        let repo = Repository::open(directory.path()).unwrap();
+        let version: i64 = repo
+            .raw_connection()
+            .query_row("SELECT schema_version FROM metadata", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 5);
+        let backup = directory.path().join("searchis.db.v4.bak");
+        assert!(backup.exists());
+        assert_eq!(
+            fs::metadata(&backup).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let snippets = repo.list().unwrap();
+        assert_eq!(snippets.len(), 1);
+        assert!(snippets.iter().all(|s| s.kind == "text"
+            && s.file_ext.is_none()
+            && s.file_size.is_none()
+            && !s.file_missing
+            && !s.file_auto_imported));
+        assert_eq!(repo.group_list().unwrap().len(), 1);
+        assert!(column_exists_conn(
+            &repo.raw_connection(),
+            "snippets",
+            "file_rel_path"
+        ));
+    }
+
+    #[test]
+    fn v5_constraints_tie_file_columns_to_kind_and_make_paths_unique() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let text = repo
+            .create(
+                crate::validation::validate_create(&crate::model::CreateSnippetInput {
+                    key: "t".into(),
+                    title: "t".into(),
+                    content: "x".into(),
+                    aliases: vec![],
+                    tags: vec![],
+                    sensitive: false,
+                    pinned: false,
+                    group_id: None,
+                    language: None,
+                    request_id: "00000000-0000-4000-8000-000000000003".into(),
+                })
+                .unwrap(),
+                "00000000-0000-4000-8000-000000000003",
+            )
+            .unwrap();
+        let new_file = |key: &str, path: &str| NewFile {
+            key: key.into(),
+            title: key.into(),
+            group_id: None,
+            rel_path: path.into(),
+            ext: "md".into(),
+            size: 1,
+            inode: Some(1),
+            sha256: "h".into(),
+            mtime: "2026-01-01T00:00:00.000Z".into(),
+            auto_imported: false,
+        };
+        let file = repo.file_insert(new_file("a", "a.md"), None).unwrap();
+        assert_eq!(file.kind, "file");
+        // 相对路径唯一
+        assert!(repo.file_insert(new_file("b", "a.md"), None).is_err());
+        let connection = repo.raw_connection();
+        // kind='text' 不得带 file_* 值
+        assert!(connection
+            .execute(
+                "UPDATE snippets SET file_ext = 'md' WHERE id = ?1",
+                params![text.id]
+            )
+            .is_err());
+        // kind='file' 必须带路径/扩展名/大小/哈希，且不得敏感、正文为空
+        assert!(connection
+            .execute(
+                "UPDATE snippets SET file_sha256 = NULL WHERE id = ?1",
+                params![file.id]
+            )
+            .is_err());
+        assert!(connection
+            .execute(
+                "UPDATE snippets SET sensitive = 1 WHERE id = ?1",
+                params![file.id]
+            )
+            .is_err());
+        assert!(connection
+            .execute(
+                "UPDATE snippets SET content = 'x' WHERE id = ?1",
+                params![file.id]
+            )
+            .is_err());
+        assert!(connection
+            .execute(
+                "UPDATE snippets SET kind = 'weird' WHERE id = ?1",
+                params![text.id]
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn search_returns_file_ext_for_file_templates_only_by_key_title_tags() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let file = repo
+            .file_insert(
+                NewFile {
+                    key: "bxd".into(),
+                    title: "报销单".into(),
+                    group_id: None,
+                    rel_path: "报销单.xlsx".into(),
+                    ext: "xlsx".into(),
+                    size: 3,
+                    inode: None,
+                    sha256: "h".into(),
+                    mtime: "2026-01-01T00:00:00.000Z".into(),
+                    auto_imported: true,
+                },
+                None,
+            )
+            .unwrap();
+        let hit = repo.search("bxd", 20).unwrap();
+        assert_eq!(hit.items[0].id, file.id);
+        assert_eq!(hit.items[0].file_ext.as_deref(), Some("xlsx"));
+        assert_eq!(hit.items[0].kind, "file");
+        assert_eq!(repo.search("报销", 20).unwrap().total, 1);
+        assert_eq!(
+            repo.search("xlsx", 20).unwrap().total,
+            0,
+            "extension is not a search field"
         );
     }
 

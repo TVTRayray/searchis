@@ -41,7 +41,7 @@ pub fn normalize_key(value: &str) -> Result<String, AppError> {
     Ok(normalized)
 }
 
-fn normalize_list(
+pub(crate) fn normalize_list(
     values: &[String],
     field: &str,
     max_length: usize,

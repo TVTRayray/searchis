@@ -1,0 +1,32 @@
+task_id: reviewer-mvamjozk-8fsj4
+lease_id: lease-mvamjozk-fovdq
+outcome: completed
+summary: |
+  修复轮 #1 复审完成，verdict 为 repair，category 为 missing_test。
+  R1 已按 Planner 裁定修复：根外源 canonicalize 后复制，根内 O_NOFOLLOW/EXDEV 拒绝策略保留；相关回归通过。
+  D2 的导入/新建/改名 toast 已去除文件名与标题，提示计数/隐私断言通过。
+  D1 的 importing 状态与 finally 清除已实现，但仅断言完成后不存在；
+  缺少 Required repair 要求的延迟响应期间可见性断言，不能关闭 D1。
+  Design Conformance 保留全部 27 条结论，复核状态完整性、提示隐私与 token 回归，既有人验项仍 pending_human。
+  未修改生产源码、state.yaml，未标记 QA passed，未创建 subagent。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvamjozk-8fsj4.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvamjozk-8fsj4.result.yaml
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/cargo-template.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/cargo-test.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/npm-build.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/e2e-isolated.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/source-review.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvamjozk-8fsj4/design-recheck.log
+  test_results:
+    - "cd src-tauri && cargo test template：exit 0，56 passed，0 failed；见 reviews/evidence/reviewer-mvamjozk-8fsj4/cargo-template.log"
+    - "cd src-tauri && cargo test：exit 0，143 passed，0 failed；见 reviews/evidence/reviewer-mvamjozk-8fsj4/cargo-test.log"
+    - "npm run build：exit 0；仅 chunk 体积提示；见 reviews/evidence/reviewer-mvamjozk-8fsj4/npm-build.log"
+    - ".specflow/bin/e2e-isolated.sh：exit 0，4 passing，1 spec file passed；仅隔离显示；见 reviews/evidence/reviewer-mvamjozk-8fsj4/e2e-isolated.log"
+    - "静态复核：R1/D1/D2 源码及测试，组件硬编码颜色/圆角与玻璃无匹配；见 source-review.log、design-recheck.log"
+unresolved_issues:
+  - "D1 / missing_test：需确定性延迟导入响应，断言 pending 时 import-progress 可见，再断言成功及失败后清除；现有完成后不存在断言不能证明曾显示。"
+  - "沿用上轮 pending_human：真实拖入、Dolphin 改名移动、WPS 原子保存/外部打开、明暗截图、对比度、字体/首帧、焦点/IME/快捷键与 KWin/Global Menu；详见报告全部 27 条。"
+verdict: repair
+category: missing_test

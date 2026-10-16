@@ -19,6 +19,11 @@ export interface PersistedSnippet {
   groupId: string | null
   language: SnippetLanguage
   kind: 'text' | 'file'
+  fileExt: string | null
+  fileSize: number | null
+  fileMtime: string | null
+  fileMissing: boolean
+  fileAutoImported: boolean
 }
 
 export const SNIPPET_LANGUAGES = ['plain', 'bash', 'sql', 'yaml', 'json', 'toml', 'ini'] as const
@@ -69,6 +74,7 @@ export interface SearchResultItem {
   language: SnippetLanguage
   groupName: string | null
   kind: 'text' | 'file'
+  fileExt?: string | null
 }
 
 export interface SearchResponse {
@@ -156,6 +162,58 @@ export const snippetsApi = {
     call<void>('toggle_picker'),
 }
 
+// SPEC-22：文件模板
+export interface TemplateImportOutcome {
+  created: PersistedSnippet[]
+  rejected: Array<{ name: string; code: string }>
+}
+
+export interface ScanResult {
+  added: number
+  updated: number
+  missing: number
+  restored: number
+  skipped: Array<{ reason: string }>
+  failedBatches: number
+}
+
+export interface OpenWithCandidate {
+  desktopId: string
+  name: string
+  icon?: string | null
+}
+
+export interface TemplateFields {
+  title: string
+  key: string
+  groupId: string | null
+  tags: string[]
+  aliases: string[]
+  pinned: boolean
+}
+
+export const templatesApi = {
+  import: (sourcePaths: string[], groupId: string | null, requestId: string) =>
+    call<TemplateImportOutcome>('template_import', { input: { sourcePaths, groupId, requestId } }),
+  createBlank: (
+    kind: 'md' | 'xlsx',
+    title: string,
+    key: string,
+    groupId: string | null,
+    requestId: string,
+  ) => call<PersistedSnippet>('template_create_blank', { input: { kind, title, key, groupId, requestId } }),
+  update: (snippet: PersistedSnippet, fields: TemplateFields) =>
+    call<PersistedSnippet>('template_update', {
+      input: { ...fields, id: snippet.id, revision: snippet.revision },
+    }),
+  open: (id: string, desktopId?: string) =>
+    call<void>('template_open', { input: { id, desktopId: desktopId ?? null } }),
+  openWithCandidates: (id: string) =>
+    call<OpenWithCandidate[]>('template_open_with_candidates', { id }),
+  scan: () => call<ScanResult>('template_scan'),
+  pickFiles: () => call<string[]>('template_pick_files'),
+}
+
 export const groupsApi = {
   list: () => call<Group[]>('group_list'),
   create: (name: string, parentId: string | null, requestId: string) =>
@@ -194,6 +252,7 @@ export interface SettingsConfig {
   trashAutoPurgeDays: number | null
   onboardingCompletedAt: string | null
   schemaVersion: number
+  openWithByExtension: Record<string, string>
 }
 
 export interface SettingsResponse {

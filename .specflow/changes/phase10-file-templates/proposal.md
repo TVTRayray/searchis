@@ -41,6 +41,9 @@ PRD v0.4（2026-10-15）把 Searchis 从“文本片段工具”扩展为“文�
 - [x] 实机验收约定（2026-10-15 采纳）：Reviewer 只对可自动化证据下结论；无法自动化的项（KDE 全局快捷键、写真实剪贴板、自动粘贴、WPS/Dolphin 粘贴、实机截图对照、KDE Global Menu 显示）在 QA 报告中列为 `pending_human`，不阻止 `pass`；人在归档审批前统一执行并在 `test_report.md` 勾选，失败则 `specflow reopen-qa <change> --spec <spec> --reason ... --confirm` 退回该 spec。写真实剪贴板须由人执行或明确授权。
 - [x] 深色主按钮对比度（visual-foundation 实现中发现，2026-10-15 人工决策 A）：深色 `--color-btn-primary-bg` 由 `#B95C3D`（4.28:1）改为 `#B35838`（4.57:1），悬停色 `#A9522F`（5.07:1）不变；已回写 `docs/design/design-tokens.md`、需求文档 token 表与预览页。浅色 placeholder 4.24:1 不在 MUST 列表内，交由 Reviewer 判断。
 - [x] visual-foundation 修复轮越界（2026-10-15 人工决策 A）：授权保留 ThemeProvider 的 reduced-motion 守卫、command.tsx 焦点环包裹元素、e2e 本 spec 回归断言；contract 20 允许修改范围已同步放宽。
+- [x] file-templates 规划缺口（2026-10-16 人工决策 B）：SPEC-22 路径未含 QuickSearchWindow.tsx；快搜窗口中文件模板的行图标、徽标、按键与底栏移交 formatted-copy-export（Delta、contracts 22/23、tasks 3.9/4.5 已同步）。过渡期快搜对文件模板按 Enter 返回 TEMPLATE_ACTION_UNSUPPORTED，分支未发布，可接受。
+- [x] file-templates 非阻断项（2026-10-16 人工接受）：① 导入文件选择使用系统 kdialog/zenity（平台原生能力优先），settings-backup 引入 dialog 插件时可统一；② v1 JSON 备份导出跳过文件模板，完整备份由 settings-backup 的 zip 提供。
+- [x] file-templates 安全修复（2026-10-16 人工决策）：S1 静态符号链接逃逸修复（决策 A）；残余目录级 TOCTOU 接受为安全例外（决策 B），威胁模型写入 contracts/22「安全与隐私」。
 - [ ] 颗粒纹理不透明度（浅色约 0.06、深色约 0.035）在实机调定后写回 `docs/design/design-tokens.md`。
 
 ## Source Requirements

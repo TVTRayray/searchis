@@ -1,0 +1,26 @@
+task_id: implementer-mvalfgu5-pn4sn
+lease_id: lease-mvalfgu5-kdese
+outcome: completed
+summary: |
+  仅处理 reviewer-mval93lm-1vk1p 的 S1（分组目录自身/中间目录为符号链接可写出模板根）。
+  a) paths.rs 新增 verify_under(root, path)：自 root 起逐段 symlink_metadata，拒绝任何符号链接（含 path 自身），
+     并要求已存在部分规范化后仍在 canonical root 内；safe_join/dir_join 改走该函数。
+  b) fsops.rs 新增 ensure_dir_in(root, path)（创建前后各校验一次）；import_one、空白新建、分组删除在建临时文件/rename 前再次 verify_under；
+     copy_with_hash/write_new_file 以 O_NOFOLLOW 打开。
+  c) service/templates.rs 中全部写路径（导入、新建 md/xlsx、改名/移动、回收站放入/还原、分组创建/改名/移动/删除及回滚）
+     均经 safe_join/dir_join/ensure_dir_in 校验，错误码 TEMPLATE_FS_FAILED。
+  d) 新增回归测试：分组目录自身、中间目录被替换为根外符号链接时，上述所有操作被拒且根外目录树不变；safe_join 叶子/中间/根内链接单测。
+evidence:
+  changed_files:
+    - src-tauri/src/templates/paths.rs
+    - src-tauri/src/templates/fsops.rs
+    - src-tauri/src/service/templates.rs
+  test_results:
+    - "cd src-tauri && cargo test template：52 passed, 0 failed（含 3 项新增）"
+    - "cd src-tauri && cargo test：139 passed, 0 failed"
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：4 passing, 0 failing, exit 0"
+unresolved_issues:
+  - "O_NOFOLLOW 只保护文件叶子；目录级 TOCTOU 仅缩小窗口（创建前后校验），未用 openat 链式句柄彻底消除。"
+  - "分组删除时目录内的符号链接条目按文件 rename 移动（不跟随），未额外拒绝。"
+  - "3.13 实机验收与设计专项审查仍为 pending_human，需重新 review。"

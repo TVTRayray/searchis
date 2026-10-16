@@ -1,0 +1,35 @@
+task_id: reviewer-mvalps6a-rgrqq
+lease_id: lease-mvalps6a-s6z6a
+outcome: needs_decision
+summary: >-
+  已复审 S1 逐段路径校验与相关测试；目录级 TOCTOU 按 contracts/22 人工例外不再阻断。
+  本轮 cargo 定向/全量测试、前端构建、隔离 E2E 均通过。
+  独立 EXDEV 复现确认分组删除使用的移动回退会跟随静态源链接，将外部目标内容实体化为普通模板文件；
+  属于 security_risk，不在已接受的目录级竞态例外内。按工作单停止并请求决策。
+  Design Conformance 已逐项记录已查证据与未验项，不宣称完整视觉验收。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvalps6a-rgrqq.md
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvalps6a-rgrqq/exdev-link-repro.rs
+    - .specflow/changes/phase10-file-templates/reviews/evidence-reviewer-mvalps6a-rgrqq/exdev-link-repro.log
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvalps6a-rgrqq.result.yaml
+  test_results:
+    - command: cd src-tauri && cargo test template
+      result: passed
+    - command: cd src-tauri && cargo test
+      result: 'passed: 139 tests; 0 failed; main/doc tests 0 failed'
+    - command: npm run build
+      result: 'passed: tsc and Vite; non-blocking chunk-size warning'
+    - command: .specflow/bin/e2e-isolated.sh
+      result: 'passed: exit 0; 4 passing; 1 spec passed; Xvfb + private D-Bus + KWin; KDE portal/KCrash diagnostics observed'
+    - command: rustc --edition=2021 <extracted original fsops functions with linked sha2/uuid/libc/hex> && <repro binary>
+      result: 'confirmed EXDEV; destination_is_symlink=false; destination_content=EXTERNAL_SENTINEL; source_link_exists=false; external_target_unchanged=true; first compile missed hex extern, corrected compile/run succeeded'
+    - command: Design Conformance checklist review and component token grep
+      result: 'partial evidence recorded item by item; no complete dual-theme visual acceptance claimed; remaining checks listed in QA report'
+unresolved_issues:
+  - 'S2 security_risk: fs_group_delete includes link entries; EXDEV copy_verify_remove calls copy_with_hash/File::open on the source and follows static symlinks. Requires decision on reject-versus-preserve policy; not directory-level TOCTOU.'
+  - 'Missing regression coverage for group deletion + symlink + EXDEV, including failure rollback and external target read protection.'
+  - 'Design Conformance incomplete: remaining visual/contrast/focus/IME/state checks explicitly listed in review; security escalation stops this task.'
+  - 'KWin native window corners, Global Menu, real global shortcuts/clipboard/paste remain pending_human; not automated.'
+verdict: escalation
+category: security_risk

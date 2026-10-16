@@ -109,13 +109,19 @@
 
 ### Requirement: 文件模板可检索
 
-快搜窗口与管理检索必须（MUST）能按 key、aliases、title、tags 搜到文件模板（不做全文检索）；结果行图标按扩展名，徽标为大写扩展名。本 spec 中对文件模板按 Enter / Ctrl+Enter 不执行操作，底栏只显示“编辑 Ctrl+E / 关闭 Esc”。
+检索服务必须（MUST）能按 key、aliases、title、tags 返回文件模板（不做全文检索），结果携带 `kind=file` 与 `fileExt`；管理窗口列表的文件模板行图标按扩展名、徽标为大写扩展名。对文件模板调用文本片段的复制/粘贴命令时，后端返回 `TEMPLATE_ACTION_UNSUPPORTED`，不计数、不写剪贴板。快搜窗口中文件模板的行图标、徽标、按键与底栏由 formatted-copy-export 实现（2026-10-16 人工决策 B：快搜窗口中文件模板的行图标、徽标、按键与底栏移交 SPEC-23）。
 
 #### Scenario: 按 Key 搜到文件模板
 
 - **GIVEN** 文件模板 Key 为 `bxd`、扩展名 xlsx
-- **WHEN** 在快搜窗口输入 `bxd`
-- **THEN** 结果行显示表格图标与 `XLSX` 徽标
+- **WHEN** 在管理窗口检索 `bxd`，以及调用快搜检索接口查询 `bxd`
+- **THEN** 管理列表行显示表格图标与 `XLSX` 徽标；检索结果包含该条目且 `kind=file`、`fileExt=xlsx`
+
+#### Scenario: 文件模板不走文本复制路径
+
+- **GIVEN** 文件模板 `bxd`
+- **WHEN** 对它调用文本片段的复制命令
+- **THEN** 返回 `TEMPLATE_ACTION_UNSUPPORTED`，使用次数不变，剪贴板不被写入
 
 ### Requirement: 模板路径安全与日志隐私
 

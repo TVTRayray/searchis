@@ -1,0 +1,34 @@
+task_id: reviewer-mvalk8gz-kryr9
+lease_id: lease-mvalk8gz-sm3xk
+outcome: needs_decision
+summary: >-
+  上轮 S1 的静态分组目录符号链接绕过已在源码层面修复，但实现者披露的目录级 TOCTOU
+  仍允许最后校验后的目录替换使导入写出模板根；叶子 O_NOFOLLOW 不固定父目录。
+  决策 B 未接受此安全残余，依任务要求停止并升级。分组删除同设备 rename 链接本身
+  不等于跟随目标，不单独据此阻断；跨设备回退尚未验证。
+  完整复审及 Design Conformance 未完成，逐项待验记录于报告，不声称 QA 通过。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvalk8gz-kryr9.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvalk8gz-kryr9.result.yaml
+  test_results:
+    - command: static source review
+      result: >-
+        检查 paths::verify_under/safe_join/dir_join、fsops::ensure_dir_in/copy_with_hash/move_file、
+        template_import/import_one 与分组删除流程；原静态 S1 已补，目录竞争残余仍存在。
+        为源码交错分析，未执行攻击复现。
+    - command: cd src-tauri && cargo test <scoped test filter>
+      result: 未执行；识别安全风险后按任务停止。未将历史测试作为本轮通过。
+    - command: npm run build
+      result: 未执行；安全升级停止。
+    - command: .specflow/bin/e2e-isolated.sh
+      result: 未执行；安全升级停止。未直接运行 npm run test:e2e 或操作真实桌面。
+unresolved_issues:
+  - >-
+    S1-R：目录校验与实际路径写入非原子，最后校验后替换父目录可绕过边界。
+    需人工决定必须防御并派发句柄级修复，或明确接受并记录威胁模型和安全例外；决策 B 不覆盖此项。
+  - 分组删除的链接条目同设备 rename 不跟随目标；跨设备回退及保留链接语义尚需后续测试确认。
+  - 定向 Rust、build、隔离 E2E 与完整 Design Conformance 等专项未完成；详见审查报告逐项状态。
+  - 实机拖入、外部应用、真实 IME、KWin 圆角/Global Menu 与目标机扫描性能保持 pending_human。
+verdict: escalation
+category: security_risk

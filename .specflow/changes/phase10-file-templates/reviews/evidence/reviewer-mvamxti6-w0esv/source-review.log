@@ -1,0 +1,169 @@
+--- cfg and gate ---
+   130	
+   131	// SPEC-22：文件模板。日志只记录操作名与错误码，不含文件名、路径或分组名。
+   132	#[tauri::command(async)]
+   133	pub fn template_import(
+   134	    state: tauri::State<'_, AppState>,
+   135	    input: TemplateImportInput,
+   136	) -> Result<TemplateImportOutcome, AppError> {
+   137	    #[cfg(feature = "e2e-webdriver")]
+   138	    e2e_import_gate()?;
+   139	    audited(&state, "template_import", |s| s.template_import(input))
+   140	}
+   141	
+   142	/// 仅 E2E 构建：`SEARCHIS_E2E_IMPORT_GATE` 指向的文件内容为 `hold` 时，导入在此挂起，
+   143	/// 直到内容变为 `release`（放行）或 `fail`（返回注入的错误）。文件不存在则不拦截。
+   144	#[cfg(feature = "e2e-webdriver")]
+   145	fn e2e_import_gate() -> Result<(), AppError> {
+   146	    let Some(gate) = std::env::var_os("SEARCHIS_E2E_IMPORT_GATE") else {
+   147	        return Ok(());
+   148	    };
+   149	    for _ in 0..1500 {
+   150	        match std::fs::read_to_string(&gate).as_deref().map(str::trim) {
+   151	            Ok("hold") => std::thread::sleep(std::time::Duration::from_millis(20)),
+   152	            Ok("fail") => {
+   153	                return Err(AppError::new(
+   154	                    "E2E_INJECTED_FAILURE",
+   155	                    "injected import failure",
+   156	                ))
+   157	            }
+   158	            _ => return Ok(()),
+   159	        }
+   160	    }
+   161	    Ok(())
+   162	}
+   163	
+--- feature defaults ---
+[features]
+# Only the local E2E binary exposes an embedded WebDriver server.
+e2e-webdriver = ["dep:tauri-plugin-wdio-webdriver", "dep:tauri-plugin-wdio"]
+--- shared importing state ---
+   498	    code === 'TEMPLATE_TOO_LARGE' ? '超过 20 MB 或条目已满' : code
+   499	  );
+   500	
+   501	  const handleImportPaths = async (paths: string[], groupId: string | null) => {
+   502	    if (paths.length === 0) return;
+   503	    setImporting(true);
+   504	    try {
+   505	      const outcome = await templatesApi.import(paths, groupId, crypto.randomUUID());
+   506	      await refresh();
+   507	      if (outcome.created.length > 0) selectCreated(outcome.created[0]);
+   508	      const rejectedCodes = [...new Set(outcome.rejected.map(item => importCodeText(item.code)))];
+   509	      const rejectedNote = outcome.rejected.length
+   510	        ? `，${outcome.rejected.length} 个未导入（${rejectedCodes.join('、')}）`
+   511	        : '';
+   512	      if (outcome.created.length > 0) {
+   513	        showToast(`已导入 ${outcome.created.length} 个文件${rejectedNote}；文件以明文保存在模板目录。`);
+   514	      } else {
+   515	        showToast(`没有文件被导入${rejectedNote}`, 'error');
+   516	      }
+   517	    } catch (e) {
+   518	      showToast(`导入失败：${templateErrorText(e)}`, 'error');
+   519	    } finally {
+   520	      setImporting(false);
+   521	    }
+   522	  };
+   523	
+   524	  const handlePickImport = async (groupId: string | null) => {
+   525	    try {
+   591	              <button
+   592	                key={value}
+   593	                type="button"
+   594	                className={`manager-type-chip ${typeFilter === value ? 'is-active' : ''}`}
+   595	                aria-pressed={typeFilter === value}
+   596	                onClick={() => setTypeFilter(value)}
+   597	              >
+   598	                {label}
+   599	              </button>
+   600	            ))}
+   601	          </div>
+   602	          {importing && (
+   603	            <div className="manager-scan-summary" role="status" data-testid="import-progress">导入中…</div>
+   604	          )}
+   605	          {scanSummary && !scanning && (
+   606	            <div className="manager-scan-summary" role="status" data-testid="scan-summary">{scanSummary}</div>
+   607	          )}
+   608	          <div className="manager-list-meta">
+   609	            <span>{activeFilter === 'trash' ? '回收站' : `${filteredSnippets.length} 条结果`}</span>
+   610	            <button
+   611	              type="button"
+--- gate path ---
+     1	import { mkdtempSync, rmSync } from 'node:fs';
+     2	import { tmpdir } from 'node:os';
+     3	import path from 'node:path';
+     4	import TauriWorkerService, { launcher } from '@wdio/tauri-service';
+     5	
+     6	// SPEC-22：E2E 构建里 template_open / 文件选择对话框是替身。路径经环境变量传给被测应用，
+     7	// 必须在 launcher 启动应用之前（即本模块加载时）设置；worker 继承同一目录。
+     8	if (!process.env.SEARCHIS_E2E_FILES_DIR) {
+     9	  const dir = mkdtempSync(path.join(tmpdir(), 'searchis-e2e-files-'));
+    10	  process.env.SEARCHIS_E2E_FILES_DIR = dir;
+    11	  process.once('exit', () => rmSync(dir, { recursive: true, force: true }));
+    12	}
+    13	process.env.SEARCHIS_E2E_OPEN_LOG ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'open-calls.log');
+    14	process.env.SEARCHIS_E2E_IMPORT_GATE ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'import-gate');
+    15	process.env.SEARCHIS_E2E_PICK_LIST ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'pick-list.txt');
+    16	
+    17	export { launcher };
+    18	
+    19	/**
+    20	 * The WDIO runner can delete the WebDriver session before service.afterSession.
+    21	 * The upstream cleanup then calls browser.execute() without a session id and
+    22	 * emits a misleading mock-store warning. There is nothing left to clean in
+    23	 * that state; preserve upstream cleanup whenever the session is still alive.
+    24	 */
+    25	export default class SearchisTauriService extends TauriWorkerService {
+    26	  async afterSession(...args) {
+    27	    if (!this.browser?.sessionId) return;
+--- pending/failure/success assertions ---
+   876	    // 导入 md + xlsx + 超大文件：超大文件被拒，其余正常，原文件不动，导入提示附明文说明。
+   877	    // 测试侧闸门：E2E 构建的 template_import 在 SEARCHIS_E2E_IMPORT_GATE 文件内容为 hold 时挂起，
+   878	    // 由测试写入 release / fail 决定放行或注入失败（不依赖时序）。
+   879	    const importGate = process.env.SEARCHIS_E2E_IMPORT_GATE;
+   880	    if (!importGate) throw new Error('E2E import gate is not set');
+   881	    const holdImport = () => writeFileSync(importGate, 'hold');
+   882	    const releaseImport = (fail: boolean) => writeFileSync(importGate, fail ? 'fail' : 'release');
+   883	    const importPending = (visible: boolean) => waitFor('main', (_t, v) => Boolean(document.querySelector('[data-testid="import-progress"]')) === v, [visible], `import-progress visible=${visible} not reached`);
+   884	
+   885	    // 失败轮：pending 期间可见；注入失败后清除，且没有任何文件被导入。
+   886	    writeFileSync(pickList, mdSource);
+   887	    holdImport();
+   888	    await plusMenuItem('导入文件');
+   889	    await importPending(true);
+   890	    if (!await hasText('main', '导入中…')) throw new Error('import progress text missing while pending');
+   891	    releaseImport(true);
+   892	    await importPending(false);
+   893	    if (!await hasText('main', '导入失败')) throw new Error('failed import must report an error toast');
+   894	    if (existsSync(path.join(templates, `${mdName}.md`))) throw new Error('failed import must not create files');
+   895	
+   896	    // 成功轮：pending 期间可见，放行后清除。
+   897	    writeFileSync(pickList, [mdSource, xlsxSource, bigSource].join('\n'));
+   898	    holdImport();
+   899	    await plusMenuItem('导入文件');
+   900	    await importPending(true);
+   901	    releaseImport(false);
+   902	    await importPending(false);
+   903	    await waitFor('main', (_t, a, b) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(a as string)) && [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(b as string)), [mdName, xlsxName], 'imported rows did not appear');
+   904	    if (!await hasText('main', '文件以明文保存在模板目录')) throw new Error('import toast must mention plaintext storage');
+   905	    if (!await hasText('main', '已导入 2 个文件，1 个未导入')) throw new Error('import toast must report counts');
+   906	    if (await hasText('main', bigName)) throw new Error('import toast must not include template file names');
+   907	    if (await hasText('main', '导入中…')) throw new Error('import progress must clear after completion');
+   908	    if (!existsSync(path.join(templates, `${mdName}.md`)) || !existsSync(path.join(templates, `${xlsxName}.xlsx`))) throw new Error('imported files are missing from the template directory');
+   909	    if (existsSync(path.join(templates, `${bigName}.bin`))) throw new Error('oversize file must not be copied');
+   910	    if (readFileSync(mdSource, 'utf8') !== '# 周报\n正文\n') throw new Error('source file was modified');
+   911	    if (readdirSync(templates).some(name => name.endsWith('.tmp'))) throw new Error('temporary import files were left behind');
+   912	    const md = await recordByKey(mdName.toLowerCase());
+   913	    const xlsx = await recordByKey(xlsxName.toLowerCase());
+   914	    if (!md || !xlsx || md.fileExt !== 'md' || xlsx.fileExt !== 'xlsx' || !md.fileAutoImported) throw new Error(`unexpected imported records: ${JSON.stringify([md, xlsx])}`);
+   915	    await waitFor('main', (_t, a) => [...document.querySelectorAll('.manager-snippet-row')].some(r => r.textContent?.includes(a as string) && r.querySelector('[data-testid="file-badge"]')?.textContent === 'MD'), [mdName], 'MD badge missing');
+   916	
+--- progress CSS ---
+1387:.manager-scan-summary { padding: 6px 2px 0; color: var(--color-fg-secondary); font-size: 11.5px; }
+1388-.is-spinning { animation: manager-spin 1s linear infinite; }
+1389-@keyframes manager-spin { to { transform: rotate(360deg); } }
+1390-@media (prefers-reduced-motion: reduce) { .is-spinning { animation: none; } }
+1391-
+1392-.manager-drop-overlay {
+1393-  position: absolute;
+1394-  inset: 8px;
+1395-  z-index: 30;

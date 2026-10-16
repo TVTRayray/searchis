@@ -1,0 +1,21 @@
+task_id: implementer-mval622u-6arcg
+lease_id: lease-mval622u-7arqw
+outcome: completed
+summary: |
+  SPEC-22 实现沿用工作区已有改动（未回退）。按人工决策 B，快搜窗口部分（QuickSearchWindow.tsx 的行图标、徽标、按键、底栏）
+  移交 SPEC-23，本任务未修改该文件。已核对 specs/file-templates.md「文件模板可检索」requirement：
+  后端检索（key/aliases/title/tags）返回 kind=file 与 fileExt，管理列表行图标/大写扩展名徽标已实现；
+  文本复制/粘贴对文件模板返回 TEMPLATE_ACTION_UNSUPPORTED（service.rs reject_file_content_action）。
+  此前缺少该场景的测试，已补 service::tests::file_template_is_searchable_but_copy_and_paste_are_unsupported
+  （按 key 搜到 kind=file/fileExt=xlsx；copy 与 paste 均返回 TEMPLATE_ACTION_UNSUPPORTED，剪贴板无写入，usage_count 仍为 0）。
+evidence:
+  changed_files:
+    - src-tauri/src/service.rs
+    - "（其余 SPEC-22 改动见 implementer-mvaeodqa-1ggei.result.yaml，本轮未再改动）"
+  test_results:
+    - "cd src-tauri && cargo test：136 passed, 0 failed（新增 1 项 TEMPLATE_ACTION_UNSUPPORTED 场景测试）"
+    - "npm run build：通过（tsc + vite build）"
+    - ".specflow/bin/e2e-isolated.sh（隔离显示）：4 passing, 0 failing（含 SPEC-22 用例）；退出时 xdg-desktop-portal-kde 的 KCrash 为隔离环境清理噪声，不影响结果"
+unresolved_issues:
+  - "3.13 实机验收（AC-26 Dolphin 改名移动、AC-27 WPS 保存、打开方式列出 WPS/LibreOffice）仍为 pending_human，未自动化。"
+  - "其余遗留项（kdialog/zenity 文件选择、TEMPLATE_TOO_LARGE 共用错误码、彻底删除孤立文件等）同 implementer-mvaeodqa-1ggei.result.yaml。"

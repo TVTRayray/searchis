@@ -1,0 +1,24 @@
+task_id: implementer-mvamh1kn-i144m
+lease_id: lease-mvamh1kn-5digh
+outcome: completed
+summary: |
+  仅处理 reviewer-mvam3u2u-ho1u1 的 R1、D1、D2。
+  R1：template_import 对用户选择的根外来源先 canonicalize，复制解析后的目标内容，命名沿用所选路径；
+      O_NOFOLLOW 与根内移动/EXDEV 拒绝策略未改动。新增服务级回归
+      import_resolves_symlink_source_outside_root_and_copies_target_content（导入成功、内容一致、链接与目标不变、源路径不入库）。
+  D1：App 新增 importing 状态（选择文件与拖入共用 handleImportPaths，finally 清除），ManagerWindow 显示“导入中…”（data-testid=import-progress）。
+  D2：导入/新建/改名 toast 改为成功与未导入计数、原因码，不含文件名/标题；E2E 断言计数文案、不含文件名、导入中状态完成后清除。
+evidence:
+  changed_files:
+    - src-tauri/src/service/templates.rs
+    - src/App.tsx
+    - src/components/ManagerWindow.tsx
+    - e2e/create-and-search.e2e.ts
+  test_results:
+    - "cd src-tauri && cargo test template：56 passed, 0 failed"
+    - "cd src-tauri && cargo test：143 passed, 0 failed"
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：4 passing, exit 0"
+unresolved_issues:
+  - "D1 的“延迟响应时状态可见”未做 E2E 断言（导入在替身下近乎瞬时）；仅断言完成后清除。"
+  - "设计 pending_human 项与 3.13 实机项仍待人验。"

@@ -1,0 +1,40 @@
+--- hard-coded component colors (expected no matches) ---
+rg exit=1
+--- hard-coded component radius (expected no matches) ---
+rg exit=1
+--- glass (expected no matches) ---
+rg exit=1
+--- template toast locations ---
+170:        showToast(`设置保存失败：${errorMessage(error)}`, 'error');
+185:  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+196:      showToast(`读取片段失败：${errorMessage(e)}`, 'error');
+217:      if (manual) showToast(`扫描完成：${summarizeScan(result)}`);
+220:      showToast(`扫描模板目录失败：${templateErrorText(e)}`, 'error');
+386:      showToast(`读取分组信息失败：${errorMessage(error)}`, 'error');
+396:      showToast('分组已删除，其中的内容已上移到上级');
+398:      showToast(`删除分组失败：${errorMessage(error)}`, 'error');
+409:        showToast(`片段 "${snippet.title}" 已保存`);
+412:        showToast(`片段 "${snippet.title}" 已创建`);
+418:        showToast('片段已被其他窗口修改，已重新载入最新数据。请重新编辑。', 'error');
+421:        showToast(err.message, 'error');
+423:        showToast(`保存失败：${err.message}`, 'error');
+431:      showToast(`已复制 "${snippet.key}" 到剪贴板${outcome.counted ? '' : '（重复操作）'}`);
+434:      showToast(`复制失败：${errorMessage(e)}`, 'error');
+447:      showToast(`片段 "${target.key}" 已移入回收站`);
+451:      else showToast(`移入回收站失败：${templateErrorText(error)}`, 'error');
+460:      showToast(`片段 "${target.key}" 已恢复`);
+463:      showToast(`恢复片段失败：${templateErrorText(error)}`, 'error');
+480:      showToast(`片段 "${target.key}" 已永久删除`);
+483:      showToast(`永久删除失败：${templateErrorText(error)}`, 'error');
+489:    showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
+513:        showToast(`已导入 ${outcome.created.length} 个文件${rejectedNote}；文件以明文保存在模板目录。`);
+515:        showToast(`没有文件被导入${rejectedNote}`, 'error');
+518:      showToast(`导入失败：${templateErrorText(e)}`, 'error');
+529:      showToast(`无法打开文件选择器：${templateErrorText(e)}`, 'error');
+543:      showToast(`已新建 ${kind === 'md' ? 'Markdown' : 'Excel'} 模板；文件以明文保存在模板目录`);
+556:      showToast(saved.title !== fields.title ? '已保存，文件名已同步（重名已自动加序号）' : '模板信息已保存');
+572:    showToast(templateErrorText(e), 'error');
+582:      else showToast(`打开失败：${templateErrorText(e)}`, 'error');
+602:    windowApi.openSearch().catch(() => showToast('无法打开检索窗口', 'error'));
+--- production template logging ---
+src-tauri/src/service/templates.rs:1791:        eprintln!("NFR-PERF-07: unchanged scan of 2000 files took {elapsed:?}");

@@ -1,0 +1,29 @@
+task_id: reviewer-mval93lm-1vk1p
+lease_id: lease-mval93lm-tpa28
+outcome: needs_decision
+summary: |
+  SPEC-22 审查发现路径安全阻断 S1：safe_join 只校验 joined 的父目录，导入将分组目录本身作为参数，
+  随后直接在返回路径下创建文件。已有顶层分组目录被替换为指向根外目录的符号链接时，
+  可绕过边界检查并写入模板根外。依据任务规则停止后续审查，等待人工决策；未修改实现或状态。
+  已遵循决策 B，不把 SPEC-23 的 QuickSearchWindow.tsx 文件模板展示或已接受的文件选择限制作为缺陷。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mval93lm-1vk1p.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mval93lm-1vk1p.result.yaml
+  test_results:
+    - command: cd src-tauri && cargo test template
+      result: passed; 49 passed, 0 failed, 87 filtered out
+    - command: npm run build
+      result: passed; TypeScript and Vite build completed
+    - command: .specflow/bin/e2e-isolated.sh
+      result: passed; 4 passing, 1 spec file passed, exit 0; Xvfb + private D-Bus + KWin
+    - command: cd src-tauri && cargo test
+      result: passed; 136 passed, 0 failed
+    - check: static security review
+      result: "S1 blocking: paths.rs safe_join checks joined.parent(); template_import/import_one use unchecked directory leaf for writes"
+unresolved_issues:
+  - "S1 security_risk: 分组目录自身为根外符号链接时，导入可能写出 templates 根目录；需人工决策并派发安全修复与回归测试。"
+  - "发现安全风险后停止，剩余设计专项审查未完成；不能由测试通过推断 QA passed。"
+  - "pending_human: 真实文件拖入、外部应用打开、明暗视觉/对比度/焦点、KWin/Global Menu 及目标机扫描性能。"
+verdict: escalation
+category: security_risk

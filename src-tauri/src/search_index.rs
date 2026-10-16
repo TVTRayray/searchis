@@ -28,6 +28,7 @@ struct IndexedSnippet {
     language: String,
     group_id: Option<String>,
     kind: String,
+    file_ext: Option<String>,
 }
 
 impl From<&Snippet> for IndexedSnippet {
@@ -50,6 +51,7 @@ impl From<&Snippet> for IndexedSnippet {
             language: snippet.language.clone(),
             group_id: snippet.group_id.clone(),
             kind: snippet.kind.clone(),
+            file_ext: snippet.file_ext.clone(),
         }
     }
 }
@@ -83,7 +85,7 @@ impl SearchIndex {
         let mut statement = connection
             .prepare(
                 "SELECT id, key, title, aliases, tags, aliases_norm, tags_norm, content_norm, pinned, sensitive,
-                        usage_count, last_used_at, updated_at, deleted_at, language, group_id, kind
+                        usage_count, last_used_at, updated_at, deleted_at, language, group_id, kind, file_ext
                  FROM snippets",
             )
             .map_err(|_| AppError::new("DB_OPEN_FAILED", "无法加载检索索引。请检查数据库文件。"))?;
@@ -111,6 +113,7 @@ impl SearchIndex {
                     language: row.get(14)?,
                     group_id: row.get(15)?,
                     kind: row.get(16)?,
+                    file_ext: row.get(17)?,
                 })
             })
             .map_err(|_| AppError::new("DB_OPEN_FAILED", "无法加载检索索引。请检查数据库文件。"))?;
@@ -260,6 +263,7 @@ impl SearchIndex {
                 .as_deref()
                 .and_then(|id| self.group_names.get(id).cloned()),
             kind: item.kind.clone(),
+            file_ext: item.file_ext.clone(),
         }
     }
 }
@@ -301,6 +305,11 @@ mod tests {
             group_id: None,
             language: "plain".into(),
             kind: "text".into(),
+            file_ext: None,
+            file_size: None,
+            file_mtime: None,
+            file_missing: false,
+            file_auto_imported: false,
         }
     }
 

@@ -1,0 +1,177 @@
+warning: method `group_name` is never used
+  --> src/search_index.rs:76:12
+   |
+68 | impl SearchIndex {
+   | ---------------- method in this implementation
+...
+76 |     pub fn group_name(&self, group_id: &str) -> Option<String> {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `searchis` (lib) generated 1 warning
+warning: `searchis` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running unittests src/lib.rs (target/debug/deps/searchis_lib-4464aaf96ed0b4c3)
+
+running 142 tests
+test platform::appmenu::tests::dispatch_unknown_command_maps_to_invalid_command ... ok
+test platform::appmenu::tests::dispatch_known_commands_success ... ok
+test platform::files::tests::extension_fallback_covers_office_formats ... ok
+test search_index::tests::filter_by_tag_returns_matching_only ... ok
+test platform::files::tests::parses_application_entries_and_hides_hidden_or_terminal_ones ... ok
+test search_index::tests::search_across_aliases ... ok
+test search_index::tests::remove_removes_by_id_and_is_idempotent ... ok
+test search_index::tests::filter_recent_view_returns_only_with_last_used ... ok
+test platform::files::tests::desktop_lookup_filters_by_mime_dedupes_by_id_and_prefers_earlier_dirs ... ok
+test search_index::tests::filter_pinned_view_returns_only_pinned ... ok
+test search_index::tests::search_across_content ... ok
+test search_index::tests::search_excludes_deleted ... ok
+test platform::appmenu::tests::menu_model_reflects_snippet_and_view_state ... ok
+test platform::files::tests::exec_field_codes_are_expanded_per_spec ... ok
+test search_index::tests::remove_missing_id_returns_false_without_change ... ok
+test search_index::tests::sensitive_items_return_no_content ... ok
+test search_index::tests::key_exact_match_ranks_first ... ok
+test platform::appmenu::tests::menu_model_has_five_groups ... ok
+test search_index::tests::sort_by_usage_desc_tiebreak_key_asc ... ok
+test search_index::tests::sort_by_updated_desc ... ok
+test platform::appmenu::tests::check_availability_does_not_panic ... ok
+test service::templates::tests::open_reports_missing_file_without_launching_anything ... ok
+test service::templates::tests::group_create_failure_removes_only_the_empty_directory_it_made ... ok
+test service::templates::tests::import_database_failure_removes_the_copy_and_leaves_source ... ok
+test service::templates::tests::generic_snippet_update_and_copy_reject_file_templates ... ok
+test service::templates::tests::group_delete_with_symlink_entry_on_exdev_is_rejected_and_fully_rolled_back ... ok
+test service::templates::tests::import_rejects_oversize_but_keeps_other_files_and_is_idempotent ... ok
+test service::templates::tests::import_copies_file_generates_key_and_marks_auto_imported ... ok
+test service::templates::tests::purging_a_missing_entry_never_deletes_a_file_at_the_original_path ... ok
+test service::templates::tests::failed_group_delete_puts_directories_and_files_back ... ok
+test service::templates::tests::concurrent_scans_are_coalesced_and_safe ... ok
+test service::templates::tests::group_directories_follow_create_rename_move_and_delete ... ok
+test service::templates::tests::create_blank_md_and_xlsx_write_valid_files ... ok
+test service::templates::tests::empty_trash_and_auto_purge_delete_only_trashed_files ... ok
+test service::templates::tests::deleting_a_group_moves_directories_and_files_up_with_numeric_suffixes ... ok
+test service::templates::tests::rename_title_syncs_file_name_with_numeric_suffix ... ok
+test service::templates::tests::startup_creates_private_template_and_trash_dirs_and_group_dirs ... ok
+test service::templates::tests::restore_falls_back_to_ungrouped_and_suffixes_conflicts ... ok
+test service::templates::tests::scan_recreates_deleted_template_root_and_marks_entries_missing ... ok
+test service::tests::copy_clipboard_failure_does_not_count ... ok
+test service::templates::tests::scan_imports_new_files_and_directories_and_skips_symlinks_ignored_and_deep_paths ... ok
+test service::templates::tests::scan_marks_deleted_files_missing_and_restores_them_when_they_return ... ok
+test service::templates::tests::scan_follows_external_rename_move_and_atomic_save_keeping_identity ... ok
+test service::templates::tests::update_moves_file_between_groups_and_restores_it_when_database_fails ... ok
+test service::templates::tests::symlinked_group_directory_rejects_every_write_path ... ok
+test service::tests::copy_rejects_invalid_operation_id_and_deleted_snippet ... ok
+test service::tests::copy_clipboard_success_but_stats_failure_reports_database_error ... ok
+test service::tests::copy_writes_content_to_clipboard_and_counts_once_per_operation ... ok
+test service::templates::tests::trash_lifecycle_moves_files_and_keeps_search_index_consistent ... ok
+test service::templates::tests::symlinked_intermediate_directory_rejects_writes_and_leaves_outside_untouched ... ok
+test service::tests::file_template_is_searchable_but_copy_and_paste_are_unsupported ... ok
+test service::tests::paste_autopaste_false_copies_only ... ok
+test service::tests::search_validates_limit_bounds ... ok
+test service::tests::prepare_new_normalizes_key_and_rejects_invalid_input ... ok
+test service::tests::paste_clipboard_failure_no_count_no_inject ... ok
+test storage::tests::failed_create_transaction_rolls_back_snippet_insert ... ok
+test storage::tests::auto_purge_removes_expired_only ... ok
+test storage::tests::auto_purge_removes_ids_from_search_index ... ok
+test storage::tests::failed_v4_migration_rolls_back_and_keeps_backup ... ok
+test storage::tests::create_is_idempotent_and_unique_key_includes_soft_deleted_rows ... ok
+test storage::tests::failed_update_transaction_keeps_original_record ... ok
+test storage::tests::failed_group_delete_rolls_back_everything ... ok
+test storage::tests::encrypted_database_reopens_and_plain_sqlite_cannot_read_it ... ok
+test storage::tests::group_create_is_idempotent_per_request_id ... ok
+test storage::tests::group_update_detects_revision_conflict ... ok
+test storage::tests::group_delete_with_same_named_child_moves_to_top_level ... ok
+test storage::tests::group_move_rejects_cycle_and_depth_overflow ... ok
+test storage::tests::group_sibling_names_are_case_insensitive_unique ... ok
+test storage::tests::group_depth_is_limited_to_three_levels ... ok
+test storage::tests::group_delete_moves_contents_up_and_suffixes_conflicts ... ok
+test storage::tests::qa_ac02_key_conflict_with_hello_world_case_insensitive ... ok
+test service::tests::paste_inject_failure_degrades ... ok
+test service::tests::paste_with_autopaste_and_inject_succeeds ... ok
+test storage::tests::migrates_v3_to_v4_with_defaults_and_backup ... ok
+test service::tests::paste_idempotent_on_duplicate_operation ... ok
+test storage::tests::migrates_legacy_v1_request_fingerprints_and_preserves_idempotency ... ok
+test storage::tests::qa_mt1_multiline_emoji_persists_and_edits_across_restart ... ok
+test storage::tests::record_usage_is_idempotent_per_operation_id ... ok
+test storage::tests::search_empty_query_orders_by_pinned_usage_last_used_updated_key ... ok
+test storage::tests::revision_conflict_keeps_existing_record_unchanged ... ok
+test storage::tests::search_excludes_soft_deleted_and_is_case_insensitive ... ok
+test storage::tests::search_orders_by_prd_match_priority ... ok
+test storage::tests::migrates_v2_operation_requests_table ... ok
+test storage::tests::search_results_carry_language_group_name_and_kind ... ok
+test storage::tests::rejects_missing_or_wide_permission_key_without_replacing_database ... ok
+test storage::tests::settings_get_returns_default_on_first_access ... ok
+test storage::tests::search_tie_breaks_by_pinned_usage_last_used_key ... ok
+test storage::tests::search_returns_file_ext_for_file_templates_only_by_key_title_tags ... ok
+test storage::tests::settings_revision_conflict ... ok
+test storage::tests::settings_update_and_read_back ... ok
+test storage::tests::stores_database_and_key_in_separate_directories ... ok
+test storage::tests::snippet_save_rejects_missing_group_and_counts_ignore_trash ... ok
+test templates::fsops::tests::copy_verify_remove_rejects_symlink_source_and_keeps_link ... ok
+test templates::fsops::tests::copy_with_hash_matches_sha256_file ... ok
+test templates::fsops::tests::copy_with_hash_rejects_symlink_source ... ok
+test templates::fsops::tests::init_dirs_uses_private_permissions ... ok
+test templates::fsops::tests::snapshot_applies_ignore_rules_symlink_and_depth_limits ... ok
+test templates::fsops::tests::write_new_file_refuses_to_overwrite_and_leaves_no_temp ... ok
+test templates::names::tests::dedupe_adds_numeric_suffix ... ok
+test templates::names::tests::ignore_rules ... ok
+test templates::names::tests::key_generation_keeps_chinese_and_handles_edge_cases ... ok
+test templates::names::tests::sanitize_replaces_illegal_and_defaults_to_file ... ok
+test templates::names::tests::split_name_handles_dotfiles_and_odd_extensions ... ok
+test templates::names::tests::unique_key_appends_numeric_suffix_within_limit ... ok
+test templates::paths::tests::delete_names_suffix_conflicting_children ... ok
+test templates::paths::tests::group_dirs_build_nested_paths ... ok
+test templates::paths::tests::rejects_traversal_absolute_and_empty_segments ... ok
+test templates::paths::tests::safe_join_rejects_leaf_and_intermediate_symlinks ... ok
+test templates::paths::tests::safe_join_rejects_symlink_escape ... ok
+test templates::scan::tests::atomic_save_changes_inode_and_hash_but_keeps_identity ... ok
+test templates::scan::tests::cross_directory_move_keeps_title_when_stem_unchanged ... ok
+test templates::scan::tests::external_delete_marks_missing_and_return_restores ... ok
+test templates::scan::tests::hash_matching_requires_a_unique_candidate_on_both_sides ... ok
+test templates::scan::tests::missing_rows_do_not_match_by_inode ... ok
+test templates::scan::tests::new_files_import_and_new_directories_become_groups ... ok
+test templates::scan::tests::oversize_files_and_capacity_limit_are_skipped ... ok
+test templates::scan::tests::rename_and_move_keep_identity_through_inode ... ok
+test templates::scan::tests::too_deep_invalid_and_conflicting_directories_are_skipped ... ok
+test templates::scan::tests::unchanged_files_produce_no_ops ... ok
+test validation::tests::accepts_exact_content_byte_limit ... ok
+test validation::tests::content_limit_counts_utf8_bytes ... ok
+test validation::tests::group_name_rules ... ok
+test validation::tests::language_whitelist_and_default ... ok
+test validation::tests::lists_are_trimmed_and_case_insensitively_deduplicated ... ok
+test validation::tests::lists_enforce_count_and_item_length_limits ... ok
+test validation::tests::normalizes_unicode_key_and_internal_whitespace ... ok
+test validation::tests::rejects_invalid_or_empty_keys ... ok
+test storage::tests::trash_empty_removes_all_trashed ... ok
+test storage::tests::search_respects_limit_and_reports_total ... ok
+test storage::tests::trash_empty_removes_ids_from_search_index ... ok
+test storage::tests::trash_move_excludes_id_from_search_index ... ok
+test storage::tests::trash_purge_one_removes_id_from_search_index ... ok
+test storage::tests::trash_move_sets_deleted_at_and_bumps_revision ... ok
+test storage::tests::trash_restore_reincludes_id_in_search_index ... ok
+test storage::tests::trash_purge_one_removes_row ... ok
+test storage::tests::trash_restore_sets_normal ... ok
+test storage::tests::v5_constraints_tie_file_columns_to_kind_and_make_paths_unique ... ok
+test storage::tests::unsupported_migration_version_preserves_database_file ... ok
+2026-10-16 14:55:49.732: ERROR CORE sqlcipher_page_cipher: hmac check failed for pgno=1
+2026-10-16 14:55:49.732: ERROR CORE sqlite3Codec: error decrypting page 1 data: 1
+2026-10-16 14:55:49.732: ERROR CORE sqlcipher_codec_ctx_set_error 1
+test storage::tests::wrong_key_is_rejected_without_replacing_database ... ok
+test storage::tests::migrates_v4_to_v5_keeping_data_and_writing_backup ... ok
+test service::templates::tests::qa_perf_unchanged_scan_of_2000_files ... ok
+test storage::tests::qa_perf_search_10000_snippets_p95_p99 ... ok
+
+test result: ok. 142 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.85s
+
+     Running unittests src/main.rs (target/debug/deps/searchis-49831fbac07e19c7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests searchis_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

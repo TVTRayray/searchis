@@ -1,0 +1,69 @@
+task_id: implementer-mvaeodqa-1ggei
+lease_id: lease-mvaeodqa-vv0lg
+outcome: needs_decision
+summary: |
+  SPEC-22（file-templates）在 allowed_paths 内的实现已全部完成并验证，只剩一项需要人工授权：
+  规格要求“快搜窗口结果行图标按扩展名、徽标为大写扩展名；文件模板按 Enter/Ctrl+Enter 不执行操作，
+  底栏只显示 编辑 Ctrl+E / 关闭 Esc”，这些都落在 src/components/QuickSearchWindow.tsx，
+  而该文件不在本任务 allowed_paths（它属于 formatted-copy-export 的范围）。
+  按规则不越权修改，故写 needs_decision。后端已提供 kind='file' 与 fileExt，快搜只差渲染与按键处理。
+  需要决策：授权本任务对 QuickSearchWindow.tsx 做最小修改（行图标/徽标/底栏/Enter 与 Ctrl+Enter 对 file 项空操作），
+  或把这一条移交 formatted-copy-export；其余条目（tasks.md 3.1–3.8、3.10–3.12）已完成并勾选，3.9 保持未勾选，3.13 为实机项（pending_human）。
+
+  已完成内容：
+  - Schema v5：snippets 新增 file_* 列、file_rel_path 唯一索引、kind 约束触发器；迁移前备份 searchis.db.v4.bak；v3/v4 迁移链单事务。
+  - 模板目录 `<应用数据目录>/templates/` 与 `.trash/`（0700）；启动与每次扫描补建分组目录；分组新建/重命名/移动/删除同步目录与文件相对路径（删除时上移并按 (2) 规则改名，失败整体撤销）。
+  - 导入（多文件、20 MB 与 10,000 条上限、requestId 幂等、Key 自动生成与“自动导入”标记、保存元数据后清除）、新建空白 md/xlsx（umya-spreadsheet）。
+  - 标题↔文件名联动与 (2) 后缀；先文件后数据库的补偿，撤销失败返回 TEMPLATE_RECONCILE_PENDING，由下次扫描收敛。
+  - platform/files.rs：xdg-open、xdg-mime（2 秒超时+扩展名回退）、.desktop 枚举与 Exec 字段码替换、打开方式按扩展名记忆（settings.openWithByExtension）、kdialog/zenity 文件选择。
+  - 扫描：纯函数核心（路径→inode→SHA-256 唯一候选）+ IO 层；缺失/恢复、新文件、新子目录成分组、超 3 层跳过、忽略规则、符号链接不跟随、500 条分批事务、并发合并、完成后计数提示、“重新扫描”。
+  - 回收站：.trash/<id>.<ext>、还原（原分组不存在则未分组，重名加后缀）、彻底删除/清空/自动清理只删 .trash 内文件；SearchIndex 同步。
+  - 前端：“+”菜单、新建空白 md/xlsx 对话框、拖入与选择文件导入、右栏文件模板视图（元数据表单、文件信息卡片、打开/打开方式…、导出与带格式复制禁用、右上角放入回收站、无敏感开关/预览）、列表扩展名图标与徽标、“文件缺失”标记、扫描摘要与“重新扫描”。
+  - E2E 替身：e2e 构建里 template_open 与文件选择器只记录/读取文件（不启动外部应用、不弹对话框）。
+evidence:
+  changed_files:
+    - src-tauri/Cargo.toml
+    - src-tauri/Cargo.lock
+    - src-tauri/src/lib.rs
+    - src-tauri/src/model.rs
+    - src-tauri/src/commands.rs
+    - src-tauri/src/service.rs
+    - src-tauri/src/service/templates.rs
+    - src-tauri/src/storage.rs
+    - src-tauri/src/storage/files.rs
+    - src-tauri/src/search_index.rs
+    - src-tauri/src/validation.rs
+    - src-tauri/src/platform/mod.rs
+    - src-tauri/src/platform/files.rs
+    - src-tauri/src/templates/mod.rs
+    - src-tauri/src/templates/names.rs
+    - src-tauri/src/templates/paths.rs
+    - src-tauri/src/templates/scan.rs
+    - src-tauri/src/templates/fsops.rs
+    - src/types/snippet.ts
+    - src/api/snippets.ts
+    - src/App.tsx
+    - src/index.css
+    - src/components/ManagerWindow.tsx
+    - src/components/ui/FileTemplateDetail.tsx
+    - src/components/ui/FileTypeIcon.tsx
+    - src/components/ui/NewTemplateDialog.tsx
+    - src/components/ui/PlusMenu.tsx
+    - e2e/create-and-search.e2e.ts
+    - e2e/tauri-service.mjs
+    - .specflow/changes/phase10-file-templates/tasks.md
+  test_results:
+    - "cd src-tauri && cargo test：135 passed, 0 failed（含新增：names/paths/scan/fsops/platform::files 单元测试、v4→v5 迁移与约束、service::templates 集成测试 23 项：导入/超限/幂等/数据库失败撤销、改标题与分组移动及失败回滚、回收站生命周期、外部改名/移动/原子保存/删除/恢复、符号链接与忽略规则、分组目录同步与删除上移、并发扫描合并）"
+    - "cargo clippy --all-targets：本任务新增代码无告警（仅剩既有的 SearchIndex::group_name 未使用告警）；cargo fmt 已应用（platform/appmenu.rs 的既有格式差异未动）"
+    - "npm run build：通过（tsc + vite build）"
+    - ".specflow/bin/e2e-isolated.sh（Xvfb + 私有 D-Bus + KWin，未在真实桌面运行）：4 passing，含新增 SPEC-22 用例（导入 md/xlsx 与超大文件被拒、改标题同步文件名并加 (2)、外部改名后重新扫描仍是同一条目、回收站文件位置、外部删除标记缺失与放回恢复、新建空白 md、template_open 替身记录 xdg-open 参数、导出/带格式复制禁用、无敏感开关）"
+    - "NFR-PERF-07：2,000 个文件无变化扫描 18.6 ms（cargo test --lib qa_perf_unchanged -- --nocapture；Intel i7-1360P、16 线程、tmpfs、debug 构建；样本 20 个目录 × 100 个文件；目标 ≤ 2 s）。目标机/真实磁盘数据仍建议在实机验收时复测。"
+unresolved_issues:
+  - "【需决策】QuickSearchWindow.tsx 不在 allowed_paths：快搜行的扩展名图标/大写扩展名徽标、文件模板底栏只显示“编辑 Ctrl+E / 关闭 Esc”、Enter/Ctrl+Enter 对文件模板空操作均未实现。现状：后端 copy/paste 对 kind='file' 返回 TEMPLATE_ACTION_UNSUPPORTED（不会写剪贴板或计数），快搜行仍按文本语言规则显示图标且无扩展名徽标。tasks.md 3.9 因此保持未勾选。"
+  - "3.13 实机验收（Dolphin 改名移动 AC-26、WPS 保存 AC-27、打开方式列出 WPS/LibreOffice）未执行，标记 pending_human；E2E 与单元测试只覆盖等价的文件系统操作，不启动外部应用。"
+  - "已有的 E2E 选择器 button[aria-label=\"新建片段\"] 随“+”改为菜单而失效，已在 e2e/create-and-search.e2e.ts 改为经菜单“新建文本片段”。e2e/tauri-service.mjs 新增三个环境变量（SEARCHIS_E2E_FILES_DIR/OPEN_LOG/PICK_LIST）供替身使用；scripts/run-e2e.mjs（不在 allowed_paths）未改。"
+  - "文件选择对话框用 kdialog（缺失时回退 zenity）而非 tauri-plugin-dialog：dialog 插件的权限配置在 src-tauri/capabilities/**（不在本任务 allowed_paths），属于 SPEC-24 范围。两者都缺失时返回 TEMPLATE_FS_FAILED 并提示改用拖入导入。"
+  - "彻底删除按“先改数据库、后删文件”：若删除 .trash 文件失败，只会留下孤立的回收站文件（不丢记录、不会误删用户文件）；本 slice 不清理孤立文件。"
+  - "v1 JSON 备份导出现在只包含文本片段（过滤 kind='file'），否则恢复时会把文件模板变成空正文文本片段；文件模板的完整备份由 SPEC-24 的 v2 提供。"
+  - "template_import 的“未删除条目合计 > 10,000”与 20 MB 超限共用错误码 TEMPLATE_TOO_LARGE（契约未给条目上限单独的错误码），UI 文案为“超过 20 MB 或条目已满”。"
+  - "管理窗口重新获得焦点时（距上次扫描 > 10 秒）会补一次后台扫描，符合“打开管理窗口时扫描”的语义；无 inotify。扫描修改条目会递增 revision，期间用户编辑同一条目会得到 REVISION_CONFLICT。"
