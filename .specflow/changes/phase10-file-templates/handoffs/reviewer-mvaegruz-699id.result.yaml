@@ -1,0 +1,26 @@
+task_id: reviewer-mvaegruz-699id
+lease_id: lease-mvaegruz-lpaif
+outcome: completed
+summary: >
+  完成 groups-language 复审。R1 CRLF 保真与 R2 跨片段撤销污染已修复，
+  独立 Rust 81 项、build、隔离编译应用 E2E 3 项及四组换行/撤销状态探针通过。
+  verdict 为 pass；实机项保留 pending_human。未修改实现或工作流状态，未创建 subagent。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvaegruz-699id.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvaegruz-699id.result.yaml
+  test_results:
+    - 'cd src-tauri && cargo test groups_: 0 matched，不作为覆盖证据'
+    - 'cd src-tauri && cargo test language_: 2 passed'
+    - 'cd src-tauri && cargo test migration_: 2 passed'
+    - 'cd src-tauri && cargo test: 81 passed，0 failed'
+    - 'npm run build: passed，主 JS 656.51 kB / gzip 208.38 kB，既有 chunk 大小警告'
+    - 'npm run test:e2e: 3 passing；首次继承 DISPLAY=:0，后在 Xvfb + 私有 D-Bus + KWin 中完整重跑亦为 3 passing，exit 0'
+    - 'Node CodeMirror 探针: LF/CRLF/CR/混合换行四组往返、普通 undo/redo 均通过'
+    - '新增编辑器/分组组件颜色与圆角硬编码 grep、src 玻璃/Figtree grep: 无命中'
+unresolved_issues:
+  - 'pending_human: AC-23 真实中文 IME、Tab、撤销重做、复制粘贴保真'
+  - 'pending_human: 双主题截图、数值对比度、完整焦点循环、重启首帧及 KWin/Global Menu 实机行为；tasks 2.10 未勾选'
+  - '未单独采集 100 分组性能 p95/p99；已有 10000 片段性能测试通过'
+  - '测试执行注意：首次 E2E 未隔离 DISPLAY；最终已隔离重跑，今后须直接使用报告中的 Xvfb 命令'
+verdict: pass

@@ -1,7 +1,7 @@
 change_id: phase10-file-templates
-state: blocked
+state: ready
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-15T08:10:38.549Z
+updated_at: 2026-10-16T03:26:02.094Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
@@ -29,7 +29,7 @@ specs:
     qa_report: reviews/reviewer-mv994pgq-hnso4.md
   - id: groups-language
     title: SPEC-21 分组树与文本片段语言标记（Schema v4）
-    state: ready
+    state: qa_passed
     depends_on:
       - visual-foundation
     paths:
@@ -51,11 +51,11 @@ specs:
       - package.json
       - package-lock.json
       - e2e/**
-    qa_attempts: 0
-    qa_report: null
+    qa_attempts: 1
+    qa_report: reviews/reviewer-mvaegruz-699id.md
   - id: file-templates
     title: SPEC-22 文件模板管理：模板目录、导入、外部打开与目录扫描（Schema v5）
-    state: todo
+    state: ready
     depends_on:
       - groups-language
     paths:
@@ -235,6 +235,47 @@ history:
   - at: 2026-10-15T08:10:38.549Z
     event: task_blocked
     detail: 人工暂停（2026-10-15）：用户在 SPEC-20 完成后暂停 Phase 10；本任务尚未修改任何代码
+  - at: 2026-10-16T02:52:45.218Z
+    event: human_resolution
+    detail: "ready: 人工恢复 Phase 10"
+  - at: 2026-10-16T02:52:48.336Z
+    event: task_dispatched
+    detail: implementer:implementer-mvadhc9b-rx0yc:groups-language:route=implementer
+  - at: 2026-10-16T02:52:52.731Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvadhc9b:wZ:pH
+  - at: 2026-10-16T03:01:55.970Z
+    event: implementation_completed
+    detail: groups-language
+  - at: 2026-10-16T03:01:59.648Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvadt5n7-5umil:groups-language:route=reviewer
+  - at: 2026-10-16T03:02:03.048Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvadt5n7-5umil:wZ:pJ
+  - at: 2026-10-16T03:18:02.009Z
+    event: repair_dispatched
+    detail: groups-language:attempt-1
+  - at: 2026-10-16T03:18:06.995Z
+    event: task_dispatched
+    detail: implementer:implementer-mvaedw2a-me3te:groups-language:route=implementer
+  - at: 2026-10-16T03:18:11.284Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvaedw2a:wZ:pK
+  - at: 2026-10-16T03:20:20.711Z
+    event: implementation_completed
+    detail: groups-language
+  - at: 2026-10-16T03:20:21.519Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvaegruz-699id:groups-language:route=reviewer
+  - at: 2026-10-16T03:20:24.896Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvaegruz-699id:wZ:pM
+  - at: 2026-10-16T03:26:02.094Z
+    event: qa_passed
+    detail: groups-language
+  - at: 2026-10-16T03:26:02.094Z
+    event: spec_ready
+    detail: file-templates
 labels:
   - visual
-resume_state: ready

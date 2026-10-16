@@ -16,6 +16,25 @@ export interface PersistedSnippet {
   updatedAt: string
   deletedAt: string | null
   revision: number
+  groupId: string | null
+  language: SnippetLanguage
+  kind: 'text' | 'file'
+}
+
+export const SNIPPET_LANGUAGES = ['plain', 'bash', 'sql', 'yaml', 'json', 'toml', 'ini'] as const
+export type SnippetLanguage = (typeof SNIPPET_LANGUAGES)[number]
+
+export interface Group {
+  id: string
+  name: string
+  parentId: string | null
+  depth: number
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  revision: number
+  /** 直接成员条目数（不含回收站） */
+  snippetCount: number
 }
 
 export interface SnippetFields {
@@ -26,6 +45,8 @@ export interface SnippetFields {
   tags: string[]
   sensitive: boolean
   pinned: boolean
+  groupId: string | null
+  language: SnippetLanguage
 }
 
 export interface AppError {
@@ -45,6 +66,9 @@ export interface SearchResultItem {
   sensitive: boolean
   usageCount: number
   lastUsedAt: string | null
+  language: SnippetLanguage
+  groupName: string | null
+  kind: 'text' | 'file'
 }
 
 export interface SearchResponse {
@@ -130,6 +154,22 @@ export const snippetsApi = {
     call<PlatformCapabilities>('detect_capabilities'),
   togglePicker: () =>
     call<void>('toggle_picker'),
+}
+
+export const groupsApi = {
+  list: () => call<Group[]>('group_list'),
+  create: (name: string, parentId: string | null, requestId: string) =>
+    call<Group>('group_create', { input: { name, parentId, requestId } }),
+  update: (group: Group, name: string, parentId: string | null) =>
+    call<Group>('group_update', {
+      input: { id: group.id, revision: group.revision, name, parentId },
+    }),
+  deletePreview: (id: string) =>
+    call<{ snippetCount: number; childGroupCount: number }>('group_delete_preview', { id }),
+  delete: (group: Group) =>
+    call<{ movedSnippets: number; movedGroups: number }>('group_delete', {
+      input: { id: group.id, revision: group.revision },
+    }),
 }
 
 export const windowApi = {

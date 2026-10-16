@@ -13,11 +13,14 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     error::AppError,
-    model::{SearchResponse, Snippet, ValidatedFields},
+    model::{
+        Group, GroupDeleteOutcome, GroupDeletePreview, SearchResponse, Snippet, ValidatedFields,
+    },
     search_index::SearchIndex,
 };
 
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_V3: i64 = 3;
 const KEY_BYTES: usize = 32;
 
 #[derive(Debug)]
@@ -49,6 +52,7 @@ impl Repository {
         }
         apply_key(&connection, &key)?;
         verify_cipher(&connection)?;
+        backup_before_migration(&connection, &database_path)?;
         migrate(&mut connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
@@ -87,6 +91,7 @@ impl Repository {
                 return Err(AppError::key_conflict(key));
             }
 
+            ensure_group_exists(&transaction, fields.group_id.as_deref())?;
             let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
             let id = uuid::Uuid::new_v4().to_string();
             let aliases = serde_json::to_string(&fields.aliases).map_err(|_| db_write_error())?;
@@ -96,8 +101,8 @@ impl Repository {
                     "INSERT INTO snippets (
                 id, key, normalized_key, title, content, aliases, tags, pinned, sensitive,
                 usage_count, last_used_at, created_at, updated_at, deleted_at, revision,
-                content_norm, aliases_norm, tags_norm
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, NULL, ?10, ?10, NULL, 1, ?11, ?12, ?13)",
+                content_norm, aliases_norm, tags_norm, group_id, language, kind
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, NULL, ?10, ?10, NULL, 1, ?11, ?12, ?13, ?14, ?15, 'text')",
                     params![
                         id,
                         fields.key,
@@ -111,7 +116,9 @@ impl Repository {
                         now,
                         fields.content.to_lowercase(),
                         fields.aliases.join(" ").to_lowercase(),
-                        fields.tags.join(" ").to_lowercase()
+                        fields.tags.join(" ").to_lowercase(),
+                        fields.group_id,
+                        fields.language
                     ],
                 )
                 .map_err(|error| {
@@ -144,6 +151,7 @@ impl Repository {
             if let Some(key) = find_conflict_key(&transaction, &fields.normalized_key, Some(id))? {
                 return Err(AppError::key_conflict(key));
             }
+            ensure_group_exists(&transaction, fields.group_id.as_deref())?;
             let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
             let aliases = serde_json::to_string(&fields.aliases).map_err(|_| db_write_error())?;
             let tags = serde_json::to_string(&fields.tags).map_err(|_| db_write_error())?;
@@ -152,7 +160,8 @@ impl Repository {
                     "UPDATE snippets SET key = ?1, normalized_key = ?2, title = ?3, content = ?4,
                 aliases = ?5, tags = ?6, pinned = ?7, sensitive = ?8,
                 updated_at = ?9, revision = revision + 1,
-                content_norm = ?10, aliases_norm = ?11, tags_norm = ?12
+                content_norm = ?10, aliases_norm = ?11, tags_norm = ?12,
+                group_id = ?15, language = ?16
              WHERE id = ?13 AND revision = ?14",
                     params![
                         fields.key,
@@ -168,7 +177,9 @@ impl Repository {
                         fields.aliases.join(" ").to_lowercase(),
                         fields.tags.join(" ").to_lowercase(),
                         id,
-                        revision
+                        revision,
+                        fields.group_id,
+                        fields.language
                     ],
                 )
                 .map_err(|error| {
@@ -548,6 +559,347 @@ impl Repository {
         Ok(count)
     }
 
+    // === SPEC-21: 分组 ===
+
+    pub fn group_list(&self) -> Result<Vec<Group>, AppError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| db_open_error("数据库当前不可用。请重启应用。"))?;
+        let mut statement = connection
+            .prepare(&format!(
+                "SELECT {GROUP_COLUMNS},
+                        (SELECT COUNT(*) FROM snippets s
+                          WHERE s.group_id = groups.id AND s.deleted_at IS NULL)
+                 FROM groups ORDER BY depth ASC, sort_order ASC, name_norm ASC"
+            ))
+            .map_err(|_| db_open_error("无法读取分组列表。请检查数据库文件。"))?;
+        let rows = statement
+            .query_map([], |row| row_to_group(row, true))
+            .map_err(|_| db_open_error("无法读取分组列表。请检查数据库文件。"))?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|_| db_open_error("分组数据损坏。请从备份恢复。"))
+    }
+
+    pub fn group_create(
+        &self,
+        name: &str,
+        parent_id: Option<&str>,
+        request_id: &str,
+    ) -> Result<Group, AppError> {
+        let group = {
+            let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+            let transaction = connection.transaction().map_err(|_| db_write_error())?;
+            if let Some(existing_id) = transaction
+                .query_row(
+                    "SELECT group_id FROM group_requests WHERE request_id = ?1",
+                    params![request_id],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()
+                .map_err(|_| db_write_error())?
+            {
+                if let Some(existing) = get_group_in_transaction(&transaction, &existing_id)? {
+                    transaction.commit().map_err(|_| db_write_error())?;
+                    return Ok(existing);
+                }
+            }
+            let depth = match parent_id {
+                None => 1,
+                Some(parent) => {
+                    let parent = get_group_in_transaction(&transaction, parent)?
+                        .ok_or_else(group_missing)?;
+                    parent.depth + 1
+                }
+            };
+            if depth > 3 {
+                return Err(depth_error());
+            }
+            let name_norm = name.to_lowercase();
+            if sibling_conflict(&transaction, parent_id, &name_norm, None)? {
+                return Err(name_conflict_error());
+            }
+            let id = uuid::Uuid::new_v4().to_string();
+            let now = now_string();
+            transaction
+                .execute(
+                    "INSERT INTO groups (id, name, name_norm, parent_id, depth, sort_order,
+                                         created_at, updated_at, revision)
+                     VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?6, 1)",
+                    params![id, name, name_norm, parent_id, depth, now],
+                )
+                .map_err(|_| db_write_error())?;
+            transaction
+                .execute(
+                    "INSERT INTO group_requests (request_id, group_id, created_at) VALUES (?1, ?2, ?3)",
+                    params![request_id, id, now],
+                )
+                .map_err(|_| db_write_error())?;
+            let group = get_group_in_transaction(&transaction, &id)?.ok_or_else(db_write_error)?;
+            transaction.commit().map_err(|_| db_write_error())?;
+            group
+        };
+        self.invalidate_index()?;
+        Ok(group)
+    }
+
+    pub fn group_update(
+        &self,
+        id: &str,
+        revision: i64,
+        name: &str,
+        parent_id: Option<&str>,
+    ) -> Result<Group, AppError> {
+        let group = {
+            let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+            let transaction = connection.transaction().map_err(|_| db_write_error())?;
+            let current = get_group_in_transaction(&transaction, id)?.ok_or_else(group_missing)?;
+            if current.revision != revision {
+                return Err(AppError::new(
+                    "REVISION_CONFLICT",
+                    "分组已在其他窗口修改。请重新载入后再保存。",
+                ));
+            }
+            let tree = load_group_tree(&transaction)?;
+            let new_depth = match parent_id {
+                None => 1,
+                Some(parent) => {
+                    let parent_depth = tree
+                        .get(parent)
+                        .map(|node| node.depth)
+                        .ok_or_else(group_missing)?;
+                    // 不得移动到自身或子孙之下。
+                    let mut cursor = Some(parent.to_owned());
+                    while let Some(node_id) = cursor {
+                        if node_id == id {
+                            return Err(AppError::validation(
+                                "parentId",
+                                "不能把分组移动到自身或其子分组下。",
+                            ));
+                        }
+                        cursor = tree.get(&node_id).and_then(|node| node.parent_id.clone());
+                    }
+                    parent_depth + 1
+                }
+            };
+            // 整棵子树重算深度：任一节点超过 3 层则整体拒绝。
+            let mut new_depths = Vec::new();
+            let mut stack = vec![(id.to_owned(), new_depth)];
+            while let Some((node_id, depth)) = stack.pop() {
+                if depth > 3 {
+                    return Err(depth_error());
+                }
+                new_depths.push((node_id.clone(), depth));
+                for (child_id, child) in &tree {
+                    if child.parent_id.as_deref() == Some(node_id.as_str()) {
+                        stack.push((child_id.clone(), depth + 1));
+                    }
+                }
+            }
+            let name_norm = name.to_lowercase();
+            if sibling_conflict(&transaction, parent_id, &name_norm, Some(id))? {
+                return Err(name_conflict_error());
+            }
+            let now = now_string();
+            transaction
+                .execute(
+                    "UPDATE groups SET name = ?1, name_norm = ?2, parent_id = ?3, depth = ?4,
+                            updated_at = ?5, revision = revision + 1
+                     WHERE id = ?6 AND revision = ?7",
+                    params![name, name_norm, parent_id, new_depth, now, id, revision],
+                )
+                .map_err(|_| db_write_error())?;
+            for (node_id, depth) in new_depths.iter().filter(|(node_id, _)| node_id != id) {
+                transaction
+                    .execute(
+                        "UPDATE groups SET depth = ?1 WHERE id = ?2",
+                        params![depth, node_id],
+                    )
+                    .map_err(|_| db_write_error())?;
+            }
+            let group = get_group_in_transaction(&transaction, id)?.ok_or_else(db_write_error)?;
+            transaction.commit().map_err(|_| db_write_error())?;
+            group
+        };
+        self.invalidate_index()?;
+        Ok(group)
+    }
+
+    pub fn group_delete_preview(&self, id: &str) -> Result<GroupDeletePreview, AppError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| db_open_error("数据库当前不可用。请重启应用。"))?;
+        let count = |sql: &str| -> Result<i64, AppError> {
+            connection
+                .query_row(sql, params![id], |row| row.get(0))
+                .map_err(|_| db_open_error("无法读取分组信息。请重新载入。"))
+        };
+        Ok(GroupDeletePreview {
+            snippet_count: count(
+                "SELECT COUNT(*) FROM snippets WHERE group_id = ?1 AND deleted_at IS NULL",
+            )?,
+            child_group_count: count("SELECT COUNT(*) FROM groups WHERE parent_id = ?1")?,
+        })
+    }
+
+    pub fn group_delete(&self, id: &str, revision: i64) -> Result<GroupDeleteOutcome, AppError> {
+        self.group_delete_impl(id, revision, false)
+    }
+
+    /// 删除分组：条目与子分组上移到父级，重名子分组加 `(2)`，全部单事务。
+    /// `inject_failure` 仅供测试在提交前注入失败，验证整体回滚。
+    fn group_delete_impl(
+        &self,
+        id: &str,
+        revision: i64,
+        inject_failure: bool,
+    ) -> Result<GroupDeleteOutcome, AppError> {
+        let outcome = {
+            let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
+            let transaction = connection.transaction().map_err(|_| db_write_error())?;
+            let Some(current) = get_group_in_transaction(&transaction, id)? else {
+                return Ok(GroupDeleteOutcome {
+                    moved_snippets: 0,
+                    moved_groups: 0,
+                });
+            };
+            if current.revision != revision {
+                return Err(AppError::new(
+                    "REVISION_CONFLICT",
+                    "分组已在其他窗口修改。请重新载入后再删除。",
+                ));
+            }
+            let parent_id = current.parent_id.clone();
+            let now = now_string();
+            // 先把待删分组改成不可能冲突的占位名，避免与上移的同名子分组撞唯一索引。
+            transaction
+                .execute(
+                    "UPDATE groups SET name_norm = ?1 WHERE id = ?2",
+                    params![format!("\u{0}deleting-{id}"), id],
+                )
+                .map_err(|_| db_write_error())?;
+
+            let children: Vec<(String, String, i64)> = {
+                let mut statement = transaction
+                    .prepare(
+                        "SELECT id, name, revision FROM groups WHERE parent_id = ?1
+                         ORDER BY sort_order ASC, name_norm ASC",
+                    )
+                    .map_err(|_| db_write_error())?;
+                let rows = statement
+                    .query_map(params![id], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                    })
+                    .map_err(|_| db_write_error())?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()
+                    .map_err(|_| db_write_error())?
+            };
+            let tree = load_group_tree(&transaction)?;
+            let mut moved_groups = 0i64;
+            for (child_id, child_name, _) in &children {
+                let mut candidate = child_name.clone();
+                let mut suffix = 2;
+                while sibling_conflict(
+                    &transaction,
+                    parent_id.as_deref(),
+                    &candidate.to_lowercase(),
+                    Some(child_id),
+                )? {
+                    candidate = suffixed_name(child_name, suffix);
+                    suffix += 1;
+                }
+                transaction
+                    .execute(
+                        "UPDATE groups SET name = ?1, name_norm = ?2, parent_id = ?3,
+                                depth = depth - 1, updated_at = ?4, revision = revision + 1
+                         WHERE id = ?5",
+                        params![
+                            candidate,
+                            candidate.to_lowercase(),
+                            parent_id,
+                            now,
+                            child_id
+                        ],
+                    )
+                    .map_err(|_| db_write_error())?;
+                // 子树其余节点整体上移一层。
+                let mut stack: Vec<String> = vec![child_id.clone()];
+                while let Some(node_id) = stack.pop() {
+                    for (grand_id, grand) in &tree {
+                        if grand.parent_id.as_deref() == Some(node_id.as_str()) {
+                            transaction
+                                .execute(
+                                    "UPDATE groups SET depth = depth - 1 WHERE id = ?1",
+                                    params![grand_id],
+                                )
+                                .map_err(|_| db_write_error())?;
+                            stack.push(grand_id.clone());
+                        }
+                    }
+                }
+                moved_groups += 1;
+            }
+            let moved_snippets: i64 = transaction
+                .query_row(
+                    "SELECT COUNT(*) FROM snippets WHERE group_id = ?1 AND deleted_at IS NULL",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .map_err(|_| db_write_error())?;
+            transaction
+                .execute(
+                    "UPDATE snippets SET group_id = ?1, updated_at = ?2, revision = revision + 1
+                     WHERE group_id = ?3",
+                    params![parent_id, now, id],
+                )
+                .map_err(|_| db_write_error())?;
+            transaction
+                .execute("DELETE FROM groups WHERE id = ?1", params![id])
+                .map_err(|_| db_write_error())?;
+            if inject_failure {
+                return Err(db_write_error());
+            }
+            transaction.commit().map_err(|_| db_write_error())?;
+            GroupDeleteOutcome {
+                moved_snippets,
+                moved_groups,
+            }
+        };
+        self.invalidate_index()?;
+        Ok(outcome)
+    }
+
+    pub fn group_name(&self, id: &str) -> Option<String> {
+        let connection = self.connection.lock().ok()?;
+        connection
+            .query_row(
+                "SELECT name FROM groups WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()
+            .ok()
+            .flatten()
+    }
+
+    fn invalidate_index(&self) -> Result<(), AppError> {
+        self.search_index
+            .lock()
+            .map_err(|_| db_write_error())?
+            .invalidate();
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn group_delete_failing(
+        &self,
+        id: &str,
+        revision: i64,
+    ) -> Result<GroupDeleteOutcome, AppError> {
+        self.group_delete_impl(id, revision, true)
+    }
+
     // === SPEC-07: 导入 ===
 
     pub fn import_snippets(
@@ -688,7 +1040,7 @@ impl Repository {
     }
 }
 
-const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision";
+const SNIPPET_COLUMNS: &str = "id, key, normalized_key, title, content, aliases, tags, pinned, sensitive, usage_count, last_used_at, created_at, updated_at, deleted_at, revision, group_id, language, kind";
 
 /// 在事务内收集按给定 WHERE 子句匹配的待删除 snippet id，供提交后定向同步索引。
 /// `condition` 从 "WHERE " 之后开始，`params` 必须与占位符一一对应。
@@ -704,6 +1056,118 @@ fn collect_snippet_ids<P: rusqlite::Params>(
         .map_err(|_| db_write_error())?;
     rows.collect::<rusqlite::Result<Vec<_>>>()
         .map_err(|_| db_write_error())
+}
+
+const GROUP_COLUMNS: &str =
+    "id, name, parent_id, depth, sort_order, created_at, updated_at, revision";
+
+struct GroupNode {
+    parent_id: Option<String>,
+    depth: i64,
+}
+
+fn now_string() -> String {
+    Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+fn group_missing() -> AppError {
+    AppError::validation("groupId", "分组不存在或已被删除。请刷新后重试。")
+}
+
+fn depth_error() -> AppError {
+    AppError::new("GROUP_DEPTH_EXCEEDED", "分组最多 3 层。")
+}
+
+fn name_conflict_error() -> AppError {
+    AppError::new("GROUP_NAME_CONFLICT", "同级已有同名分组。")
+}
+
+/// 超过 64 字符时截断原名，保证 `名称 (n)` 仍满足名称长度约束。
+fn suffixed_name(name: &str, suffix: u32) -> String {
+    let tail = format!(" ({suffix})");
+    let keep = 64usize.saturating_sub(tail.chars().count());
+    let head: String = name.chars().take(keep).collect();
+    format!("{head}{tail}")
+}
+
+fn row_to_group(row: &Row<'_>, with_count: bool) -> rusqlite::Result<Group> {
+    Ok(Group {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        parent_id: row.get(2)?,
+        depth: row.get(3)?,
+        sort_order: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+        revision: row.get(7)?,
+        snippet_count: if with_count { row.get(8)? } else { 0 },
+    })
+}
+
+fn get_group_in_transaction(
+    transaction: &Transaction<'_>,
+    id: &str,
+) -> Result<Option<Group>, AppError> {
+    transaction
+        .query_row(
+            &format!("SELECT {GROUP_COLUMNS} FROM groups WHERE id = ?1"),
+            params![id],
+            |row| row_to_group(row, false),
+        )
+        .optional()
+        .map_err(|_| db_write_error())
+}
+
+fn load_group_tree(
+    transaction: &Transaction<'_>,
+) -> Result<std::collections::HashMap<String, GroupNode>, AppError> {
+    let mut statement = transaction
+        .prepare("SELECT id, parent_id, depth FROM groups")
+        .map_err(|_| db_write_error())?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                GroupNode {
+                    parent_id: row.get(1)?,
+                    depth: row.get(2)?,
+                },
+            ))
+        })
+        .map_err(|_| db_write_error())?;
+    rows.collect::<rusqlite::Result<std::collections::HashMap<_, _>>>()
+        .map_err(|_| db_write_error())
+}
+
+fn sibling_conflict(
+    transaction: &Transaction<'_>,
+    parent_id: Option<&str>,
+    name_norm: &str,
+    excluding_id: Option<&str>,
+) -> Result<bool, AppError> {
+    transaction
+        .query_row(
+            "SELECT 1 FROM groups
+             WHERE COALESCE(parent_id, '') = COALESCE(?1, '') AND name_norm = ?2
+               AND (?3 IS NULL OR id <> ?3)",
+            params![parent_id, name_norm, excluding_id],
+            |_| Ok(()),
+        )
+        .optional()
+        .map(|found| found.is_some())
+        .map_err(|_| db_write_error())
+}
+
+fn ensure_group_exists(
+    transaction: &Transaction<'_>,
+    group_id: Option<&str>,
+) -> Result<(), AppError> {
+    if let Some(group_id) = group_id {
+        if get_group_in_transaction(transaction, group_id)?.is_none() {
+            return Err(group_missing());
+        }
+    }
+    Ok(())
 }
 
 fn query_snippet(connection: &Connection, id: &str) -> Result<Option<Snippet>, AppError> {
@@ -756,6 +1220,9 @@ fn row_to_snippet(row: &Row<'_>) -> rusqlite::Result<Snippet> {
         updated_at: row.get(12)?,
         deleted_at: row.get(13)?,
         revision: row.get(14)?,
+        group_id: row.get(15)?,
+        language: row.get(16)?,
+        kind: row.get(17)?,
     })
 }
 
@@ -818,6 +1285,10 @@ fn verify_cipher(connection: &Connection) -> Result<(), AppError> {
 }
 
 fn migrate(connection: &mut Connection) -> Result<(), AppError> {
+    migrate_inner(connection, false)
+}
+
+fn migrate_inner(connection: &mut Connection, inject_failure: bool) -> Result<(), AppError> {
     let transaction = connection
         .transaction()
         .map_err(|_| db_open_error("无法启动数据库迁移事务。原数据未修改。"))?;
@@ -874,15 +1345,21 @@ fn migrate(connection: &mut Connection) -> Result<(), AppError> {
             transaction
                 .execute(
                     "INSERT INTO metadata(schema_version) VALUES (?1)",
-                    params![SCHEMA_VERSION],
+                    params![SCHEMA_V3],
                 )
                 .map_err(|_| db_open_error("无法写入数据库 Schema 版本。"))?;
+            migrate_v3_to_v4(&transaction, inject_failure)?;
         }
         Some(1) => {
             migrate_v1_request_fingerprints(&transaction)?;
             migrate_v2_to_v3(&transaction)?;
+            migrate_v3_to_v4(&transaction, inject_failure)?;
         }
-        Some(2) => migrate_v2_to_v3(&transaction)?,
+        Some(2) => {
+            migrate_v2_to_v3(&transaction)?;
+            migrate_v3_to_v4(&transaction, inject_failure)?;
+        }
+        Some(3) => migrate_v3_to_v4(&transaction, inject_failure)?,
         Some(SCHEMA_VERSION) => {}
         Some(_) => {
             return Err(db_open_error(
@@ -915,19 +1392,32 @@ fn migrate_v1_request_fingerprints(transaction: &Transaction<'_>) -> Result<(), 
             .map_err(|_| db_open_error("Schema v1 幂等记录损坏。原数据未修改。"))?
     };
     for (request_id, snippet_id) in requests {
-        let snippet = get_in_transaction(transaction, &snippet_id)
+        let snippet = transaction
+            .query_row(
+                "SELECT key, normalized_key, title, content, aliases, tags, sensitive, pinned
+                 FROM snippets WHERE id = ?1",
+                params![snippet_id],
+                |row| {
+                    let aliases: String = row.get(4)?;
+                    let tags: String = row.get(5)?;
+                    Ok(ValidatedFields {
+                        key: row.get(0)?,
+                        normalized_key: row.get(1)?,
+                        title: row.get(2)?,
+                        content: row.get(3)?,
+                        aliases: serde_json::from_str(&aliases).unwrap_or_default(),
+                        tags: serde_json::from_str(&tags).unwrap_or_default(),
+                        sensitive: row.get(6)?,
+                        pinned: row.get(7)?,
+                        group_id: None,
+                        language: "plain".into(),
+                    })
+                },
+            )
+            .optional()
             .map_err(|_| db_open_error("Schema v1 幂等记录引用无效。原数据未修改。"))?
             .ok_or_else(|| db_open_error("Schema v1 幂等记录引用缺失。原数据未修改。"))?;
-        let fields = ValidatedFields {
-            key: snippet.key,
-            normalized_key: snippet.normalized_key,
-            title: snippet.title,
-            content: snippet.content,
-            aliases: snippet.aliases,
-            tags: snippet.tags,
-            sensitive: snippet.sensitive,
-            pinned: snippet.pinned,
-        };
+        let fields = snippet;
         let fingerprint = fingerprint_fields(&fields)
             .map_err(|_| db_open_error("无法迁移 Schema v1 幂等指纹。原数据未修改。"))?;
         transaction
@@ -940,7 +1430,7 @@ fn migrate_v1_request_fingerprints(transaction: &Transaction<'_>) -> Result<(), 
     transaction
         .execute(
             "UPDATE metadata SET schema_version = ?1",
-            params![SCHEMA_VERSION],
+            params![SCHEMA_V3],
         )
         .map_err(|_| db_open_error("无法更新数据库 Schema 版本。原数据未修改。"))?;
     Ok(())
@@ -973,9 +1463,104 @@ fn migrate_v2_to_v3(transaction: &Transaction<'_>) -> Result<(), AppError> {
     transaction
         .execute(
             "UPDATE metadata SET schema_version = ?1",
-            params![SCHEMA_VERSION],
+            params![SCHEMA_V3],
         )
         .map_err(|_| db_open_error("无法更新数据库 Schema 版本。原数据未修改。"))?;
+    Ok(())
+}
+
+/// Schema v3 → v4：groups 表，snippets 新增 group_id / language / kind。
+fn migrate_v3_to_v4(transaction: &Transaction<'_>, inject_failure: bool) -> Result<(), AppError> {
+    let failed = |_| db_write_error();
+    transaction
+        .execute_batch(
+            "CREATE TABLE IF NOT EXISTS groups (
+                id TEXT PRIMARY KEY NOT NULL,
+                name TEXT NOT NULL,
+                name_norm TEXT NOT NULL,
+                parent_id TEXT REFERENCES groups(id),
+                depth INTEGER NOT NULL CHECK (depth BETWEEN 1 AND 3),
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1)
+             );
+             CREATE UNIQUE INDEX IF NOT EXISTS groups_sibling_name_unique
+                ON groups(COALESCE(parent_id, ''), name_norm);
+             CREATE TABLE IF NOT EXISTS group_requests (
+                request_id TEXT PRIMARY KEY NOT NULL,
+                group_id TEXT NOT NULL,
+                created_at TEXT NOT NULL
+             );",
+        )
+        .map_err(failed)?;
+    if !column_exists(transaction, "snippets", "group_id")? {
+        transaction
+            .execute_batch("ALTER TABLE snippets ADD COLUMN group_id TEXT REFERENCES groups(id);")
+            .map_err(failed)?;
+    }
+    if !column_exists(transaction, "snippets", "language")? {
+        transaction
+            .execute_batch(
+                "ALTER TABLE snippets ADD COLUMN language TEXT NOT NULL DEFAULT 'plain'
+                    CHECK (language IN ('plain','bash','sql','yaml','json','toml','ini'));",
+            )
+            .map_err(failed)?;
+    }
+    if !column_exists(transaction, "snippets", "kind")? {
+        transaction
+            .execute_batch("ALTER TABLE snippets ADD COLUMN kind TEXT NOT NULL DEFAULT 'text';")
+            .map_err(failed)?;
+    }
+    transaction
+        .execute_batch("CREATE INDEX IF NOT EXISTS snippets_group_id ON snippets(group_id);")
+        .map_err(failed)?;
+    if inject_failure {
+        return Err(db_write_error());
+    }
+    transaction
+        .execute(
+            "UPDATE metadata SET schema_version = ?1",
+            params![SCHEMA_VERSION],
+        )
+        .map_err(failed)?;
+    Ok(())
+}
+
+/// 迁移前把加密库整体复制为同目录 `searchis.db.v{N}.bak`（0600）。
+/// 只在库已存在且版本低于当前版本时执行；已有同名备份保持不覆盖。
+fn backup_before_migration(connection: &Connection, database_path: &Path) -> Result<(), AppError> {
+    let has_metadata: bool = connection
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'metadata'",
+            [],
+            |_| Ok(()),
+        )
+        .optional()
+        .map_err(|_| db_open_error("无法检查数据库 Schema。原数据未修改。"))?
+        .is_some();
+    if !has_metadata {
+        return Ok(());
+    }
+    let version: Option<i64> = connection
+        .query_row("SELECT schema_version FROM metadata LIMIT 1", [], |row| {
+            row.get(0)
+        })
+        .optional()
+        .map_err(|_| db_open_error("无法读取数据库 Schema 版本。"))?;
+    let Some(version) = version else {
+        return Ok(());
+    };
+    if version >= SCHEMA_VERSION {
+        return Ok(());
+    }
+    let backup_path = database_path.with_file_name(format!("searchis.db.v{version}.bak"));
+    if backup_path.exists() {
+        return Ok(());
+    }
+    fs::copy(database_path, &backup_path).map_err(|_| db_write_error())?;
+    fs::set_permissions(&backup_path, fs::Permissions::from_mode(0o600))
+        .map_err(|_| db_write_error())?;
     Ok(())
 }
 
@@ -1139,6 +1724,8 @@ mod tests {
             tags: vec![],
             sensitive: false,
             pinned: false,
+            group_id: None,
+            language: None,
             request_id,
         }
     }
@@ -1402,6 +1989,8 @@ mod tests {
             tags: vec!["qa".into(), "验收".into()],
             sensitive: true,
             pinned: true,
+            group_id: None,
+            language: None,
             request_id: request_id.clone(),
         };
         let fields = validate_create(&create_input).unwrap();
@@ -1458,6 +2047,8 @@ mod tests {
             tags: vec!["qa".into(), "验收".into(), "编辑过".into()],
             sensitive: false,
             pinned: false,
+            group_id: None,
+            language: "plain".into(),
         };
         let edited = repo2.update(&original_id, 1, edit_fields).unwrap();
         assert_eq!(edited.id, original_id);
@@ -1499,6 +2090,8 @@ mod tests {
                     tags: vec![],
                     sensitive: false,
                     pinned: false,
+                    group_id: None,
+                    language: None,
                     request_id: r1.clone(),
                 })
                 .unwrap(),
@@ -1520,6 +2113,8 @@ mod tests {
                     tags: vec![],
                     sensitive: false,
                     pinned: false,
+                    group_id: None,
+                    language: None,
                     request_id: r2.clone(),
                 })
                 .unwrap(),
@@ -1553,6 +2148,8 @@ mod tests {
                     tags: vec![],
                     sensitive: false,
                     pinned: false,
+                    group_id: None,
+                    language: None,
                     request_id: r3.clone(),
                 })
                 .unwrap(),
@@ -1586,6 +2183,8 @@ mod tests {
                 tags: tags.into_iter().map(String::from).collect(),
                 sensitive,
                 pinned,
+                group_id: None,
+                language: None,
                 request_id: request_id.clone(),
             })
             .unwrap(),
@@ -1866,6 +2465,18 @@ mod tests {
     fn qa_perf_search_10000_snippets_p95_p99() {
         let directory = tempfile::tempdir().unwrap();
         let repo = Repository::open(directory.path()).unwrap();
+        // SPEC-21：100 个分组、部分条目带语言，覆盖 group_id/language 结果解析路径。
+        let group_ids: Vec<String> = (0..100)
+            .map(|i| {
+                repo.group_create(
+                    &format!("分组-{i:03}"),
+                    None,
+                    &uuid::Uuid::new_v4().to_string(),
+                )
+                .unwrap()
+                .id
+            })
+            .collect();
         {
             let mut connection = repo.connection.lock().unwrap();
             let transaction = connection.transaction().unwrap();
@@ -1875,8 +2486,8 @@ mod tests {
                         "INSERT INTO snippets (
                             id, key, normalized_key, title, content, aliases, tags, pinned, sensitive,
                             usage_count, last_used_at, created_at, updated_at, deleted_at, revision,
-                            content_norm, aliases_norm, tags_norm
-                         ) VALUES (?1, ?2, ?3, ?4, ?5, '[]', '[]', 0, 0, 0, NULL, ?6, ?6, NULL, 1, ?7, '', '')",
+                            content_norm, aliases_norm, tags_norm, group_id, language
+                         ) VALUES (?1, ?2, ?3, ?4, ?5, '[]', '[]', 0, 0, 0, NULL, ?6, ?6, NULL, 1, ?7, '', '', ?8, ?9)",
                     )
                     .unwrap();
                 let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
@@ -1890,7 +2501,9 @@ mod tests {
                             format!("标题 {i}"),
                             body,
                             now,
-                            body.to_lowercase()
+                            body.to_lowercase(),
+                            group_ids[i % 100],
+                            if i % 7 == 0 { "bash" } else { "plain" }
                         ])
                         .unwrap();
                 }
@@ -1906,6 +2519,7 @@ mod tests {
             let result = repo.search("snippet", 20).unwrap();
             samples.push(start.elapsed().as_millis() as u64);
             assert_eq!(result.total, 10_000);
+            assert!(result.items.iter().all(|item| item.group_name.is_some()));
         }
         samples.sort_unstable();
         let p95 = samples[(samples.len() as f64 * 0.95) as usize - 1];
@@ -1961,6 +2575,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: rid.clone(),
             })
             .unwrap(),
@@ -2189,5 +2805,331 @@ mod tests {
         let result = repo.update_settings(&settings, rev1);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, "REVISION_CONFLICT");
+    }
+
+    // === SPEC-21 ===
+
+    fn new_group(repo: &Repository, name: &str, parent: Option<&str>) -> Result<Group, AppError> {
+        repo.group_create(name, parent, &uuid::Uuid::new_v4().to_string())
+    }
+
+    fn snippet_in(repo: &Repository, key: &str, group: Option<&str>, language: &str) -> Snippet {
+        let mut fields = validate_create(&input(uuid::Uuid::new_v4().to_string(), key)).unwrap();
+        fields.group_id = group.map(str::to_owned);
+        fields.language = language.into();
+        repo.create(fields, &uuid::Uuid::new_v4().to_string())
+            .unwrap()
+    }
+
+    fn create_v3_database(dir: &Path, snippets: usize) {
+        // 用旧版 Schema 手工建一个 v3 加密库。
+        let key = load_or_create_key(&dir.join("database.key"), false).unwrap();
+        let connection = Connection::open(dir.join("searchis.db")).unwrap();
+        apply_key(&connection, &key).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE metadata (schema_version INTEGER NOT NULL);
+                 INSERT INTO metadata VALUES (3);
+                 CREATE TABLE snippets (
+                    id TEXT PRIMARY KEY NOT NULL, key TEXT NOT NULL, normalized_key TEXT NOT NULL,
+                    title TEXT NOT NULL, content TEXT NOT NULL, aliases TEXT NOT NULL, tags TEXT NOT NULL,
+                    pinned INTEGER NOT NULL, sensitive INTEGER NOT NULL, usage_count INTEGER NOT NULL DEFAULT 0,
+                    last_used_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+                    revision INTEGER NOT NULL DEFAULT 1, content_norm TEXT NOT NULL DEFAULT '',
+                    aliases_norm TEXT NOT NULL DEFAULT '', tags_norm TEXT NOT NULL DEFAULT '');
+                 CREATE UNIQUE INDEX snippets_normalized_key_unique ON snippets(normalized_key);
+                 CREATE TABLE create_requests (request_id TEXT PRIMARY KEY NOT NULL,
+                    snippet_id TEXT NOT NULL, request_fingerprint TEXT NOT NULL, created_at TEXT NOT NULL);
+                 CREATE TABLE operation_requests (operation_id TEXT PRIMARY KEY NOT NULL,
+                    snippet_id TEXT NOT NULL, created_at TEXT NOT NULL);
+                 CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1),
+                    data TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL DEFAULT 1);",
+            )
+            .unwrap();
+        for index in 0..snippets {
+            connection
+                .execute(
+                    "INSERT INTO snippets (id, key, normalized_key, title, content, aliases, tags,
+                        pinned, sensitive, created_at, updated_at)
+                     VALUES (?1, ?2, ?2, 't', 'c', '[]', '[]', 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+                    params![format!("id-{index}"), format!("key-{index}")],
+                )
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn migrates_v3_to_v4_with_defaults_and_backup() {
+        let directory = tempfile::tempdir().unwrap();
+        create_v3_database(directory.path(), 100);
+        let repo = Repository::open(directory.path()).unwrap();
+        let snippets = repo.list().unwrap();
+        assert_eq!(snippets.len(), 100);
+        assert!(snippets
+            .iter()
+            .all(|s| s.group_id.is_none() && s.language == "plain" && s.kind == "text"));
+        let backup = directory.path().join("searchis.db.v3.bak");
+        assert!(backup.exists());
+        assert_eq!(
+            fs::metadata(&backup).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let version: i64 = repo
+            .raw_connection()
+            .query_row("SELECT schema_version FROM metadata", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 4);
+    }
+
+    #[test]
+    fn failed_v4_migration_rolls_back_and_keeps_backup() {
+        let directory = tempfile::tempdir().unwrap();
+        create_v3_database(directory.path(), 3);
+        let key = load_or_create_key(&directory.path().join("database.key"), true).unwrap();
+        let db_path = directory.path().join("searchis.db");
+        let mut connection = Connection::open(&db_path).unwrap();
+        apply_key(&connection, &key).unwrap();
+        backup_before_migration(&connection, &db_path).unwrap();
+        let error = migrate_inner(&mut connection, true).unwrap_err();
+        assert_eq!(error.code, "DB_WRITE_FAILED");
+        let version: i64 = connection
+            .query_row("SELECT schema_version FROM metadata", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 3);
+        assert!(!column_exists_conn(&connection, "snippets", "language"));
+        let tables: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name = 'groups'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 0);
+        assert!(directory.path().join("searchis.db.v3.bak").exists());
+        assert_eq!(
+            connection
+                .query_row("SELECT COUNT(*) FROM snippets", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            3
+        );
+    }
+
+    fn column_exists_conn(connection: &Connection, table: &str, column: &str) -> bool {
+        let mut statement = connection
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .unwrap();
+        let names: Vec<String> = statement
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .map(|n| n.unwrap())
+            .collect();
+        names.iter().any(|n| n == column)
+    }
+
+    #[test]
+    fn group_depth_is_limited_to_three_levels() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let ops = new_group(&repo, "运维", None).unwrap();
+        let db = new_group(&repo, "数据库", Some(&ops.id)).unwrap();
+        let slow = new_group(&repo, "慢查询", Some(&db.id)).unwrap();
+        assert_eq!(slow.depth, 3);
+        let error = new_group(&repo, "更深", Some(&slow.id)).unwrap_err();
+        assert_eq!(error.code, "GROUP_DEPTH_EXCEEDED");
+    }
+
+    #[test]
+    fn group_sibling_names_are_case_insensitive_unique() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let parent = new_group(&repo, "A", None).unwrap();
+        new_group(&repo, "Docs", Some(&parent.id)).unwrap();
+        let error = new_group(&repo, "docs", Some(&parent.id)).unwrap_err();
+        assert_eq!(error.code, "GROUP_NAME_CONFLICT");
+        // 不同父级可以重名
+        new_group(&repo, "docs", None).unwrap();
+        // 大小写重命名到自身不冲突
+        let docs = repo
+            .group_list()
+            .unwrap()
+            .into_iter()
+            .find(|g| g.name == "Docs")
+            .unwrap();
+        repo.group_update(&docs.id, docs.revision, "DOCS", Some(&parent.id))
+            .unwrap();
+    }
+
+    #[test]
+    fn group_create_is_idempotent_per_request_id() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let request = uuid::Uuid::new_v4().to_string();
+        let first = repo.group_create("X", None, &request).unwrap();
+        let second = repo.group_create("X", None, &request).unwrap();
+        assert_eq!(first.id, second.id);
+        assert_eq!(repo.group_list().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn group_move_rejects_cycle_and_depth_overflow() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let a = new_group(&repo, "a", None).unwrap();
+        let b = new_group(&repo, "b", Some(&a.id)).unwrap();
+        let c = new_group(&repo, "c", Some(&b.id)).unwrap();
+        // 移到自己子孙下
+        let error = repo
+            .group_update(&a.id, a.revision, "a", Some(&c.id))
+            .unwrap_err();
+        assert_eq!(error.code, "VALIDATION_FAILED");
+        // 带 2 层子树的 a 移到另一个分组下：a(2)+b(3)+c(4) 超过 3
+        let other = new_group(&repo, "other", None).unwrap();
+        let error = repo
+            .group_update(&a.id, a.revision, "a", Some(&other.id))
+            .unwrap_err();
+        assert_eq!(error.code, "GROUP_DEPTH_EXCEEDED");
+        // 失败后原状不变
+        let groups = repo.group_list().unwrap();
+        let a_after = groups.iter().find(|g| g.id == a.id).unwrap();
+        assert_eq!(a_after.depth, 1);
+        assert_eq!(a_after.revision, a.revision);
+        // b 移到顶层：整棵子树深度重算
+        repo.group_update(&b.id, b.revision, "b", None).unwrap();
+        let groups = repo.group_list().unwrap();
+        assert_eq!(groups.iter().find(|g| g.id == b.id).unwrap().depth, 1);
+        assert_eq!(groups.iter().find(|g| g.id == c.id).unwrap().depth, 2);
+    }
+
+    #[test]
+    fn group_update_detects_revision_conflict() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let g = new_group(&repo, "g", None).unwrap();
+        repo.group_update(&g.id, g.revision, "g2", None).unwrap();
+        let error = repo
+            .group_update(&g.id, g.revision, "g3", None)
+            .unwrap_err();
+        assert_eq!(error.code, "REVISION_CONFLICT");
+    }
+
+    #[test]
+    fn group_delete_moves_contents_up_and_suffixes_conflicts() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let admin = new_group(&repo, "行政", None).unwrap();
+        let claim = new_group(&repo, "报销", Some(&admin.id)).unwrap();
+        let nested = new_group(&repo, "单据", Some(&claim.id)).unwrap();
+        assert_eq!(nested.depth, 3);
+        // 父级（顶层）已有同名 "报销"
+        let existing = new_group(&repo, "报销", None).unwrap();
+        let s1 = snippet_in(&repo, "one", Some(&admin.id), "plain");
+        let s2 = snippet_in(&repo, "two", Some(&admin.id), "bash");
+
+        let preview = repo.group_delete_preview(&admin.id).unwrap();
+        assert_eq!((preview.snippet_count, preview.child_group_count), (2, 1));
+        let outcome = repo.group_delete(&admin.id, admin.revision).unwrap();
+        assert_eq!((outcome.moved_snippets, outcome.moved_groups), (2, 1));
+
+        let groups = repo.group_list().unwrap();
+        assert!(groups.iter().all(|g| g.id != admin.id));
+        let moved = groups.iter().find(|g| g.id == claim.id).unwrap();
+        assert_eq!(moved.name, "报销 (2)");
+        assert_eq!(moved.parent_id, None);
+        assert_eq!(moved.depth, 1);
+        assert_eq!(
+            groups.iter().find(|g| g.id == existing.id).unwrap().name,
+            "报销"
+        );
+        assert_eq!(groups.iter().find(|g| g.id == nested.id).unwrap().depth, 2);
+        for id in [&s1.id, &s2.id] {
+            let snippet = repo.get(id).unwrap().unwrap();
+            assert_eq!(snippet.group_id, None);
+            assert_eq!(snippet.revision, 2);
+        }
+        // 已删除时幂等
+        let again = repo.group_delete(&admin.id, admin.revision).unwrap();
+        assert_eq!((again.moved_snippets, again.moved_groups), (0, 0));
+    }
+
+    #[test]
+    fn group_delete_with_same_named_child_moves_to_top_level() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let outer = new_group(&repo, "同名", None).unwrap();
+        new_group(&repo, "同名", Some(&outer.id)).unwrap();
+        let outcome = repo.group_delete(&outer.id, outer.revision).unwrap();
+        assert_eq!(outcome.moved_groups, 1);
+        let groups = repo.group_list().unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "同名");
+        assert_eq!(groups[0].depth, 1);
+    }
+
+    #[test]
+    fn failed_group_delete_rolls_back_everything() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let parent = new_group(&repo, "行政", None).unwrap();
+        let child = new_group(&repo, "报销", Some(&parent.id)).unwrap();
+        let snippet = snippet_in(&repo, "one", Some(&parent.id), "plain");
+        assert!(repo
+            .group_delete_failing(&parent.id, parent.revision)
+            .is_err());
+        let groups = repo.group_list().unwrap();
+        assert_eq!(groups.len(), 2);
+        let parent_after = groups.iter().find(|g| g.id == parent.id).unwrap();
+        assert_eq!(parent_after.name, "行政");
+        assert_eq!(parent_after.revision, parent.revision);
+        assert_eq!(
+            groups
+                .iter()
+                .find(|g| g.id == child.id)
+                .unwrap()
+                .parent_id
+                .as_deref(),
+            Some(parent.id.as_str())
+        );
+        let snippet_after = repo.get(&snippet.id).unwrap().unwrap();
+        assert_eq!(snippet_after.group_id.as_deref(), Some(parent.id.as_str()));
+        assert_eq!(snippet_after.revision, 1);
+    }
+
+    #[test]
+    fn snippet_save_rejects_missing_group_and_counts_ignore_trash() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let mut fields = validate_create(&input(uuid::Uuid::new_v4().to_string(), "k")).unwrap();
+        fields.group_id = Some("missing".into());
+        let error = repo
+            .create(fields, &uuid::Uuid::new_v4().to_string())
+            .unwrap_err();
+        assert_eq!(error.code, "VALIDATION_FAILED");
+
+        let group = new_group(&repo, "g", None).unwrap();
+        let keep = snippet_in(&repo, "keep", Some(&group.id), "plain");
+        let trashed = snippet_in(&repo, "trashed", Some(&group.id), "plain");
+        repo.trash_move(&trashed.id).unwrap();
+        let listed = repo.group_list().unwrap();
+        assert_eq!(listed[0].snippet_count, 1);
+        assert!(repo.get(&keep.id).unwrap().is_some());
+    }
+
+    #[test]
+    fn search_results_carry_language_group_name_and_kind() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let group = new_group(&repo, "运维", None).unwrap();
+        snippet_in(&repo, "ngxr", Some(&group.id), "bash");
+        let hit = repo.search("ngxr", 20).unwrap();
+        assert_eq!(hit.items[0].language, "bash");
+        assert_eq!(hit.items[0].group_name.as_deref(), Some("运维"));
+        assert_eq!(hit.items[0].kind, "text");
+        // 分组名不参与检索
+        assert_eq!(repo.search("运维", 20).unwrap().total, 0);
+        // 重命名后副标题刷新
+        repo.group_update(&group.id, group.revision, "SRE", None)
+            .unwrap();
+        let hit = repo.search("ngxr", 20).unwrap();
+        assert_eq!(hit.items[0].group_name.as_deref(), Some("SRE"));
     }
 }

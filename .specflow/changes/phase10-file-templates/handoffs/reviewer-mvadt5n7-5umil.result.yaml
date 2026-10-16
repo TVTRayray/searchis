@@ -1,0 +1,29 @@
+task_id: reviewer-mvadt5n7-5umil
+lease_id: lease-mvadt5n7-qg5ds
+outcome: completed
+summary: >
+  已完成 groups-language / SPEC-21 独立 QA，结论 repair。
+  在编译应用内复现两处 CodeMirror 集成缺陷：R1 打开 CRLF 正文后不编辑直接保存会将 CRLF 改为 LF；
+  R2 依次选择片段 A/B 后在 B 中 Ctrl+Z 会恢复 A 正文，当前选中项仍为 B。
+  既有 81 项 Rust 测试、生产构建和隔离环境两项 E2E 通过，但未覆盖上述失败路径。
+  已写入完整 QA 报告、逐项 Design Conformance 和可复现探针；未修改实现或推进工作流状态。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvadt5n7-5umil.md
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvadt5n7-5umil.probe.e2e.ts
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvadt5n7-5umil.result.yaml
+  test_results:
+    - 'cd src-tauri && cargo test group_: 11 passed, 0 failed'
+    - 'cd src-tauri && cargo test: 81 passed, 0 failed'
+    - 'npm run build: passed; 主 JS 656.25 kB / gzip 208.36 kB；语言包独立 chunk，存在 Vite chunk size warning'
+    - 'npm run test:e2e: 在 Xvfb + 私有 D-Bus + KWin 和临时 XDG 数据目录中最终 2 passing；早期无有效窗口管理器导致 windowactivate 失败，环境修正后通过'
+    - 'reviewer-mvadt5n7-5umil.probe.e2e.ts: 1 passing，表示两个错误行为均成功复现，并非验收通过；B 被选中时 Ctrl+Z 得到 AAA；CRLF 正文保存后读回为 LF'
+    - 'Node CodeMirror 状态探针：CRLF 默认转 LF，外部整段替换被 history 收录；与编译应用复现一致'
+    - '静态 grep：src/components 与 src/App.tsx 无硬编码颜色；新增组件无硬编码圆角；src 无 backdrop-filter/Figtree/glass/ambient 命中'
+unresolved_issues:
+  - 'R1 / P1 / implementation_defect：CodeEditor 初始化和外部值同步会标准化 CRLF 并回写表单，直接保存改变正文原始字节；需修复并补换行保真回归测试'
+  - 'R2 / P1 / implementation_defect：片段切换时新编辑器先以旧 contentInput 初始化，随后加载新正文的 dispatch 进入撤销栈，Ctrl+Z 可恢复上一片段正文；需隔离文档初始化和历史并补测试'
+  - 'pending_human：AC-23 编辑器中文 IME、真实复制粘贴保真、完整双主题截图、KWin 圆角与 KDE Global Menu；本次隔离虚拟桌面测试不替代实机验收'
+  - '未逐项实测新增表面对比度、对话框焦点循环、重启首帧和分组名日志场景；QA 报告已明确证据边界'
+verdict: repair
+category: implementation_defect

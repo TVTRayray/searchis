@@ -1,7 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
-import { AlertCircle, LayoutGrid, Lock, Star } from "lucide-react";
+import {
+  AlertCircle,
+  Braces,
+  Database,
+  FileCode,
+  FileText,
+  LayoutGrid,
+  Lock,
+  Star,
+  Terminal,
+} from "lucide-react";
 import { SearchResultItem, settingsApi, snippetsApi } from "../api/snippets";
 import { useTheme } from "./ThemeProvider";
 import {
@@ -35,6 +45,25 @@ const highlight = (text: string, query: string) => {
       {text.slice(start + needle.length)}
     </>
   );
+};
+
+/** Q-A 左侧类型图标：按 language 区分，文本片段默认 FileText。 */
+const languageIcon = (language: string) => {
+  const props = { className: "size-4", strokeWidth: 1.5, "aria-hidden": true } as const;
+  switch (language) {
+    case "bash":
+      return <Terminal {...props} />;
+    case "sql":
+      return <Database {...props} />;
+    case "json":
+      return <Braces {...props} />;
+    case "yaml":
+    case "toml":
+    case "ini":
+      return <FileCode {...props} />;
+    default:
+      return <FileText {...props} />;
+  }
 };
 
 export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
@@ -426,37 +455,46 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       >
         <span
           className={`quick-key ${selectedIndex === index ? (item.pinned ? "quick-key-pinned-selected" : "quick-key-selected") : item.pinned ? "quick-key-pinned" : ""}`}
+          data-kind={item.kind}
+          data-language={item.language}
           aria-hidden
         >
           {item.pinned ? (
             <Star className="size-3.5 fill-current" strokeWidth={1.5} />
           ) : (
-            item.key.slice(0, 2).toUpperCase()
+            languageIcon(item.language)
           )}
         </span>
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <span className="quick-search-title truncate">
-            {item.title}
+            {highlight(item.title, searchQuery)}
           </span>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="quick-search-subline flex items-center gap-1.5 min-w-0">
             <span className="quick-search-key truncate">
               {highlight(item.key, searchQuery)}
             </span>
-            {item.sensitive && (
-              <span className="quick-sensitive">
-                <Lock className="size-3" strokeWidth={1.5} />
-                敏感
-              </span>
+            {item.groupName && (
+              <>
+                <span className="quick-sep" aria-hidden>·</span>
+                <span className="quick-group truncate">{item.groupName}</span>
+              </>
             )}
-            {item.usageCount > 0 && (
-              <span className="quick-usage">使用 {item.usageCount} 次</span>
-            )}
-            {item.tags.slice(0, 2).map((tag) => (
-              <span className="quick-tag" key={tag}>
-                #{tag}
-              </span>
-            ))}
+            <span className="quick-sep" aria-hidden>·</span>
+            <span className="quick-usage">{item.usageCount} 次</span>
           </div>
+        </div>
+        <div className="quick-badges">
+          {item.sensitive && (
+            <span className="quick-sensitive">
+              <Lock className="size-3" strokeWidth={1.5} />
+              敏感
+            </span>
+          )}
+          {item.language !== "plain" && (
+            <span className="quick-language-badge" data-testid="language-badge">
+              {item.language.toUpperCase()}
+            </span>
+          )}
         </div>
         {index < 9 && (
           <CommandShortcut>

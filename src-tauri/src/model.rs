@@ -18,7 +18,13 @@ pub struct Snippet {
     pub updated_at: String,
     pub deleted_at: Option<String>,
     pub revision: i64,
+    pub group_id: Option<String>,
+    pub language: String,
+    pub kind: String,
 }
+
+/// SPEC-21：文本片段允许的语言标记。
+pub const LANGUAGES: [&str; 7] = ["plain", "bash", "sql", "yaml", "json", "toml", "ini"];
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +40,10 @@ pub struct CreateSnippetInput {
     pub sensitive: bool,
     #[serde(default)]
     pub pinned: bool,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
     pub request_id: String,
 }
 
@@ -53,6 +63,10 @@ pub struct UpdateSnippetInput {
     pub sensitive: bool,
     #[serde(default)]
     pub pinned: bool,
+    #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +80,15 @@ pub struct ValidatedFields {
     pub tags: Vec<String>,
     pub sensitive: bool,
     pub pinned: bool,
+    // 以下两项在默认值时不参与指纹序列化，保持 v3 时期幂等指纹不变。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
+    #[serde(skip_serializing_if = "is_plain")]
+    pub language: String,
+}
+
+fn is_plain(value: &String) -> bool {
+    value == "plain"
 }
 
 /// 检索结果条目。刻意不携带正文，避免敏感正文经 UI 泄露。
@@ -81,6 +104,9 @@ pub struct SearchResultItem {
     pub sensitive: bool,
     pub usage_count: i64,
     pub last_used_at: Option<String>,
+    pub language: String,
+    pub group_name: Option<String>,
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,6 +155,63 @@ pub struct ManagerRequest {
     pub edit_id: Option<String>,
     #[serde(default)]
     pub prefill_key: Option<String>,
+}
+
+// === SPEC-21: 分组 ===
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Group {
+    pub id: String,
+    pub name: String,
+    pub parent_id: Option<String>,
+    pub depth: i64,
+    pub sort_order: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub revision: i64,
+    /// 组内未删除条目数（仅直接成员）。
+    pub snippet_count: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupCreateInput {
+    pub name: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    pub request_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupUpdateInput {
+    pub id: String,
+    pub revision: i64,
+    pub name: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupDeleteInput {
+    pub id: String,
+    pub revision: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupDeletePreview {
+    pub snippet_count: i64,
+    pub child_group_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupDeleteOutcome {
+    pub moved_snippets: i64,
+    pub moved_groups: i64,
 }
 
 // === SPEC-06: Settings (PRD 8.2) ===

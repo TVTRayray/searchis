@@ -1,0 +1,22 @@
+task_id: implementer-mvaedw2a-me3te
+lease_id: lease-mvaedw2a-37ja0
+outcome: completed
+summary: >
+  修复 QA reviewer-mvadt5n7-5umil 的 R1/R2。R1：CodeEditor 按初始正文检测换行符（\r\n 或 \r），
+  用 EditorState.lineSeparator 创建状态，并以 state.sliceDoc() 读回（doc.toString() 不受 lineSeparator 影响），
+  CRLF 正文打开后直接保存字节不变。R2：ManagerWindow 引入 editorSeq，与 contentInput 在同一批更新里递增，
+  新编辑器挂载时即为目标正文；CodeEditor 外部回写附加 Transaction.addToHistory.of(false)，
+  A→B 后 Ctrl+Z 不再恢复 A 正文。新增 E2E 回归覆盖两项。未改 Rust。
+evidence:
+  changed_files:
+    - src/components/ui/CodeEditor.tsx
+    - src/components/ManagerWindow.tsx
+    - e2e/create-and-search.e2e.ts
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvaedw2a-me3te.result.yaml
+  test_results:
+    - "npm run build: 通过（主 JS 656.51 kB / gzip 208.38 kB，Vite >500kB 既有提示）"
+    - "npm run test:e2e（Xvfb + 私有 D-Bus + KWin，临时 XDG）: 3 passing，含新增 R1/R2 回归"
+    - "cargo test: 未重跑，本次未改动 Rust 代码（上轮 81 passed）"
+unresolved_issues:
+  - "tasks 2.10 实机验收（AC-23 含中文 IME、真实复制粘贴保真、双主题截图）仍为 pending_human"
+  - "回归 E2E 未在修复前代码上回放；缺陷复现依据为 reviewer 探针"

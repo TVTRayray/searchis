@@ -7,10 +7,11 @@ use crate::{
     error::AppError,
     logging::DiagnosticLogger,
     model::{
-        AutostartInput, CopyInput, CopyOutcome, CreateSnippetInput, ManagerRequest, PasteInput,
-        PasteOutcome, SearchInput, SearchResponse, SettingsResponse, SettingsUpdateInput,
-        ShortcutInfo, Snippet, TrashEmptyInput, TrashEmptyResult, TrashPurgeInput,
-        UpdateSnippetInput,
+        AutostartInput, CopyInput, CopyOutcome, CreateSnippetInput, Group, GroupCreateInput,
+        GroupDeleteInput, GroupDeleteOutcome, GroupDeletePreview, GroupUpdateInput, ManagerRequest,
+        PasteInput, PasteOutcome, SearchInput, SearchResponse, SettingsResponse,
+        SettingsUpdateInput, ShortcutInfo, Snippet, TrashEmptyInput, TrashEmptyResult,
+        TrashPurgeInput, UpdateSnippetInput,
     },
     platform::{WindowHandle, WindowManager},
     service::SnippetService,
@@ -84,6 +85,46 @@ pub fn snippet_update(
     input: UpdateSnippetInput,
 ) -> Result<Snippet, AppError> {
     audited(&state, "snippet_update", |s| s.update(input))
+}
+
+// SPEC-21：分组。日志只记录操作名与错误码，不含分组名称。
+#[tauri::command]
+pub fn group_list(state: tauri::State<'_, AppState>) -> Result<Vec<Group>, AppError> {
+    audited(&state, "group_list", SnippetService::group_list)
+}
+
+#[tauri::command]
+pub fn group_create(
+    state: tauri::State<'_, AppState>,
+    input: GroupCreateInput,
+) -> Result<Group, AppError> {
+    audited(&state, "group_create", |s| s.group_create(input))
+}
+
+#[tauri::command]
+pub fn group_update(
+    state: tauri::State<'_, AppState>,
+    input: GroupUpdateInput,
+) -> Result<Group, AppError> {
+    audited(&state, "group_update", |s| s.group_update(input))
+}
+
+#[tauri::command]
+pub fn group_delete_preview(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<GroupDeletePreview, AppError> {
+    audited(&state, "group_delete_preview", |s| {
+        s.group_delete_preview(&id)
+    })
+}
+
+#[tauri::command]
+pub fn group_delete(
+    state: tauri::State<'_, AppState>,
+    input: GroupDeleteInput,
+) -> Result<GroupDeleteOutcome, AppError> {
+    audited(&state, "group_delete", |s| s.group_delete(input))
 }
 
 #[tauri::command]

@@ -4,11 +4,12 @@ use crate::{
     clipboard::ClipboardWriter,
     error::AppError,
     model::{
-        CopyInput, CopyOutcome, CreateSnippetInput, PrepareNewOutcome, SearchInput, SearchResponse,
-        SearchResultItem, Settings, SettingsResponse, Snippet, UpdateSnippetInput,
+        CopyInput, CopyOutcome, CreateSnippetInput, Group, GroupCreateInput, GroupDeleteInput,
+        GroupDeleteOutcome, GroupDeletePreview, GroupUpdateInput, PrepareNewOutcome, SearchInput,
+        SearchResponse, SearchResultItem, Settings, SettingsResponse, Snippet, UpdateSnippetInput,
     },
     storage::Repository,
-    validation::{normalize_key, validate_create, validate_update},
+    validation::{normalize_key, validate_create, validate_group_name, validate_update},
 };
 
 pub struct SnippetService {
@@ -18,6 +19,44 @@ pub struct SnippetService {
 impl SnippetService {
     pub fn new(repository: Repository) -> Self {
         Self { repository }
+    }
+
+    /// 结果条目：分组名在返回时按 group_id 解析，不进入片段本身。
+    fn item_for(&self, snippet: &Snippet) -> SearchResultItem {
+        let group_name = snippet
+            .group_id
+            .as_deref()
+            .and_then(|id| self.repository.group_name(id));
+        to_search_item(snippet, group_name)
+    }
+
+    // === SPEC-21: 分组 ===
+
+    pub fn group_list(&self) -> Result<Vec<Group>, AppError> {
+        self.repository.group_list()
+    }
+
+    pub fn group_create(&self, input: GroupCreateInput) -> Result<Group, AppError> {
+        if uuid::Uuid::parse_str(&input.request_id).is_err() {
+            return Err(AppError::validation("requestId", "requestId 必须是 UUID。"));
+        }
+        let name = validate_group_name(&input.name)?;
+        self.repository
+            .group_create(&name, input.parent_id.as_deref(), &input.request_id)
+    }
+
+    pub fn group_update(&self, input: GroupUpdateInput) -> Result<Group, AppError> {
+        let name = validate_group_name(&input.name)?;
+        self.repository
+            .group_update(&input.id, input.revision, &name, input.parent_id.as_deref())
+    }
+
+    pub fn group_delete_preview(&self, id: &str) -> Result<GroupDeletePreview, AppError> {
+        self.repository.group_delete_preview(id)
+    }
+
+    pub fn group_delete(&self, input: GroupDeleteInput) -> Result<GroupDeleteOutcome, AppError> {
+        self.repository.group_delete(&input.id, input.revision)
     }
 
     pub fn create(&self, input: CreateSnippetInput) -> Result<Snippet, AppError> {
@@ -72,7 +111,7 @@ impl SnippetService {
             .is_operation_processed(&input.operation_id)?
         {
             return Ok(CopyOutcome {
-                snippet: to_search_item(&snippet),
+                snippet: self.item_for(&snippet),
                 counted: false,
             });
         }
@@ -87,7 +126,7 @@ impl SnippetService {
                 )
             })?;
         Ok(CopyOutcome {
-            snippet: to_search_item(&updated),
+            snippet: self.item_for(&updated),
             counted,
         })
     }
@@ -126,7 +165,7 @@ impl SnippetService {
         // 2. 幂等检查
         if self.is_operation_processed(&input.operation_id)? {
             return Ok(crate::model::PasteOutcome {
-                snippet: to_search_item(&snippet),
+                snippet: self.item_for(&snippet),
                 action: "copied".into(),
                 target_valid: false,
                 counted: false,
@@ -157,7 +196,7 @@ impl SnippetService {
         // 5. 原子统计更新
         let (updated, counted) = self.record_usage(&input.snippet_id, &input.operation_id)?;
         Ok(crate::model::PasteOutcome {
-            snippet: to_search_item(&updated),
+            snippet: self.item_for(&updated),
             action,
             target_valid,
             counted,
@@ -601,7 +640,7 @@ fn detect_x11_inject() -> crate::model::EnvironmentCapability {
     }
 }
 
-fn to_search_item(snippet: &Snippet) -> SearchResultItem {
+fn to_search_item(snippet: &Snippet, group_name: Option<String>) -> SearchResultItem {
     SearchResultItem {
         id: snippet.id.clone(),
         key: snippet.key.clone(),
@@ -612,6 +651,9 @@ fn to_search_item(snippet: &Snippet) -> SearchResultItem {
         sensitive: snippet.sensitive,
         usage_count: snippet.usage_count,
         last_used_at: snippet.last_used_at.clone(),
+        language: snippet.language.clone(),
+        group_name,
+        kind: snippet.kind.clone(),
     }
 }
 
@@ -646,6 +688,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: request_id.clone(),
             })
             .unwrap()
@@ -880,6 +924,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: req_id,
             })
             .unwrap();
@@ -923,6 +969,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: req_id,
             })
             .unwrap();
@@ -965,6 +1013,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: req_id,
             })
             .unwrap();
@@ -1007,6 +1057,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: req_id,
             })
             .unwrap();
@@ -1048,6 +1100,8 @@ mod tests {
                 tags: vec![],
                 sensitive: false,
                 pinned: false,
+                group_id: None,
+                language: None,
                 request_id: req_id,
             })
             .unwrap();

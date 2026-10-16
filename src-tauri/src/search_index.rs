@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap};
 
 use rusqlite::Connection;
 
@@ -25,6 +25,9 @@ struct IndexedSnippet {
     last_used_at: Option<String>,
     updated_at: String,
     deleted_at: Option<String>,
+    language: String,
+    group_id: Option<String>,
+    kind: String,
 }
 
 impl From<&Snippet> for IndexedSnippet {
@@ -44,6 +47,9 @@ impl From<&Snippet> for IndexedSnippet {
             last_used_at: snippet.last_used_at.clone(),
             updated_at: snippet.updated_at.clone(),
             deleted_at: snippet.deleted_at.clone(),
+            language: snippet.language.clone(),
+            group_id: snippet.group_id.clone(),
+            kind: snippet.kind.clone(),
         }
     }
 }
@@ -51,18 +57,33 @@ impl From<&Snippet> for IndexedSnippet {
 #[derive(Debug, Default)]
 pub struct SearchIndex {
     items: Vec<IndexedSnippet>,
+    /// group_id → 分组名；仅用于结果副标题，不参与检索。
+    group_names: HashMap<String, String>,
+    /// invalidate 之后、rebuild 之前为 true，避免只含零星 upsert 条目的索引被误认为已加载。
+    stale: bool,
 }
 
 impl SearchIndex {
+    /// 分组写操作后丢弃全部派生数据，下次检索时由数据库全量重建。
+    pub fn invalidate(&mut self) {
+        self.items.clear();
+        self.group_names.clear();
+        self.stale = true;
+    }
+
+    pub fn group_name(&self, group_id: &str) -> Option<String> {
+        self.group_names.get(group_id).cloned()
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.stale || self.items.is_empty()
     }
 
     pub fn rebuild(&mut self, connection: &Connection) -> Result<(), AppError> {
         let mut statement = connection
             .prepare(
                 "SELECT id, key, title, aliases, tags, aliases_norm, tags_norm, content_norm, pinned, sensitive,
-                        usage_count, last_used_at, updated_at, deleted_at
+                        usage_count, last_used_at, updated_at, deleted_at, language, group_id, kind
                  FROM snippets",
             )
             .map_err(|_| AppError::new("DB_OPEN_FAILED", "无法加载检索索引。请检查数据库文件。"))?;
@@ -87,12 +108,17 @@ impl SearchIndex {
                     last_used_at: row.get(11)?,
                     updated_at: row.get(12)?,
                     deleted_at: row.get(13)?,
+                    language: row.get(14)?,
+                    group_id: row.get(15)?,
+                    kind: row.get(16)?,
                 })
             })
             .map_err(|_| AppError::new("DB_OPEN_FAILED", "无法加载检索索引。请检查数据库文件。"))?;
         self.items = rows
             .collect::<rusqlite::Result<Vec<_>>>()
             .map_err(|_| AppError::new("DB_OPEN_FAILED", "检索索引数据损坏。请从备份恢复。"))?;
+        self.group_names = load_group_names(connection)?;
+        self.stale = false;
         Ok(())
     }
 
@@ -138,7 +164,7 @@ impl SearchIndex {
         let items = matches
             .into_iter()
             .take(limit as usize)
-            .map(|(_, item)| to_search_item(item))
+            .map(|(_, item)| self.to_search_item(item))
             .collect();
         SearchResponse { items, total }
     }
@@ -161,7 +187,7 @@ impl SearchIndex {
         let items = matches
             .into_iter()
             .take(limit as usize)
-            .map(to_search_item)
+            .map(|item| self.to_search_item(item))
             .collect();
         SearchResponse { items, total }
     }
@@ -202,17 +228,39 @@ fn compare_last_used_desc(a: &IndexedSnippet, b: &IndexedSnippet) -> Ordering {
     }
 }
 
-fn to_search_item(item: &IndexedSnippet) -> SearchResultItem {
-    SearchResultItem {
-        id: item.id.clone(),
-        key: item.key.clone(),
-        title: item.title.clone(),
-        aliases: item.aliases.clone(),
-        tags: item.tags.clone(),
-        pinned: item.pinned,
-        sensitive: item.sensitive,
-        usage_count: item.usage_count,
-        last_used_at: item.last_used_at.clone(),
+fn load_group_names(connection: &Connection) -> Result<HashMap<String, String>, AppError> {
+    let load_error = || AppError::new("DB_OPEN_FAILED", "无法加载检索索引。请检查数据库文件。");
+    let mut statement = connection
+        .prepare("SELECT id, name FROM groups")
+        .map_err(|_| load_error())?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| load_error())?;
+    rows.collect::<rusqlite::Result<HashMap<_, _>>>()
+        .map_err(|_| load_error())
+}
+
+impl SearchIndex {
+    fn to_search_item(&self, item: &IndexedSnippet) -> SearchResultItem {
+        SearchResultItem {
+            id: item.id.clone(),
+            key: item.key.clone(),
+            title: item.title.clone(),
+            aliases: item.aliases.clone(),
+            tags: item.tags.clone(),
+            pinned: item.pinned,
+            sensitive: item.sensitive,
+            usage_count: item.usage_count,
+            last_used_at: item.last_used_at.clone(),
+            language: item.language.clone(),
+            group_name: item
+                .group_id
+                .as_deref()
+                .and_then(|id| self.group_names.get(id).cloned()),
+            kind: item.kind.clone(),
+        }
     }
 }
 
@@ -250,6 +298,9 @@ mod tests {
             updated_at: updated_at.into(),
             deleted_at: None,
             revision: 1,
+            group_id: None,
+            language: "plain".into(),
+            kind: "text".into(),
         }
     }
 

@@ -5,6 +5,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  FileText,
   Keyboard,
   Layers,
   Moon,
@@ -16,15 +17,24 @@ import {
   Star,
   Sun,
   Tag,
+  Terminal,
   Trash2,
   X,
 } from 'lucide-react';
-import { Snippet, SidebarFilter, SortOption } from '../types/snippet';
+import { Group, GROUP_FILTER_PREFIX, Snippet, SidebarFilter, SnippetLanguage, SortOption, TypeFilter } from '../types/snippet';
 import { SelectField } from './ui/SelectField';
+import { CodeEditor } from './ui/CodeEditor';
+import { GroupTree } from './ui/GroupTree';
+import { GroupDialog } from './ui/GroupDialog';
 import { THEME_LABELS, useTheme } from './ThemeProvider';
 
 interface ManagerWindowProps {
   snippets: Snippet[];
+  groups: Group[];
+  /** 返回错误文案；成功返回 null。 */
+  onCreateGroup: (name: string, parentId: string | null) => Promise<string | null>;
+  onUpdateGroup: (group: Group, name: string, parentId: string | null) => Promise<string | null>;
+  onRequestDeleteGroup: (group: Group) => void;
   onSaveSnippet: (snippet: Snippet) => void;
   onDeleteSnippet: (id: string) => void;
   onRestoreSnippet: (id: string) => void;
@@ -45,6 +55,22 @@ interface ManagerWindowProps {
   /** 外部指定的初始分类 (如回收站) */
   initialFilter?: SidebarFilter;
 }
+
+const LANGUAGE_OPTIONS: Array<{ value: SnippetLanguage; label: string }> = [
+  { value: 'plain', label: '纯文本' },
+  { value: 'bash', label: 'Bash' },
+  { value: 'sql', label: 'SQL' },
+  { value: 'yaml', label: 'YAML' },
+  { value: 'json', label: 'JSON' },
+  { value: 'toml', label: 'TOML' },
+  { value: 'ini', label: 'INI' },
+];
+
+const TYPE_FILTER_OPTIONS: Array<[TypeFilter, string]> = [
+  ['all', '全部'],
+  ['text', '文本'],
+  ['file', '文件'],
+];
 
 const sortOptions: Array<[SortOption, string]> = [
   ['updated', '更新时间'],
@@ -135,6 +161,10 @@ function useUndoableInput(initialValue: string = '') {
 
 export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   snippets,
+  groups,
+  onCreateGroup,
+  onUpdateGroup,
+  onRequestDeleteGroup,
   onSaveSnippet,
   onDeleteSnippet,
   onRestoreSnippet,
@@ -158,7 +188,16 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const selectedSnippet = snippets.find(snippet => snippet.id === selectedSnippetId) || null;
   const [keyInput, setKeyInput, resetKeyInput, onKeyKeyDown] = useUndoableInput('');
   const [titleInput, setTitleInput, resetTitleInput, onTitleKeyDown] = useUndoableInput('');
-  const [contentInput, setContentInput, resetContentInput, onContentKeyDown] = useUndoableInput('');
+  // 正文由 CodeMirror 自带撤销栈管理，这里只保存当前文本。
+  const [contentInput, setContentInput] = useState('');
+  const resetContentInput = setContentInput;
+  // 编辑器按“已装载的文档”重挂载：与 contentInput 在同一批更新里递增，新实例首帧即为目标正文。
+  const [editorSeq, setEditorSeq] = useState(0);
+  const loadedEditorDocRef = useRef<string | null>(null);
+  const [languageInput, setLanguageInput] = useState<SnippetLanguage>('plain');
+  const [groupInput, setGroupInput] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [groupDialog, setGroupDialog] = useState<{ group: Group | null; parentId: string | null } | null>(null);
   const [aliasesInput, setAliasesInput, resetAliasesInput, onAliasesKeyDown] = useUndoableInput('');
   const [tagsInput, setTagsInput, resetTagsInput, onTagsKeyDown] = useUndoableInput('');
   const [isSensitive, setIsSensitive] = useState(false);
@@ -169,6 +208,8 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const [keyError, setKeyError] = useState('');
 
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const activeFilterRef = useRef(activeFilter);
+  activeFilterRef.current = activeFilter;
   const { theme, effectiveTheme } = useTheme();
   const themeLabel = theme === 'system'
     ? `${THEME_LABELS.system} · ${THEME_LABELS[effectiveTheme]}`
@@ -183,11 +224,17 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
 
   React.useEffect(() => {
     if (!selectedSnippet) return;
+    if (loadedEditorDocRef.current !== selectedSnippet.id) {
+      loadedEditorDocRef.current = selectedSnippet.id;
+      setEditorSeq(seq => seq + 1);
+    }
     resetKeyInput(selectedSnippet.key);
     resetTitleInput(selectedSnippet.title);
     resetContentInput(selectedSnippet.content);
     resetAliasesInput(selectedSnippet.aliases.join(', '));
     resetTagsInput(selectedSnippet.tags.join(', '));
+    setLanguageInput(selectedSnippet.language ?? 'plain');
+    setGroupInput(selectedSnippet.groupId ?? '');
     setIsSensitive(!!selectedSnippet.sensitive);
     setIsPinned(!!selectedSnippet.pinned);
     setIsCreatingNew(false);
@@ -198,11 +245,16 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const handleStartCreateNew = useCallback(() => {
     setSelectedSnippetId(null);
     setIsCreatingNew(true);
+    loadedEditorDocRef.current = null;
+    setEditorSeq(seq => seq + 1);
     resetKeyInput('');
     resetTitleInput('');
     resetContentInput('');
     resetAliasesInput('');
     resetTagsInput('');
+    setLanguageInput('plain');
+    // 在某个分组视图里新建，默认放进该分组。
+    setGroupInput(activeFilterRef.current.startsWith(GROUP_FILTER_PREFIX) ? activeFilterRef.current.slice(GROUP_FILTER_PREFIX.length) : '');
     setIsSensitive(false);
     setIsPinned(false);
     setSensitiveRevealed(true);
@@ -255,6 +307,24 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
     }
   }, [snippets, selectedSnippetId, isCreatingNew]);
 
+  const ungroupedCount = useMemo(
+    () => snippets.filter(snippet => !snippet.deletedAt && !snippet.groupId).length,
+    [snippets],
+  );
+  const groupNames = useMemo(() => new Map(groups.map(group => [group.id, group.name])), [groups]);
+  const groupOptions = useMemo(() => {
+    const options = [{ value: '', label: '未分组' }];
+    const walk = (parent: string | null) => {
+      for (const group of groups) {
+        if ((group.parentId ?? null) !== parent) continue;
+        options.push({ value: group.id, label: `${'　'.repeat(group.depth - 1)}${group.name}` });
+        walk(group.id);
+      }
+    };
+    walk(null);
+    return options;
+  }, [groups]);
+
   const { allTags, tagCounts, pinnedCount, deletedCount } = useMemo(() => {
     const counts: Record<string, number> = {};
     let pinned = 0;
@@ -280,8 +350,14 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
         if (snippet.deletedAt) return false;
         if (activeFilter === 'pinned' && !snippet.pinned) return false;
         if (activeFilter === 'recent' && !snippet.lastUsedAt) return false;
-        if (activeFilter !== 'all' && activeFilter !== 'pinned' && activeFilter !== 'recent' && !snippet.tags.includes(activeFilter)) return false;
+        if (activeFilter.startsWith(GROUP_FILTER_PREFIX)) {
+          if ((snippet.groupId ?? '') !== activeFilter.slice(GROUP_FILTER_PREFIX.length)) return false;
+        } else if (activeFilter !== 'all' && activeFilter !== 'pinned' && activeFilter !== 'recent' && !snippet.tags.includes(activeFilter)) return false;
       }
+      // 文件模板在 SPEC-22 之前不存在；“文件”筛选始终为空。
+      const isFile = snippet.kind === 'file';
+      if (typeFilter === 'file' && !isFile) return false;
+      if (typeFilter === 'text' && isFile) return false;
 
       const query = searchQuery.trim().toLowerCase();
       if (!query) return true;
@@ -296,7 +372,7 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       if (sortBy === 'usage') return b.usageCount - a.usageCount;
       if (sortBy === 'alpha') return a.title.localeCompare(b.title);
       return a.key.localeCompare(b.key);
-    }), [snippets, activeFilter, searchQuery, sortBy]);
+    }), [snippets, activeFilter, searchQuery, sortBy, typeFilter]);
 
   const handleSave = () => {
     const trimmedKey = keyInput.trim().toLowerCase();
@@ -332,6 +408,9 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
       updatedAt: now,
       deletedAt: selectedSnippet ? selectedSnippet.deletedAt : null,
       revision: selectedSnippet ? selectedSnippet.revision : 0,
+      groupId: groupInput || null,
+      language: languageInput,
+      kind: 'text',
     };
 
     onSaveSnippet(nextSnippet);
@@ -370,8 +449,21 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
           {navItem('pinned', '固定片段', <Star strokeWidth={1.5} className="size-4" aria-hidden />, pinnedCount, 'warning')}
           {navItem('recent', '最近使用', <Clock strokeWidth={1.5} className="size-4" aria-hidden />)}
           <div className="manager-side-divider" />
-          <div className="manager-side-section-title">标签分类</div>
-          {allTags.map(tag => navItem(tag, tag, <Tag strokeWidth={1.5} className="size-3.5" aria-hidden />, tagCounts[tag]))}
+          <GroupTree
+            groups={groups}
+            activeFilter={activeFilter}
+            ungroupedCount={ungroupedCount}
+            onSelect={setActiveFilter}
+            onCreate={parentId => setGroupDialog({ group: null, parentId })}
+            onEdit={group => setGroupDialog({ group, parentId: group.parentId })}
+            onDelete={onRequestDeleteGroup}
+          />
+          <div className="manager-side-divider" />
+          <details className="manager-tag-section" open>
+            <summary className="manager-side-section-title">标签</summary>
+            {allTags.length === 0 && <div className="manager-side-empty">暂无标签</div>}
+            {allTags.map(tag => navItem(tag, tag, <Tag strokeWidth={1.5} className="size-3.5" aria-hidden />, tagCounts[tag]))}
+          </details>
           <div className="manager-side-divider" />
           {navItem('trash', '回收站', <Trash2 strokeWidth={1.5} className="size-4" aria-hidden />, deletedCount || undefined, 'danger')}
         </div>
@@ -418,6 +510,19 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
               <Plus strokeWidth={1.5} className="size-4" aria-hidden />
             </button>
           </div>
+          <div className="manager-type-filter" role="group" aria-label="类型筛选">
+            {TYPE_FILTER_OPTIONS.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`manager-type-chip ${typeFilter === value ? 'is-active' : ''}`}
+                aria-pressed={typeFilter === value}
+                onClick={() => setTypeFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="manager-list-meta">
             <span>{activeFilter === 'trash' ? '回收站' : `${filteredSnippets.length} 条结果`}</span>
             <div>
@@ -437,9 +542,9 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
           {filteredSnippets.length === 0 ? (
             <div className="manager-empty-state">
               <div className="manager-empty-mark"><Layers strokeWidth={1.5} className="size-5" aria-hidden /></div>
-              <strong>暂无匹配的文本片段</strong>
-              <span>{activeFilter === 'trash' ? '回收站为空' : '从一个简短、可重复使用的 Key 开始。'}</span>
-              {activeFilter !== 'trash' && <button type="button" className="manager-text-action" onClick={handleStartCreateNew}>新建第一条片段</button>}
+              <strong>{typeFilter === 'file' ? '暂无文件' : '暂无匹配的文本片段'}</strong>
+              <span>{activeFilter === 'trash' ? '回收站为空' : typeFilter === 'file' ? '文件模板将在后续版本提供。' : '从一个简短、可重复使用的 Key 开始。'}</span>
+              {activeFilter !== 'trash' && typeFilter !== 'file' && <button type="button" className="manager-text-action" onClick={handleStartCreateNew}>新建第一条片段</button>}
             </div>
           ) : (
             <div className="manager-snippet-list" role="listbox" aria-label="文本片段">
@@ -458,12 +563,22 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                     }}
                   >
                     <span className="manager-snippet-mark" aria-hidden>
-                      {snippet.pinned ? <Star strokeWidth={1.5} className="size-3.5" fill="currentColor" /> : snippet.key.slice(0, 2).toUpperCase()}
+                      {snippet.pinned
+                        ? <Star strokeWidth={1.5} className="size-3.5" fill="currentColor" />
+                        : snippet.language && snippet.language !== 'plain'
+                          ? <Terminal strokeWidth={1.5} className="size-3.5" />
+                          : <FileText strokeWidth={1.5} className="size-3.5" />}
                     </span>
                     <span className="manager-snippet-copy">
                       <span className="manager-snippet-title">{snippet.title}</span>
                       <span className="manager-snippet-subline">
                         <span className="manager-snippet-key">{snippet.key}</span>
+                        {snippet.language && snippet.language !== 'plain' && (
+                          <span className="manager-language-badge" data-testid="language-badge">{snippet.language.toUpperCase()}</span>
+                        )}
+                        {snippet.groupId && groupNames.get(snippet.groupId) && (
+                          <span className="manager-snippet-group">{groupNames.get(snippet.groupId)}</span>
+                        )}
                         <span>更新于 {new Date(snippet.updatedAt).toLocaleDateString()}</span>
                       </span>
                     </span>
@@ -569,13 +684,14 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
                     <span>点击此处显示明文正文</span>
                   </button>
                 ) : (
-                  <textarea
+                  <CodeEditor
+                    key={`editor-${editorSeq}`}
                     value={contentInput}
-                    onChange={event => setContentInput(event.target.value)}
-                    onKeyDown={onContentKeyDown}
+                    language={languageInput}
+                    onChange={setContentInput}
                     placeholder="在此输入需要快速粘贴的任意文本片段..."
-                    rows={8}
-                    className="manager-control manager-textarea manager-mono"
+                    ariaLabel="文本内容"
+                    className="manager-control manager-code-editor"
                   />
                 )}
               </section>
@@ -583,6 +699,19 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
               <section className="manager-form-section">
                 <div className="manager-section-heading"><h2>元信息</h2><span>别名和标签帮助你更快找到片段。</span></div>
                 <div className="manager-form-grid">
+                  <div className="manager-field">
+                    <span>分组 <small>最多 3 层</small></span>
+                    <SelectField value={groupInput} options={groupOptions} onChange={setGroupInput} ariaLabel="分组" />
+                  </div>
+                  <div className="manager-field">
+                    <span>语言 <small>只影响高亮与徽标</small></span>
+                    <SelectField
+                      value={languageInput}
+                      options={LANGUAGE_OPTIONS}
+                      onChange={value => setLanguageInput(value as SnippetLanguage)}
+                      ariaLabel="语言"
+                    />
+                  </div>
                   <label className="manager-field">
                     <span>别名 <small>英文逗号分隔 (支持 Ctrl+Z)</small></span>
                     <input
@@ -643,6 +772,22 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
           </div>
         )}
       </main>
+
+      {groupDialog && (
+        <GroupDialog
+          group={groupDialog.group}
+          initialParentId={groupDialog.parentId}
+          groups={groups}
+          onClose={() => setGroupDialog(null)}
+          onSubmit={async (name, parentId) => {
+            const message = groupDialog.group
+              ? await onUpdateGroup(groupDialog.group, name, parentId)
+              : await onCreateGroup(name, parentId);
+            if (!message) setGroupDialog(null);
+            return message;
+          }}
+        />
+      )}
     </div>
   );
 };

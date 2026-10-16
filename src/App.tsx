@@ -5,6 +5,8 @@ import { SidebarFilter, ViewMode } from './types/snippet';
 import { SettingsConfig } from './api/snippets';
 import {
   AppError,
+  Group,
+  groupsApi,
   ManagerRequest,
   PersistedSnippet,
   SearchResultItem,
@@ -91,6 +93,12 @@ const SearchWindowApp: React.FC = () => {
 /* ============ 管理窗口（常规主窗口） ============ */
 const MainContent: React.FC = () => {
   const [snippets, setSnippets] = useState<PersistedSnippet[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [pendingGroupDelete, setPendingGroupDelete] = useState<{
+    group: Group;
+    snippetCount: number;
+    childGroupCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [settingsRevision, setSettingsRevision] = useState(1);
   const settingsRevisionRef = useRef(1);
@@ -147,8 +155,9 @@ const MainContent: React.FC = () => {
 
   const refresh = useCallback(async () => {
     try {
-      const items = await snippetsApi.list();
+      const [items, groupItems] = await Promise.all([snippetsApi.list(), groupsApi.list()]);
       setSnippets(items);
+      setGroups(groupItems);
     } catch (e) {
       showToast(`读取片段失败：${errorMessage(e)}`, 'error');
     }
@@ -261,7 +270,65 @@ const MainContent: React.FC = () => {
     tags: snippet.tags,
     sensitive: snippet.sensitive,
     pinned: snippet.pinned,
+    groupId: snippet.groupId,
+    language: snippet.language,
   });
+
+  // 分组操作：错误以文案返回给对话框就地显示；成功后整体刷新（计数、副标题随之更新）。
+  const groupErrorText = (error: unknown): string => {
+    const err = error as AppError;
+    switch (err?.code) {
+      case 'GROUP_NAME_INVALID': return '分组名需为 1–64 个字符，不含 /，不能以 . 开头。';
+      case 'GROUP_NAME_CONFLICT': return '同级已有同名分组。';
+      case 'GROUP_DEPTH_EXCEEDED': return 'GROUP_DEPTH_EXCEEDED：分组最多 3 层。';
+      case 'REVISION_CONFLICT': return '分组已在其他窗口修改，请关闭后重试。';
+      default: return err?.message ?? '操作失败';
+    }
+  };
+
+  const handleCreateGroup = async (name: string, parentId: string | null): Promise<string | null> => {
+    try {
+      await groupsApi.create(name, parentId, crypto.randomUUID());
+      await refresh();
+      return null;
+    } catch (error) {
+      if ((error as AppError).code === 'VALIDATION_FAILED') await refresh();
+      return groupErrorText(error);
+    }
+  };
+
+  const handleUpdateGroup = async (group: Group, name: string, parentId: string | null): Promise<string | null> => {
+    try {
+      await groupsApi.update(group, name, parentId);
+      await refresh();
+      return null;
+    } catch (error) {
+      if ((error as AppError).code === 'REVISION_CONFLICT') await refresh();
+      return groupErrorText(error);
+    }
+  };
+
+  const handleRequestDeleteGroup = async (group: Group) => {
+    try {
+      const preview = await groupsApi.deletePreview(group.id);
+      setPendingGroupDelete({ group, ...preview });
+    } catch (error) {
+      showToast(`读取分组信息失败：${errorMessage(error)}`, 'error');
+    }
+  };
+
+  const confirmDeleteGroup = async () => {
+    const target = pendingGroupDelete;
+    setPendingGroupDelete(null);
+    if (!target) return;
+    try {
+      await groupsApi.delete(target.group);
+      showToast('分组已删除，其中的内容已上移到上级');
+    } catch (error) {
+      showToast(`删除分组失败：${errorMessage(error)}`, 'error');
+    }
+    await refresh();
+  };
 
   // ManagerWindow 以构造的 Snippet 调用；此处映射到真实 create/update（带 revision）
   const handleSaveSnippet = async (snippet: PersistedSnippet) => {
@@ -404,9 +471,29 @@ const MainContent: React.FC = () => {
           </div>
         )}
 
+        {pendingGroupDelete && (
+          <div className="manager-confirm-backdrop" role="presentation">
+            <section className="manager-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="group-delete-title" aria-describedby="group-delete-description">
+              <h2 id="group-delete-title">删除分组？</h2>
+              <p id="group-delete-description">
+                {pendingGroupDelete.snippetCount} 个条目和 {pendingGroupDelete.childGroupCount} 个子分组会上移到上级分组，
+                与上级重名的子分组会自动加 (2)。条目本身不会被删除。
+              </p>
+              <div className="manager-confirm-actions">
+                <button type="button" className="manager-button manager-button-secondary" onClick={() => setPendingGroupDelete(null)}>取消</button>
+                <button type="button" className="manager-button manager-button-danger" onClick={confirmDeleteGroup}>确认删除分组</button>
+              </div>
+            </section>
+          </div>
+        )}
+
         {currentView === 'manager' && (
           <ManagerWindow
             snippets={snippets}
+            groups={groups}
+            onCreateGroup={handleCreateGroup}
+            onUpdateGroup={handleUpdateGroup}
+            onRequestDeleteGroup={handleRequestDeleteGroup}
             onSaveSnippet={handleSaveSnippet}
             onDeleteSnippet={handleDeleteSnippet}
             onRestoreSnippet={handleRestoreSnippet}

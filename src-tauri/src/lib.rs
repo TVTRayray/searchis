@@ -143,11 +143,23 @@ pub fn run() {
             platform::start_socket_server(app.handle().clone());
 
             // 系统托盘（System Tray）配置
-            let tray_search = MenuItem::with_id(app, "tray-search", "显示快速检索 (Alt+O)", true, None::<&str>)?;
-            let tray_manager = MenuItem::with_id(app, "tray-manager", "打开管理窗口", true, None::<&str>)?;
-            let tray_settings = MenuItem::with_id(app, "tray-settings", "偏好设置", true, None::<&str>)?;
-            let tray_quit = MenuItem::with_id(app, "tray-quit", "退出 Searchis", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&tray_search, &tray_manager, &tray_settings, &tray_quit])?;
+            let tray_search = MenuItem::with_id(
+                app,
+                "tray-search",
+                "显示快速检索 (Alt+O)",
+                true,
+                None::<&str>,
+            )?;
+            let tray_manager =
+                MenuItem::with_id(app, "tray-manager", "打开管理窗口", true, None::<&str>)?;
+            let tray_settings =
+                MenuItem::with_id(app, "tray-settings", "偏好设置", true, None::<&str>)?;
+            let tray_quit =
+                MenuItem::with_id(app, "tray-quit", "退出 Searchis", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(
+                app,
+                &[&tray_search, &tray_manager, &tray_settings, &tray_quit],
+            )?;
 
             let mut tray_builder = TrayIconBuilder::with_id("main-tray")
                 .menu(&tray_menu)
@@ -209,7 +221,10 @@ pub fn run() {
                             if prev.is_empty() {
                                 logger.record("shortcut_register", "OK_registered");
                             } else {
-                                logger.record("shortcut_register", &format!("OK_updated_from_{prev}"));
+                                logger.record(
+                                    "shortcut_register",
+                                    &format!("OK_updated_from_{prev}"),
+                                );
                             }
                         }
                         Err(error) => {
@@ -276,6 +291,11 @@ pub fn run() {
             commands::snippet_get,
             commands::snippet_list,
             commands::snippet_update,
+            commands::group_list,
+            commands::group_create,
+            commands::group_update,
+            commands::group_delete_preview,
+            commands::group_delete,
             commands::search_snippets,
             commands::copy_snippet,
             commands::prepare_new_snippet,

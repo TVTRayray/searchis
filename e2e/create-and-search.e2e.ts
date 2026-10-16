@@ -15,7 +15,8 @@ const snippets = [
 const inputSelectors = {
   key: 'input[placeholder="例如 email-work, addr-office"]',
   title: 'input[placeholder="例如 工作邮箱, 公司地址"]',
-  content: 'textarea[placeholder="在此输入需要快速粘贴的任意文本片段..."]',
+  // SPEC-21：正文改为 CodeMirror 6，可编辑区域是 .cm-content。
+  content: '.cm-content',
   search: 'input[aria-label="检索文本片段"]',
 };
 
@@ -31,6 +32,9 @@ type SearchItem = {
   sensitive: boolean;
   usageCount: number;
   lastUsedAt: string | null;
+  language?: string;
+  groupName?: string | null;
+  kind?: string;
 };
 
 const inWindow = (windowLabel: string, script: TauriScript, ...args: unknown[]) =>
@@ -104,6 +108,33 @@ const setValue = async (windowLabel: string, selector: string, value: string) =>
     return (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && element.value === expected;
   }, [selector, value], `${selector} did not receive its value`);
 };
+
+// CodeMirror 的可编辑区是 contenteditable：用 execCommand 走真实输入通道，由 CM 自己的 DOM 观察器更新文档。
+const setCodeContent = async (windowLabel: string, text: string) => {
+  await waitFor(windowLabel, () => Boolean(document.querySelector('.cm-content')), [], 'missing code editor');
+  await inWindow(windowLabel, (_tauri, nextText) => {
+    const element = document.querySelector('.cm-content');
+    if (!(element instanceof HTMLElement)) return false;
+    element.focus();
+    document.execCommand('selectAll');
+    return document.execCommand('insertText', false, nextText as string);
+  }, text);
+  await waitFor(windowLabel, (_tauri, expected) => document.querySelector('.cm-content')?.textContent === expected, [text], 'code editor did not receive its text');
+};
+
+const selectFieldOption = async (windowLabel: string, ariaLabel: string, optionText: string) => {
+  await click(windowLabel, `button[role="combobox"][aria-label="${ariaLabel}"]`);
+  await waitFor(windowLabel, (_tauri, label, text) => [...document.querySelectorAll(`[role="listbox"][aria-label="${label}"] [role="option"]`)].some(option => option.textContent?.trim() === text), [ariaLabel, optionText], `missing option ${optionText}`);
+  await inWindow(windowLabel, (_tauri, label, text) => {
+    const option = [...document.querySelectorAll(`[role="listbox"][aria-label="${label}"] [role="option"]`)].find(item => item.textContent?.trim() === text);
+    if (!(option instanceof HTMLElement)) return false;
+    option.click();
+    return true;
+  }, ariaLabel, optionText);
+};
+
+const invokeMain = (command: string, args?: Record<string, unknown>) =>
+  inWindow('main', (tauri: any, name, payload) => tauri.core.invoke(name as string, payload as Record<string, unknown>), command, args ?? {});
 
 const hasText = async (windowLabel: string, text: string) => Boolean(await inWindow(
   windowLabel,
@@ -267,7 +298,7 @@ const createSnippet = async (snippet: typeof snippets[number]) => {
   await click('main', 'button[aria-label="新建片段"]');
   await setValue('main', inputSelectors.key, snippet.key);
   await setValue('main', inputSelectors.title, snippet.title);
-  await setValue('main', inputSelectors.content, snippet.content);
+  await setCodeContent('main', snippet.content);
   if (snippet.sensitive) {
     await inWindow('main', (_tauri, labelText) => {
       const label = [...document.querySelectorAll('label')].find(element => element.textContent?.includes(labelText as string));
@@ -657,5 +688,128 @@ describe('compiled Searchis application', () => {
     await openSearch();
     await exec('xdotool', ['windowactivate', '--sync', mainWindow]);
     await waitForWindow('search', false);
+  });
+
+  it('manages the group tree, language badges and non-empty group deletion (SPEC-21)', async () => {
+    const groupSuffix = suffix.slice(-6);
+    const root = `运维${groupSuffix}`;
+    const db = `数据库${groupSuffix}`;
+    const slow = `慢查询${groupSuffix}`;
+    const bashKey = `ngxr-${suffix}`;
+    const bashContent = `sudo nginx -s reload # ${suffix}`;
+
+    await clickButtonContaining('main', '全部片段');
+    const createGroup = async (name: string, parentAriaLabel?: string) => {
+      await click('main', parentAriaLabel ? `button[aria-label="${parentAriaLabel}"]` : 'button[aria-label="新建分组"]');
+      await setValue('main', 'input[aria-label="分组名称"]', name);
+      await clickButtonContaining('main', '创建');
+      await waitFor('main', (_tauri, text) => [...document.querySelectorAll('.manager-group-main')].some(node => node.textContent?.includes(text as string)), [name], `${name} did not appear in the tree`);
+    };
+
+    // AC-21 数据部分：三层允许，第四层被拒绝；UI 在第三层不再提供“新建子分组”。
+    await createGroup(root);
+    await createGroup(db, `在 ${root} 下新建子分组`);
+    await createGroup(slow, `在 ${db} 下新建子分组`);
+    if (await inWindow('main', (_tauri, label) => Boolean(document.querySelector(`button[aria-label="${label}"]`)), `在 ${slow} 下新建子分组`)) {
+      throw new Error('third-level group must not offer a child-group button');
+    }
+    const groups = await invokeMain('group_list') as Array<{ id: string; name: string; depth: number; parentId: string | null; revision: number }>;
+    const slowGroup = groups.find(group => group.name === slow);
+    const rootGroup = groups.find(group => group.name === root);
+    const dbGroup = groups.find(group => group.name === db);
+    if (!slowGroup || !rootGroup || !dbGroup || slowGroup.depth !== 3) throw new Error(`unexpected group tree: ${JSON.stringify(groups)}`);
+    const tooDeep = await inWindow('main', async (tauri: any, parentId, requestId) => {
+      try {
+        await tauri.core.invoke('group_create', { input: { name: 'too-deep', parentId, requestId } });
+        return 'created';
+      } catch (error) {
+        return (error as { code?: string }).code ?? 'unknown';
+      }
+    }, slowGroup.id, crypto.randomUUID());
+    if (tooDeep !== 'GROUP_DEPTH_EXCEEDED') throw new Error(`expected GROUP_DEPTH_EXCEEDED, got ${tooDeep}`);
+
+    // 新建 bash 片段并放进分组。
+    await click('main', 'button[aria-label="新建片段"]');
+    await setValue('main', inputSelectors.key, bashKey);
+    await setValue('main', inputSelectors.title, `Nginx 重载 ${groupSuffix}`);
+    await setCodeContent('main', bashContent);
+    await selectFieldOption('main', '分组', root);
+    await selectFieldOption('main', '语言', 'Bash');
+    await clickButtonContaining('main', '保存片段数据');
+    await browser.waitUntil(async () => {
+      const list = await listSnippetRecords() as Array<SnippetRecord & { groupId?: string | null; language?: string; content?: string; kind?: string }>;
+      const record = list.find(item => item.key === bashKey);
+      return record?.groupId === rootGroup.id && record.language === 'bash' && record.content === bashContent && record.kind === 'text';
+    }, { timeout: 5_000, interval: 100, timeoutMsg: 'snippet did not persist its group, language and exact content' });
+
+    // 管理列表：BASH 徽标。
+    await waitFor('main', (_tauri, key) => [...document.querySelectorAll('.manager-snippet-row')].some(row => row.textContent?.includes(key as string) && row.querySelector('[data-testid="language-badge"]')?.textContent === 'BASH'), [bashKey], 'manager row did not show the BASH badge');
+
+    // 快搜：徽标 + 副标题 Key · 分组 · N 次；分组名不参与检索。
+    await openSearch();
+    await setValue('search', inputSelectors.search, bashKey);
+    await waitFor('search', (_tauri, key, group) => {
+      const row = [...document.querySelectorAll('[cmdk-item]')].find(item => item.textContent?.includes(key as string));
+      return Boolean(row?.textContent?.includes(group as string) && row.querySelector('[data-testid="language-badge"]')?.textContent === 'BASH' && /0 次/.test(row.textContent ?? ''));
+    }, [bashKey, root], 'quick-search row did not show badge, group name and usage');
+    await closeSearch();
+    if ((await searchItems('main', root)).length !== 0) throw new Error('group name must not be searchable');
+    const hit = (await searchItems('main', bashKey))[0];
+    if (hit?.language !== 'bash' || hit.groupName !== root || hit.kind !== 'text') throw new Error(`unexpected search DTO: ${JSON.stringify(hit)}`);
+
+    // AC-22 数据部分：取消不变，确认后内容上移。
+    await click('main', `button[aria-label="删除分组 ${root}"]`);
+    await waitFor('main', () => Boolean(document.querySelector('[role="alertdialog"]')), [], 'group delete confirmation did not open');
+    await clickButtonContaining('main', '取消');
+    if (!((await invokeMain('group_list')) as Array<{ name: string }>).some(group => group.name === root)) throw new Error('cancel must keep the group');
+
+    await click('main', `button[aria-label="删除分组 ${root}"]`);
+    await waitFor('main', () => Boolean(document.querySelector('[role="alertdialog"]')), [], 'group delete confirmation did not reopen');
+    await clickButtonContaining('main', '确认删除分组');
+    await browser.waitUntil(async () => {
+      const after = await invokeMain('group_list') as Array<{ id: string; name: string; depth: number; parentId: string | null }>;
+      const moved = after.find(group => group.id === dbGroup.id);
+      const deeper = after.find(group => group.id === slowGroup.id);
+      return !after.some(group => group.name === root) && moved?.parentId === null && moved.depth === 1 && deeper?.depth === 2;
+    }, { timeout: 5_000, interval: 100, timeoutMsg: 'children were not promoted after deleting the group' });
+    const afterDelete = (await listSnippetRecords() as Array<SnippetRecord & { groupId?: string | null }>).find(item => item.key === bashKey);
+    if (afterDelete?.groupId !== null) throw new Error('snippet must be ungrouped after its group was deleted');
+  });
+  it('keeps editor history per snippet and preserves original line endings (SPEC-21 repair R1/R2)', async () => {
+    const keyA = `undo-a-${suffix}`;
+    const keyB = `undo-b-${suffix}`;
+    const keyCrlf = `crlf-${suffix}`;
+    const crlfBody = 'line1\r\nline2\r\n';
+    for (const [key, content] of [[keyA, 'AAA'], [keyB, 'BBB'], [keyCrlf, crlfBody]]) {
+      await invokeMain('snippet_create', { input: { key, title: key, content, aliases: [], tags: [], pinned: false, sensitive: false, groupId: null, language: 'plain', requestId: crypto.randomUUID() } });
+    }
+    await inWindow('main', () => { location.reload(); });
+    const selectRow = async (key: string, text: string) => {
+      await waitFor('main', (_t, k) => [...document.querySelectorAll('.manager-snippet-row')].some(e => e.textContent?.includes(k as string)), [key], `row ${key} missing`);
+      await inWindow('main', (_t, k) => ([...document.querySelectorAll('.manager-snippet-row')].find(e => e.textContent?.includes(k as string)) as HTMLElement).click(), key);
+      await waitFor('main', (_t, expected) => document.querySelector('.cm-content')?.textContent === expected, [text], `editor did not show ${key}`);
+    };
+
+    // R2：A → B 后在 B 中 Ctrl+Z 不得带回 A 的正文。
+    await selectRow(keyA, 'AAA');
+    await selectRow(keyB, 'BBB');
+    await inWindow('main', () => {
+      const editor = document.querySelector('.cm-content') as HTMLElement;
+      editor.focus();
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    await browser.pause(300);
+    if (await inWindow('main', () => document.querySelector('.cm-content')?.textContent) !== 'BBB') {
+      throw new Error('Ctrl+Z restored another snippet body');
+    }
+
+    // R1：打开 CRLF 正文后不编辑直接保存，正文字节不变。
+    await selectRow(keyCrlf, 'line1line2');
+    await clickButtonContaining('main', '保存片段数据');
+    await browser.pause(500);
+    const saved = (await listSnippetRecords()).find(item => item.key === keyCrlf);
+    if ((saved as { content?: string } | undefined)?.content !== crlfBody) {
+      throw new Error(`CRLF body changed on save: ${JSON.stringify((saved as { content?: string } | undefined)?.content)}`);
+    }
   });
 });

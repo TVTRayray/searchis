@@ -1,0 +1,28 @@
+task_id: reviewer-mvadt5n7-5umil
+change_id: phase10-file-templates
+role: reviewer
+target_spec: groups-language
+adapter: herdr
+lease_id: lease-mvadt5n7-qg5ds
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/groups-language.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - qa_report
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - npm run test:e2e
+next_on_success: ready
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: reviewer-reviewer-mvadt5n7-5umil
+  pane_id: wZ:pJ
+  state: working

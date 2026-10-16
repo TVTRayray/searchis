@@ -1,0 +1,44 @@
+task_id: implementer-mvadhc9b-rx0yc
+lease_id: lease-mvadhc9b-jvtiq
+outcome: completed
+summary: >
+  SPEC-21 groups-language 实现完成：Schema v4 迁移（groups/group_requests 表，snippets.group_id/language/kind，
+  迁移前 searchis.db.v{N}.bak 0600，失败回滚返回 DB_WRITE_FAILED）；分组 IPC（list/create/update/delete_preview/delete，
+  名称校验、同级不区分大小写唯一、深度≤3、成环检测、删除上移与 (2) 后缀、单事务、requestId 幂等）；
+  左栏分组树/标签折叠区、中栏类型筛选与语言徽标、CodeMirror 6 编辑区（语言包按需 chunk，敏感未展示不挂载）、
+  快搜 Q-A 行（类型图标、Key · 分组 · N 次、语言徽标、匹配高亮），SearchResultItem 新增 language/groupName/kind。
+  日志只记录 operation+错误码，不含分组名。
+  打包体积增量：主 JS chunk 356.37 kB → 656.25 kB（gzip 110.03 → 208.36 kB，含 CodeMirror 核心）；
+  语言包独立 chunk：shell 2.57 kB、toml 1.14 kB、properties 0.67 kB，sql/yaml/json 各 11–27 kB；CSS 59.51 → 62.75 kB。
+  性能（tasks 2.9）：10,000 条片段 + 100 分组，搜索 p95=6ms、p99=6ms（上限 50/100ms）。
+  已知：SPEC-24 前导出的 v1 JSON 备份不含分组与语言（按契约接受）。
+  已还原越界的 platform/appmenu.rs、platform/mod.rs（cargo fmt 副作用）。
+evidence:
+  changed_files:
+    - src-tauri/src/model.rs
+    - src-tauri/src/storage.rs
+    - src-tauri/src/service.rs
+    - src-tauri/src/commands.rs
+    - src-tauri/src/lib.rs
+    - src-tauri/src/validation.rs
+    - src-tauri/src/search_index.rs
+    - src/api/snippets.ts
+    - src/types/snippet.ts
+    - src/App.tsx
+    - src/components/ManagerWindow.tsx
+    - src/components/QuickSearchWindow.tsx
+    - src/components/ui/CodeEditor.tsx
+    - src/components/ui/GroupTree.tsx
+    - src/components/ui/GroupDialog.tsx
+    - src/index.css
+    - package.json
+    - package-lock.json
+    - e2e/create-and-search.e2e.ts
+    - .specflow/changes/phase10-file-templates/tasks.md
+  test_results:
+    - "cd src-tauri && cargo test: 81 passed, 0 failed（含迁移/回滚、分组校验/深度/成环/删除上移/回滚、language 非法值、搜索结果字段、10k 性能）"
+    - "npm run build: 通过"
+    - "npm run test:e2e: 2 passing（原视觉/键盘契约 + SPEC-21 分组树、语言徽标、非空分组删除）"
+unresolved_issues:
+  - "tasks 2.10 实机验收（AC-23、浅/深截图）为 pending_human，未执行"
+  - "未单独为日志隐私写自动化测试：logging.rs 不在允许路径，现有 logger 仅写 operation+code，错误文案不含分组名"
