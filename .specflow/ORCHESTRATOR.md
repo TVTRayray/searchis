@@ -116,7 +116,7 @@ Worker 以默认权限模式运行，权限对话框由人在 worker pane 里亲
 
 ## 8. 收尾（awaiting_archive_approval）
 
-1. 在最终提交上运行完整检查：`cd src-tauri && cargo test`、`npm run build`、`npm run test:e2e`。把实际命令和结果写进 `$D/test_report.md` 的 Commands / Results 两节（替换占位符）。这两节只能写真实输出。
+1. 在最终提交上运行完整检查：`cd src-tauri && cargo test`、`npm run build`、`.specflow/bin/e2e-isolated.sh`（E2E 一律在隔离显示中运行，禁止在真实桌面 DISPLAY 上直接跑 `npm run test:e2e`）。把实际命令和结果写进 `$D/test_report.md` 的 Commands / Results 两节（替换占位符）。这两节只能写真实输出。
 2. 把 `test_report.md` 的「实机验收」清单整理给人：通知人，并告知 Guide `[ORCH] READY FOR HUMAN ACCEPTANCE`。
 3. 不要运行 `archive`。由人执行实机验收后决定。如果人报告某项失败，按 Guide 转达的授权运行 `SF reopen-qa $C --spec <id> --reason "..." --confirm`，然后回到主循环。
 

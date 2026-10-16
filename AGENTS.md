@@ -1,7 +1,7 @@
 # Searchis agent workflow
 
 - For Rust logic, run the smallest relevant `cargo test` first.
-- For compiled desktop UI acceptance, run `npm run test:e2e`.
+- For compiled desktop UI acceptance, run `npm run test:e2e` through `.specflow/bin/e2e-isolated.sh` (isolated display).
 - E2E uses temporary XDG data/config directories and saves failed screenshots under `artifacts/e2e/`.
 - Do not automate the KDE global shortcut, clipboard writes, auto-paste, or real foreground-window input unless explicitly requested.
 
@@ -14,4 +14,5 @@
 - Subagents are forbidden unless the task package is a read-only subagent task dispatched by the orchestrator.
 - On ambiguous requirements, architecture/security risk, out-of-scope edits, or blockers: write `outcome: needs_decision` (or `blocked`) in the result and stop.
 - On-device checks (KDE shortcut, real clipboard, auto-paste, external-app paste, device screenshots) are marked `pending_human` in QA, never automated without explicit approval.
+- E2E must run on an isolated display: use `.specflow/bin/e2e-isolated.sh` (Xvfb + private D-Bus + KWin), never plain `npm run test:e2e` on the real desktop `DISPLAY`.
 - CLI: `node /home/ray/Projects/CodeRepo/codex-spec-first-workflow/dist/cli.js <command>`.

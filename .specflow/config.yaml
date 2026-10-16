@@ -40,7 +40,7 @@ quality:
   test_commands:
     - cd src-tauri && cargo test <scoped test filter>  # only when Rust changed
     - npm run build
-    - npm run test:e2e  # temp XDG dirs; failure screenshots in artifacts/e2e/
+    - .specflow/bin/e2e-isolated.sh  # npm run test:e2e on Xvfb + private D-Bus + KWin; never on the real DISPLAY
   auto_repair:
     enabled: true
     max_attempts: 2
