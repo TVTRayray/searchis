@@ -51,6 +51,7 @@ quality:
       - visual_defect
       - visual_regression
       - accessibility
+      - design_conformance # 2026-10-16 人工授权；设计审美分歧仍由 reviewer 以 escalation 上报
     escalate_for:
       - ambiguous_requirement
       - architecture_decision
