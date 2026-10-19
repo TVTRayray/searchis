@@ -87,6 +87,8 @@ export interface PasteOutcome {
   action: string // "copied" | "pasted" | "degraded"
   targetValid: boolean
   counted: boolean
+  /** 请求了自动粘贴但设置中已关闭，已退化为仅复制。 */
+  autoPasteDisabled: boolean
 }
 
 // SPEC-02 copy_snippet 命令返回类型（保留向后兼容）
@@ -192,6 +194,17 @@ export interface TemplateFields {
   pinned: boolean
 }
 
+export interface TemplateFormatCopyOutcome extends PasteOutcome {
+  /** 给用户的提示，如“公式已转为数值”。 */
+  notes: string[]
+}
+
+export interface TemplateExportOutcome {
+  /** 导出文件完整路径；同一 operationId 重复投递时为空串。 */
+  path: string
+  counted: boolean
+}
+
 export const templatesApi = {
   import: (sourcePaths: string[], groupId: string | null, requestId: string) =>
     call<TemplateImportOutcome>('template_import', { input: { sourcePaths, groupId, requestId } }),
@@ -212,6 +225,11 @@ export const templatesApi = {
     call<OpenWithCandidate[]>('template_open_with_candidates', { id }),
   scan: () => call<ScanResult>('template_scan'),
   pickFiles: () => call<string[]>('template_pick_files'),
+  // SPEC-23：带格式复制与导出
+  formatCopy: (id: string, operationId: string, autoPaste: boolean) =>
+    call<TemplateFormatCopyOutcome>('template_format_copy', { input: { id, operationId, autoPaste } }),
+  export: (id: string, operationId: string) =>
+    call<TemplateExportOutcome>('template_export', { input: { id, operationId } }),
 }
 
 export const groupsApi = {
@@ -253,6 +271,8 @@ export interface SettingsConfig {
   onboardingCompletedAt: string | null
   schemaVersion: number
   openWithByExtension: Record<string, string>
+  /** SPEC-23 只读；修改界面在 SPEC-24。null 表示使用默认下载目录。 */
+  exportDir?: string | null
 }
 
 export interface SettingsResponse {

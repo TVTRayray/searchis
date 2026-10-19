@@ -1,0 +1,26 @@
+task_id: reviewer-mvej5nta-uwvw7
+lease_id: lease-mvej5nta-oqnq4
+outcome: completed
+summary: |
+  复核 R1 修复与 SPEC-23 完整 spec：置顶文件模板现保留扩展名 FileTypeIcon，
+  置顶用徽标区 pin-mark 实心星标（token 色 --color-accent、aria-label“已固定”）表示，
+  符合 Planner 裁定；E2E 对置顶/取消置顶两种状态有实际 DOM 断言。
+  npm run build 通过；.specflow/bin/e2e-isolated.sh 5 passing。本轮无 Rust 改动，沿用上轮 191 passed。
+  非阻断提示：quick-key-pinned 类无 CSS 规则（无效果标记类）。
+  27 条 Design Conformance 均已给结论，实机/视觉项为 pending_human。
+  未标记 QA passed、未审批、未归档。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvej5nta-uwvw7.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvej5nta-uwvw7.result.yaml
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvej5nta-uwvw7/build.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvej5nta-uwvw7/e2e.log
+  test_results:
+    - 'npm run build — 通过'
+    - '.specflow/bin/e2e-isolated.sh — 5 passing（隔离显示，含置顶 xlsx 类型图标断言）'
+    - 'cargo test — 本轮未改 Rust 未重跑；沿用 reviewer-mvapr0xq-s0f97 的 191 passed'
+    - 'pending_human：AC-30/31/32、真实剪贴板与自动粘贴、明暗截图、KWin 圆角/Global Menu；未自动化'
+unresolved_issues:
+  - 'info：quick-key-pinned/-selected 无 CSS 规则，仅为标记类，非阻断。'
+  - 'pending_human 实机/视觉项见 QA 报告。'
+verdict: pass

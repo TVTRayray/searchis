@@ -1,0 +1,70 @@
+   Compiling searchis v0.1.0 (/home/ray/Projects/CodeRepo/searchis/src-tauri)
+warning: unused import: `x11rb::wrapper::ConnectionExt as _`
+  --> src/platform/x11_clipboard/tests.rs:22:5
+   |
+22 | use x11rb::wrapper::ConnectionExt as _;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of deprecated method `umya_spreadsheet::Worksheet::get_column_dimension_by_number`: Use column_dimension_by_number()
+   --> src/format_copy/xlsx.rs:205:22
+    |
+205 |                     .get_column_dimension_by_number(&c)
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `umya_spreadsheet::Worksheet::get_row_dimension`: Use row_dimension()
+   --> src/format_copy/xlsx.rs:214:22
+    |
+214 |                     .get_row_dimension(&r)
+    |                      ^^^^^^^^^^^^^^^^^
+
+warning: method `group_name` is never used
+  --> src/search_index.rs:76:12
+   |
+68 | impl SearchIndex {
+   | ---------------- method in this implementation
+...
+76 |     pub fn group_name(&self, group_id: &str) -> Option<String> {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `searchis` (lib test) generated 4 warnings (run `cargo fix --lib -p searchis --tests` to apply 1 suggestion)
+warning: `searchis` (lib) generated 3 warnings (3 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.88s
+     Running unittests src/lib.rs (target/debug/deps/searchis_lib-130ffae53d2ca15a)
+
+running 21 tests
+test format_copy::uri::tests::relative_path_is_rejected ... ok
+test format_copy::uri::tests::uri_encodes_non_ascii_and_spaces_and_keeps_slashes ... ok
+test format_copy::uri::tests::convert_provides_uri_list_gnome_copied_and_plain_path ... ok
+test format_copy::xlsx::tests::date_serials_and_formats ... ok
+test format_copy::markdown::tests::invalid_utf8_is_lossy_and_noted ... ok
+test format_copy::xlsx::tests::corrupt_or_non_xlsx_input_is_rejected_without_panicking ... ok
+test format_copy::markdown::tests::renders_headings_lists_code_blocks ... ok
+test format_copy::markdown::tests::renders_gfm_tables_tasklists_and_strikethrough ... ok
+test format_copy::markdown::tests::dangerous_link_schemes_are_removed_and_safe_ones_kept ... ok
+test format_copy::markdown::tests::raw_html_is_escaped_not_passed_through ... ok
+test format_copy::markdown::tests::convert_provides_html_and_plain_source ... ok
+test platform::x11_clipboard::tests::unreachable_display_reports_format_copy_failed ... ok
+test format_copy::xlsx::tests::unstyled_empty_workbook_is_converted ... ok
+test format_copy::xlsx::tests::formula_without_cached_value_becomes_empty_with_note ... ok
+test format_copy::xlsx::tests::every_referenced_style_id_is_defined ... ok
+test format_copy::xlsx::tests::html_has_inline_styles_spans_and_cols ... ok
+test format_copy::xlsx::tests::tsv_uses_excel_quoting_tabs_and_crlf ... ok
+test format_copy::xlsx::tests::spreadsheet_ml_has_expanded_styles_and_no_parent_or_formula ... ok
+test format_copy::xlsx::tests::over_cell_limit_is_rejected_and_limit_itself_is_allowed ... ok
+test format_copy::xlsx::tests::qa_perf_5000_cell_workbook_p95 ... ok
+test format_copy::markdown::tests::qa_perf_1mb_markdown_p95 ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 170 filtered out; finished in 16.17s
+
+     Running unittests src/main.rs (target/debug/deps/searchis-79809823317bb79f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -162,9 +163,9 @@ const selectedResultId = async () => String(await inWindow(
 
 const sendSearchKey = async (
   key: string,
-  modifiers: { ctrl?: boolean; meta?: boolean; composing?: boolean } = {},
+  modifiers: { ctrl?: boolean; meta?: boolean; shift?: boolean; composing?: boolean } = {},
 ) => {
-  await inWindow('search', (_tauri, nextKey, ctrl, meta, composing) => {
+  await inWindow('search', (_tauri, nextKey, ctrl, meta, composing, shift) => {
     const input = document.querySelector('input[aria-label="检索文本片段"]');
     if (!(input instanceof HTMLInputElement)) return false;
     input.focus();
@@ -173,11 +174,12 @@ const sendSearchKey = async (
       code: (nextKey as string).length === 1 ? `Key${(nextKey as string).toUpperCase()}` : nextKey as string,
       ctrlKey: Boolean(ctrl),
       metaKey: Boolean(meta),
+      shiftKey: Boolean(shift),
       isComposing: Boolean(composing),
       bubbles: true,
       cancelable: true,
     }));
-  }, key, modifiers.ctrl ?? false, modifiers.meta ?? false, modifiers.composing ?? false);
+  }, key, modifiers.ctrl ?? false, modifiers.meta ?? false, modifiers.composing ?? false, modifiers.shift ?? false);
 };
 
 const openSearch = async () => {
@@ -923,7 +925,7 @@ describe('compiled Searchis application', () => {
     await waitFor('main', () => document.querySelectorAll('.manager-snippet-row').length > 0 && ![...document.querySelectorAll('.manager-snippet-row')].some(r => !r.querySelector('[data-testid="file-badge"]')), [], 'file filter should list only file templates');
     await clickChip('全部');
 
-    // 详情：无敏感开关、导出/带格式复制可见但禁用、“打开”经替身记录 xdg-open 参数。
+    // 详情：无敏感开关、导出/带格式复制可见且可用、“打开”经替身记录 xdg-open 参数。
     await selectRow(mdName);
     const detail = await inWindow('main', () => {
       // 注意：脚本在页面里执行，不能声明具名内部函数（esbuild 会注入页面里不存在的 __name）。
@@ -938,7 +940,7 @@ describe('compiled Searchis application', () => {
         hasOpenWith: buttons.some(b => b.textContent?.includes('打开方式')),
       };
     }) as { hasSensitive: boolean; hasEditor: boolean; exportDisabled: boolean | null; copyDisabled: boolean | null; fileName: string; hasOpenWith: boolean };
-    if (detail.hasSensitive || detail.hasEditor || detail.exportDisabled !== true || detail.copyDisabled !== true || detail.fileName !== `${mdName}.md` || !detail.hasOpenWith) {
+    if (detail.hasSensitive || detail.hasEditor || detail.exportDisabled !== false || detail.copyDisabled !== false || detail.fileName !== `${mdName}.md` || !detail.hasOpenWith) {
       throw new Error(`unexpected file template detail: ${JSON.stringify(detail)}`);
     }
     await inWindow('main', () => {
@@ -1007,5 +1009,224 @@ describe('compiled Searchis application', () => {
     await clickButtonContaining('main', '创建');
     await browser.waitUntil(() => existsSync(path.join(templates, `${blankTitle}.md`)), { timeout: 5_000, interval: 100, timeoutMsg: 'blank md was not created' });
     if (readFileSync(path.join(templates, `${blankTitle}.md`), 'utf8') !== `# ${blankTitle}\n`) throw new Error('blank md must contain the title heading');
+  });
+  it('copies with formats, exports and opens file templates from the quick-search window (SPEC-23)', async function () {
+    this.timeout(120_000);
+    const data = process.env.XDG_DATA_HOME;
+    const files = process.env.SEARCHIS_E2E_FILES_DIR;
+    const clipboardLog = process.env.SEARCHIS_E2E_CLIPBOARD_LOG;
+    const exportDir = process.env.SEARCHIS_E2E_EXPORT_DIR;
+    const openLog = process.env.SEARCHIS_E2E_OPEN_LOG;
+    if (!data || !files || !clipboardLog || !exportDir || !openLog) throw new Error('E2E SPEC-23 environment is not set');
+    const templates = path.join(data, 'io.searchis.desktop', 'templates');
+    const short = suffix.slice(-6);
+    const sources = path.join(files, 'spec23-sources');
+    mkdirSync(sources, { recursive: true });
+    const mdBody = '# 报销说明\n\n|项目|金额|\n|-|-|\n|交通|12|\n\n- [x] 已核对\n\n<script>alert(1)</script>\n';
+    const names = { md: `s23${short}doc`, sheet: `s23${short}sheet`, pdf: `s23${short}pdf`, text: `s23${short}txt` };
+    writeFileSync(path.join(sources, `${names.md}.md`), mdBody);
+    writeFileSync(path.join(sources, `${names.sheet}.xlsx`), Buffer.from('PK-not-a-real-xlsx'));
+    writeFileSync(path.join(sources, `${names.pdf}.pdf`), '%PDF-1.4 e2e');
+    const imported = await invokeMain('template_import', {
+      input: {
+        sourcePaths: [`${names.md}.md`, `${names.sheet}.xlsx`, `${names.pdf}.pdf`].map(name => path.join(sources, name)),
+        groupId: null,
+        requestId: crypto.randomUUID(),
+      },
+    }) as { created: Array<{ id: string; key: string }> };
+    if (imported.created.length !== 3) throw new Error(`expected 3 imported templates, got ${imported.created.length}`);
+    await invokeMain('snippet_create', { input: { key: names.text, title: names.text, content: `text-${short}`, aliases: [], tags: [], pinned: false, sensitive: false, groupId: null, language: 'plain', requestId: crypto.randomUUID() } });
+
+    type Call = { formats: Array<{ name: string; len: number; sha256: string }> };
+    const sha = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
+    const clipboardCalls = (): Call[] => (existsSync(clipboardLog) ? readFileSync(clipboardLog, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line) as Call) : []);
+    const openCalls = () => (existsSync(openLog) ? readFileSync(openLog, 'utf8').split('\n').filter(Boolean).length : 0);
+    const opensAtStart = openCalls(); // SPEC-22 的用例已经记录过 xdg-open 调用
+    const exported = () => readdirSync(exportDir).filter(name => !name.startsWith('.'));
+    const usage = async (key: string) => (await searchItems('main', key)).find(item => item.key === key)?.usageCount;
+    const visible = async () => (await inWindow('main', (tauri: any) => tauri.core.invoke('plugin:wdio|get_window_states')) as Array<{ label: string; is_visible: boolean }>).some(state => state.label === 'search' && state.is_visible);
+    const selectInPicker = async (key: string) => {
+      await openSearch();
+      await setValue('search', inputSelectors.search, key);
+      const item = (await searchItems('main', key)).find(entry => entry.key === key);
+      if (!item) throw new Error(`no search result for ${key}`);
+      await waitFor('search', (_t, id) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') === id, [item.id], `${key} was not selected`);
+      return item;
+    };
+    const hints = () => inWindow('search', () => [...document.querySelectorAll('[data-testid="quick-hints"] > span')].map(span => span.textContent?.replace(/\s+/g, ' ').trim() ?? '')) as Promise<string[]>;
+    const setAutoPaste = async (value: boolean) => {
+      const { revision } = await invokeMain('settings_get') as { revision: number };
+      await invokeMain('settings_update', { input: { key: 'autoPaste', value, revision } });
+    };
+
+    // 结果行：文件模板显示类型图标与大写扩展名徽标；底栏随类型切换。
+    const md = await selectInPicker(names.md);
+    const row = await inWindow('search', (_t, id) => {
+      const element = document.querySelector(`[data-snippet-id="${id as string}"]`);
+      const mark = element?.querySelector('.quick-key');
+      return { badge: element?.querySelector('[data-testid="file-badge"]')?.textContent ?? '', category: mark?.getAttribute('data-category') ?? '', hasIcon: Boolean(mark?.querySelector('svg')), fileMark: mark?.classList.contains('file-mark') ?? false };
+    }, md.id) as { badge: string; category: string; hasIcon: boolean; fileMark: boolean };
+    if (row.badge !== 'MD' || row.category !== 'doc' || !row.hasIcon || !row.fileMark) throw new Error(`unexpected file row: ${JSON.stringify(row)}`);
+    await closeSearch();
+
+    // 置顶的文件模板仍显示按扩展名的类型图标（不被星标取代），置顶用独立标记表示。
+    const sheetRecord = (await invokeMain('snippet_list') as Array<{ id: string; key: string; title: string; revision: number; aliases: string[]; tags: string[]; groupId?: string | null }>).find(r => r.key === names.sheet);
+    if (!sheetRecord) throw new Error('imported xlsx template not found');
+    const pinSheet = (pinned: boolean, revision: number) => invokeMain('template_update', { input: { id: sheetRecord.id, revision, title: sheetRecord.title, key: sheetRecord.key, groupId: sheetRecord.groupId ?? null, tags: sheetRecord.tags, aliases: sheetRecord.aliases, pinned } }) as Promise<{ revision: number }>;
+    const pinnedSheet = await pinSheet(true, sheetRecord.revision);
+    const sheetRow = async () => {
+      const item = await selectInPicker(names.sheet);
+      const result = await inWindow('search', (_t, id) => {
+        const element = document.querySelector(`[data-snippet-id="${id as string}"]`);
+        const mark = element?.querySelector('.quick-key');
+        return {
+          pinnedClass: mark?.classList.contains('quick-key-pinned') || mark?.classList.contains('quick-key-pinned-selected') || false,
+          iconIsFileSheet: Boolean(mark?.querySelector('svg.lucide-file-spreadsheet')),
+          iconIsStar: Boolean(mark?.querySelector('svg.lucide-star')),
+          pinMark: element?.querySelector('[data-testid="pin-mark"]') !== null,
+          badge: element?.querySelector('[data-testid="file-badge"]')?.textContent ?? '',
+        };
+      }, item.id) as { pinnedClass: boolean; iconIsFileSheet: boolean; iconIsStar: boolean; pinMark: boolean; badge: string };
+      await closeSearch();
+      return result;
+    };
+    const pinnedRow = await sheetRow();
+    if (!pinnedRow.pinnedClass || !pinnedRow.iconIsFileSheet || pinnedRow.iconIsStar || !pinnedRow.pinMark || pinnedRow.badge !== 'XLSX') throw new Error(`pinned file template must keep its type icon: ${JSON.stringify(pinnedRow)}`);
+    await pinSheet(false, pinnedSheet.revision);
+    const plainRow = await sheetRow();
+    if (plainRow.pinnedClass || !plainRow.iconIsFileSheet || plainRow.pinMark) throw new Error(`unpinned file template row is wrong: ${JSON.stringify(plainRow)}`);
+
+    await selectInPicker(names.md);
+    const fileHints = await hints();
+    const expectedFileHints = ['带格式复制 ↵', '粘贴 Ctrl+↵', '导出 Shift+↵', '打开 Ctrl+O', '编辑 Ctrl+E', '关闭 Esc'];
+    if (JSON.stringify(fileHints) !== JSON.stringify(expectedFileHints)) throw new Error(`unexpected file hints: ${JSON.stringify(fileHints)}`);
+    await closeSearch();
+    await selectInPicker(names.text);
+    const textHints = await hints();
+    if (JSON.stringify(textHints) !== JSON.stringify(['复制 ↵', '粘贴 Ctrl+↵', '编辑 Ctrl+E', '关闭 Esc'])) throw new Error(`unexpected text hints: ${JSON.stringify(textHints)}`);
+    const textBadge = await inWindow('search', () => document.querySelector('[data-testid="file-badge"]') !== null);
+    if (textBadge) throw new Error('text snippets must not show a file badge');
+    // 文本片段上的 Shift+Enter / Ctrl+O 没有定义：不触发任何动作。
+    await sendSearchKey('Enter', { shift: true });
+    await sendSearchKey('o', { ctrl: true });
+    await browser.pause(300);
+    if (!(await visible()) || exported().length !== 0 || openCalls() !== opensAtStart || clipboardCalls().length !== 0) throw new Error('Shift+Enter / Ctrl+O must be inert on text snippets');
+    await closeSearch();
+
+    // 输入法组合态：Enter、Shift+Enter、Ctrl+O 都不执行（AC-12 回归）。
+    await selectInPicker(names.md);
+    await sendSearchKey('Enter', { composing: true });
+    await sendSearchKey('Enter', { composing: true, shift: true });
+    await sendSearchKey('o', { composing: true, ctrl: true });
+    await sendSearchKey('Enter', { composing: true, ctrl: true });
+    await browser.pause(400);
+    if (!(await visible()) || exported().length !== 0 || openCalls() !== opensAtStart || clipboardCalls().length !== 0 || await usage(names.md) !== 0) throw new Error('IME composition must not trigger file actions');
+
+    // 自动粘贴只在“设置关闭”的情况下自动化：Ctrl+Enter 退化为仅复制并给出提示（AC-35）。
+    await setAutoPaste(false);
+    await sendSearchKey('Enter', { ctrl: true });
+    await waitFor('search', () => document.querySelector('[data-testid="quick-notice"]')?.textContent?.includes('自动粘贴已在设置中关闭') ?? false, [], 'auto-paste-off notice did not appear');
+    await waitForWindow('search', false);
+    let calls = clipboardCalls();
+    if (calls.length !== 1) throw new Error(`Ctrl+Enter should write exactly once, got ${calls.length}`);
+    if (await usage(names.md) !== 1) throw new Error('Ctrl+Enter must count once');
+    await setAutoPaste(true);
+
+    // Enter：带格式复制（md → html + plain），原始 HTML 被转义，窗口关闭，计数 +1。
+    await selectInPicker(names.md);
+    await sendSearchKey('Enter');
+    await waitForWindow('search', false);
+    calls = clipboardCalls();
+    if (calls.length !== 2) throw new Error(`Enter should add one clipboard write, got ${calls.length}`);
+    const mdCall = calls[1];
+    if (JSON.stringify(mdCall.formats.map(f => f.name)) !== JSON.stringify(['text/html', 'text/plain', 'UTF8_STRING'])) throw new Error(`unexpected md formats: ${JSON.stringify(mdCall.formats)}`);
+    if (mdCall.formats[1].sha256 !== sha(mdBody) || mdCall.formats[1].len !== Buffer.byteLength(mdBody)) throw new Error('text/plain must be the markdown source');
+    if (mdCall.formats[0].len < 50) throw new Error('text/html looks empty');
+    if (await usage(names.md) !== 2) throw new Error('Enter must count once more');
+
+    // 其他类型：uri-list / gnome-copied-files / 绝对路径。
+    const pdf = await selectInPicker(names.pdf);
+    await sendSearchKey('Enter');
+    await waitForWindow('search', false);
+    calls = clipboardCalls();
+    const pdfCall = calls[calls.length - 1];
+    if (JSON.stringify(pdfCall.formats.map(f => f.name)) !== JSON.stringify(['text/uri-list', 'x-special/gnome-copied-files', 'text/plain', 'UTF8_STRING'])) throw new Error(`unexpected pdf formats: ${JSON.stringify(pdfCall.formats)}`);
+    const pdfPath = path.join(templates, `${names.pdf}.pdf`);
+    if (pdfCall.formats[2].sha256 !== sha(pdfPath)) throw new Error('text/plain must be the absolute template path');
+    if (pdfCall.formats[0].sha256 !== sha(`file://${pdfPath}\r\n`)) throw new Error('text/uri-list must be the file URI');
+    if (pdfCall.formats[1].sha256 !== sha(`copy\nfile://${pdfPath}`)) throw new Error('gnome-copied-files must be "copy\\n<uri>"');
+    void pdf;
+
+    // 失败：损坏的 xlsx → 错误提示，窗口保留，不计数，剪贴板不变。
+    const before = clipboardCalls().length;
+    await selectInPicker(names.sheet);
+    await sendSearchKey('Enter');
+    await waitFor('search', () => (document.querySelector('.quick-error')?.textContent ?? '').length > 0, [], 'format copy failure was not shown');
+    if (!(await visible())) throw new Error('window must stay open when format copy fails');
+    if (clipboardCalls().length !== before || await usage(names.sheet) !== 0) throw new Error('failed format copy must not write or count');
+    await closeSearch();
+
+    // Shift+Enter：导出到（临时）导出目录，窗口保持打开并显示路径，计数一次；再导出得到 (2)。
+    await selectInPicker(names.md);
+    await sendSearchKey('Enter', { shift: true });
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const exportedName = `${names.md}_${date}.md`;
+    await waitFor('search', (_t, expected) => document.querySelector('[data-testid="quick-notice"]')?.textContent?.includes(expected as string) ?? false, [exportedName], 'export path notice did not appear');
+    if (!(await visible())) throw new Error('window must stay open after export');
+    if (JSON.stringify(exported()) !== JSON.stringify([exportedName]) || readFileSync(path.join(exportDir, exportedName), 'utf8') !== mdBody) throw new Error(`unexpected export result: ${JSON.stringify(exported())}`);
+    if (await usage(names.md) !== 3) throw new Error('export must count once');
+    await sendSearchKey('Enter', { shift: true });
+    await browser.waitUntil(() => exported().length === 2, { timeout: 5_000, interval: 100, timeoutMsg: 'second export did not create a numbered copy' });
+    if (!exported().includes(`${names.md}_${date} (2).md`)) throw new Error(`unexpected second export name: ${JSON.stringify(exported())}`);
+    if (readdirSync(exportDir).some(name => name.endsWith('.tmp'))) throw new Error('export left a temporary file behind');
+
+    // Ctrl+O：用默认软件打开（替身记录 xdg-open），不计数，成功后关闭。
+    const usageBeforeOpen = await usage(names.md);
+    const opensBefore = openCalls();
+    await sendSearchKey('o', { ctrl: true });
+    await waitForWindow('search', false);
+    await browser.waitUntil(() => openCalls() === opensBefore + 1, { timeout: 5_000, interval: 100, timeoutMsg: 'Ctrl+O did not call template_open' });
+    if (await usage(names.md) !== usageBeforeOpen) throw new Error('Ctrl+O must not count');
+
+    // 文件被外部删除：提示 TEMPLATE_FILE_MISSING 对应文案，窗口保留。
+    rmSync(pdfPath);
+    await selectInPicker(names.pdf);
+    await sendSearchKey('Enter');
+    await waitFor('search', () => document.querySelector('.quick-error')?.textContent?.includes('不在模板目录') ?? false, [], 'missing-file error was not shown');
+    if (!(await visible())) throw new Error('window must stay open when the file is missing');
+    await closeSearch();
+
+    // 管理窗口的快捷键速查按“文本片段 / 文件模板”分组。
+    await click('main', '.manager-sidebar-footer button[aria-label="键盘快捷键速查"]');
+    await waitFor('main', () => Boolean(document.querySelector('[role="dialog"][aria-labelledby="keyboard-shortcuts-title"]')), [], 'keyboard help did not open');
+    const groups = await inWindow('main', () => [...document.querySelectorAll('[data-testid="shortcut-group"]')].map(group => ({ title: group.querySelector('h3')?.textContent ?? '', text: group.textContent ?? '' }))) as Array<{ title: string; text: string }>;
+    const titles = groups.map(group => group.title);
+    if (JSON.stringify(titles) !== JSON.stringify(['通用', '文本片段', '文件模板'])) throw new Error(`unexpected shortcut groups: ${JSON.stringify(titles)}`);
+    if (!groups[2].text.includes('Shift') || !groups[2].text.includes('Ctrl + O') || groups[1].text.includes('Shift')) throw new Error('file-template shortcuts must be listed under 文件模板 only');
+    await inWindow('main', () => ([...document.querySelectorAll('[role="dialog"][aria-labelledby="keyboard-shortcuts-title"] button')].find(b => b.textContent?.includes('知道了')) as HTMLElement).click());
+
+    // 管理窗口右栏：带格式复制与导出按钮可用（剪贴板为记录替身，不写真实剪贴板、不自动粘贴）。
+    // 模板由后端导入，管理列表尚未刷新：点“重新扫描”刷新后再选中。
+    await waitFor('main', () => [...document.querySelectorAll('.manager-rescan')].some(b => !(b as HTMLButtonElement).disabled && b.textContent?.includes('重新扫描')), [], 'rescan button never became idle');
+    await clickButtonContaining('main', '重新扫描');
+    await waitFor('main', (_t, k) => [...document.querySelectorAll('.manager-snippet-row')].some(e => e.textContent?.includes(k as string)), [names.md], 'manager row for the md template is missing');
+    await inWindow('main', (_t, k) => ([...document.querySelectorAll('.manager-snippet-row')].find(e => e.textContent?.includes(k as string)) as HTMLElement).click(), names.md);
+    await waitFor('main', () => Boolean(document.querySelector('[data-testid="file-template-detail"]')), [], 'file template detail did not open');
+    const clickDetail = (label: string) => inWindow('main', (_t, text) => {
+      ([...document.querySelectorAll('[data-testid="file-template-detail"] button')].find(b => b.textContent?.trim() === text) as HTMLElement).click();
+    }, label);
+    const usageBefore = await usage(names.md) as number;
+    const copiesBefore = clipboardCalls().length;
+    await clickDetail('带格式复制');
+    await waitFor('main', () => document.querySelector('[data-testid="file-action-result"]')?.textContent?.includes('已带格式复制') ?? false, [], 'format copy result was not shown');
+    const after = clipboardCalls();
+    if (after.length !== copiesBefore + 1) throw new Error('manager format copy must write the clipboard once');
+    if (!after[after.length - 1].formats.some(f => f.name === 'text/html')) throw new Error('manager format copy must write text/html');
+    if (await usage(names.md) !== usageBefore + 1) throw new Error(`manager format copy must count once: before=${usageBefore} after=${await usage(names.md)} detail=${await inWindow('main', () => document.querySelector('[data-testid="file-name"]')?.textContent ?? '')} result=${await inWindow('main', () => document.querySelector('[data-testid="file-action-result"]')?.textContent ?? '')}`);
+    const exportsBefore = exported().length;
+    await clickDetail('导出');
+    await waitFor('main', () => document.querySelector('[data-testid="file-action-result"]')?.textContent?.includes('已导出') ?? false, [], 'export result was not shown');
+    if (exported().length !== exportsBefore + 1) throw new Error('manager export must create one file');
   });
 });

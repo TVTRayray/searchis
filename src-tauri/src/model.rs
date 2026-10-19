@@ -242,6 +242,9 @@ pub struct Settings {
     /// SPEC-22：按扩展名记住的“打开方式”（扩展名 → desktop id）。
     #[serde(default)]
     pub open_with_by_extension: std::collections::BTreeMap<String, String>,
+    /// SPEC-23 只读取；修改界面在 SPEC-24。`None` → XDG 下载目录 → ~/Downloads → $HOME。
+    #[serde(default)]
+    pub export_dir: Option<String>,
 }
 
 impl Default for Settings {
@@ -257,6 +260,7 @@ impl Default for Settings {
             onboarding_completed_at: None,
             schema_version: 1,
             open_with_by_extension: Default::default(),
+            export_dir: None,
         }
     }
 }
@@ -294,6 +298,42 @@ pub struct PasteOutcome {
     /// "copied" | "pasted" | "degraded"
     pub action: String,
     pub target_valid: bool,
+    pub counted: bool,
+    /// 请求了自动粘贴但设置中已关闭，已退化为仅复制。
+    pub auto_paste_disabled: bool,
+}
+
+// === SPEC-23: 带格式复制与导出 ===
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateFormatCopyInput {
+    pub id: String,
+    pub operation_id: String,
+    pub auto_paste: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateFormatCopyOutcome {
+    #[serde(flatten)]
+    pub paste: PasteOutcome,
+    /// 给用户的提示，如“公式已转为数值”。
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateExportInput {
+    pub id: String,
+    pub operation_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateExportOutcome {
+    /// 导出文件的完整路径；同一 operationId 重复投递时为空串。
+    pub path: String,
     pub counted: bool,
 }
 

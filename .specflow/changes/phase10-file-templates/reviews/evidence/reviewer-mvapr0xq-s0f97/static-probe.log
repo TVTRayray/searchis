@@ -1,0 +1,8 @@
+{"case":"xlsx quick-search type icon","pinned":false,"expected":"FileTypeIcon","actual":"FileTypeIcon","contractSatisfied":true}
+{"case":"xlsx quick-search type icon","pinned":true,"expected":"FileTypeIcon","actual":"Star","contractSatisfied":false}
+light {"body":11.22,"muted":4.88,"selected":9.4,"primary":11.22,"notice":6.45}
+dark {"body":13.76,"muted":5.38,"selected":10.92,"primary":4.57,"notice":6.59}
+Component modules without static imports: []
+HeaderBar references: []
+AboutModal remains imported (SPEC-24 deletion deferred): true
+Static review probe finished; pinned-file icon contract violation reproduced, not an application-suite pass.

@@ -1,0 +1,255 @@
+e2e-isolated: Xvfb + private D-Bus + KWin (kwin log: /tmp/searchis-e2e-kwin.1dGZZ6.log)
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.portal.Desktop' requested by ':1.0' (uid=1000 pid=1327240 comm="kwin_x11 --replace")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.impl.portal.PermissionStore' requested by ':1.1' (uid=1000 pid=1327256 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.PermissionStore'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.portal.Documents' requested by ':1.1' (uid=1000 pid=1327256 comm="/usr/lib/xdg-desktop-portal")
+
+> searchis-snippet-manager@1.0.0 test:e2e
+> npm run e2e:build && node scripts/run-e2e.mjs
+
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.portal.Documents'
+
+(/usr/lib/xdg-desktop-portal:1327256): xdg-desktop-portal-WARNING **: 16:37:59.493: Choosing gtk.portal for org.freedesktop.impl.portal.Lockdown as a last-resort fallback
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.impl.portal.desktop.gtk' requested by ':1.1' (uid=1000 pid=1327256 comm="/usr/lib/xdg-desktop-portal")
+
+> searchis-snippet-manager@1.0.0 e2e:build
+> tauri build --config src-tauri/tauri.e2e.conf.json --debug --no-bundle --features e2e-webdriver
+
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.a11y.Bus' requested by ':1.6' (uid=1000 pid=1327282 comm="/usr/lib/xdg-desktop-portal-gtk")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.a11y.Bus'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+
+** (xdg-desktop-portal-gtk:1327282): WARNING **: 16:37:59.599: AT-SPI: Could not obtain desktop path or name
+
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.desktop.gtk'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+
+** (xdg-desktop-portal-gtk:1327282): WARNING **: 16:37:59.605: atk-bridge: GetRegisteredEvents returned message with unknown signature
+
+** (xdg-desktop-portal-gtk:1327282): WARNING **: 16:37:59.605: atk-bridge: get_device_events_reply: unknown signature
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.impl.portal.desktop.kde' requested by ':1.1' (uid=1000 pid=1327256 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.kde.KSplash' requested by ':1.0' (uid=1000 pid=1327240 comm="kwin_x11 --replace")
+        Info Looking up installed tauri packages to check mismatched versions...
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.desktop.kde'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.impl.portal.desktop.kwallet' requested by ':1.1' (uid=1000 pid=1327256 comm="/usr/lib/xdg-desktop-portal")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.portal.Desktop'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Successfully activated service 'org.freedesktop.impl.portal.desktop.kwallet'
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+     Running beforeBuildCommand `VITE_E2E=1 npm run build`
+
+> searchis-snippet-manager@1.0.0 build
+> tsc && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1697 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                 1.13 kB │ gzip:   0.71 kB
+dist/assets/source-sans-3-latin-500-normal-DiWS0tcR.woff2      15.65 kB
+dist/assets/source-sans-3-latin-600-normal-DeckBYAU.woff2      15.67 kB
+dist/assets/source-sans-3-latin-400-normal-DQi5PRDE.woff2      15.70 kB
+dist/assets/jetbrains-mono-latin-400-normal-V6pRDFza.woff2     21.17 kB
+dist/assets/jetbrains-mono-latin-500-normal-BWZEU5yA.woff2     21.83 kB
+dist/assets/jetbrains-mono-latin-600-normal-C8RAYTDA.woff2     21.86 kB
+dist/assets/jetbrains-mono-latin-700-normal-BYuf6tUa.woff2     21.91 kB
+dist/assets/playfair-display-latin-500-normal-DIxvyhka.woff2   23.05 kB
+dist/assets/playfair-display-latin-500-italic-BFrGFGAj.woff2   23.08 kB
+dist/assets/playfair-display-latin-600-normal-CZLGqjJe.woff2   23.23 kB
+dist/assets/index-BCW3BWNj.css                                 66.81 kB │ gzip:  12.33 kB
+dist/assets/properties-C78fOPTZ.js                              0.67 kB │ gzip:   0.35 kB
+dist/assets/toml-Bm5Em-hy.js                                    1.14 kB │ gzip:   0.54 kB
+dist/assets/index-CN-4LJ_M.js                                   2.01 kB │ gzip:   1.27 kB
+dist/assets/shell-CjFT_Tl9.js                                   2.57 kB │ gzip:   1.21 kB
+dist/assets/index-D_wuPgO_.js                                  11.59 kB │ gzip:   5.17 kB
+dist/assets/index-B9ZLuELR.js                                  14.77 kB │ gzip:   6.43 kB
+dist/assets/index-DOCBBUNH.js                                  16.89 kB │ gzip:   4.74 kB
+dist/assets/index-S5llcUOM.js                                  26.55 kB │ gzip:   8.81 kB
+dist/assets/index-BW-Z4t4B.js                                 684.69 kB │ gzip: 215.77 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.27s
+   Compiling searchis v0.1.0 (/home/ray/Projects/CodeRepo/searchis/src-tauri)
+warning: use of deprecated method `umya_spreadsheet::Worksheet::get_column_dimension_by_number`: Use column_dimension_by_number()
+   --> src/format_copy/xlsx.rs:205:22
+    |
+205 |                     .get_column_dimension_by_number(&c)
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: use of deprecated method `umya_spreadsheet::Worksheet::get_row_dimension`: Use row_dimension()
+   --> src/format_copy/xlsx.rs:214:22
+    |
+214 |                     .get_row_dimension(&r)
+    |                      ^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CHUNK` is never used
+  --> src/platform/x11_clipboard.rs:43:7
+   |
+43 | const MAX_CHUNK: usize = 256 * 1024;
+   |       ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `INCR_TTL` is never used
+  --> src/platform/x11_clipboard.rs:45:7
+   |
+45 | const INCR_TTL: Duration = Duration::from_secs(60);
+   |       ^^^^^^^^
+
+warning: struct `Incr` is never constructed
+  --> src/platform/x11_clipboard.rs:51:8
+   |
+51 | struct Incr {
+   |        ^^^^
+
+warning: method `next_chunk` is never used
+  --> src/platform/x11_clipboard.rs:63:8
+   |
+61 | impl Incr {
+   | --------- method in this implementation
+62 |     /// 下一块数据；全部发完后返回一次空块（通知请求方结束），之后返回 `None`。
+63 |     fn next_chunk(&mut self, chunk: usize) -> Option<&[u8]> {
+   |        ^^^^^^^^^^
+
+warning: struct `Format` is never constructed
+  --> src/platform/x11_clipboard.rs:80:8
+   |
+80 | struct Format {
+   |        ^^^^^^
+
+warning: struct `State` is never constructed
+  --> src/platform/x11_clipboard.rs:86:8
+   |
+86 | struct State {
+   |        ^^^^^
+
+warning: struct `Atoms` is never constructed
+  --> src/platform/x11_clipboard.rs:92:8
+   |
+92 | struct Atoms {
+   |        ^^^^^
+
+warning: struct `Owner` is never constructed
+   --> src/platform/x11_clipboard.rs:102:8
+    |
+102 | struct Owner {
+    |        ^^^^^
+
+warning: function `lock` is never used
+   --> src/platform/x11_clipboard.rs:112:4
+    |
+112 | fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    |    ^^^^
+
+warning: multiple associated items are never used
+   --> src/platform/x11_clipboard.rs:117:8
+    |
+116 | impl Owner {
+    | ---------- associated items in this implementation
+117 |     fn connect(display: Option<&str>) -> Result<Arc<Self>, AppError> {
+    |        ^^^^^^^
+...
+169 |     fn is_alive(&self) -> bool {
+    |        ^^^^^^^^
+...
+173 |     fn chunk_size(&self) -> usize {
+    |        ^^^^^^^^^^
+...
+179 |     fn event_loop(&self) {
+    |        ^^^^^^^^^^
+...
+197 |     fn handle(&self, event: Event) -> Result<(), x11rb::errors::ReplyOrIdError> {
+    |        ^^^^^^
+...
+224 |     fn on_request(
+    |        ^^^^^^^^^^
+...
+250 |     fn serve(
+    |        ^^^^^
+...
+340 |     fn on_incr_delete(
+    |        ^^^^^^^^^^^^^^
+...
+374 |     fn acquire(&self, formats: Vec<(String, Vec<u8>)>) -> Result<(), AppError> {
+    |        ^^^^^^^
+
+warning: struct `X11Clipboard` is never constructed
+   --> src/platform/x11_clipboard.rs:440:12
+    |
+440 | pub struct X11Clipboard {
+    |            ^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> src/platform/x11_clipboard.rs:446:12
+    |
+445 | impl X11Clipboard {
+    | ----------------- associated function in this implementation
+446 |     pub fn new() -> Self {
+    |            ^^^
+
+warning: method `group_name` is never used
+  --> src/search_index.rs:76:12
+   |
+68 | impl SearchIndex {
+   | ---------------- method in this implementation
+...
+76 |     pub fn group_name(&self, group_id: &str) -> Option<String> {
+   |            ^^^^^^^^^^
+
+warning: `searchis` (lib) generated 15 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.79s
+       Built application at: /home/ray/Projects/CodeRepo/searchis/src-tauri/target/debug/searchis
+
+Execution of 1 workers started at 2026-10-16T08:38:10.987Z
+
+2026-10-16T08:38:11.105Z WARN diagnostics: ⚠️ Linux Dependencies: 10 packages may be missing
+2026-10-16T08:38:11.106Z WARN diagnostics:    Missing: libgtk-3-0, libgbm1, libasound2, libatk-bridge2.0-0, libcups2, libdrm2, libxkbcommon0, libxcomposite1, libxdamage1, libxrandr2
+Install with: sudo apt-get install libgtk-3-0 libgbm1 libasound2 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2
+[0-0] RUNNING in undefined - file:///e2e/create-and-search.e2e.ts
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activating service name='org.freedesktop.systemd1' requested by ':1.8' (uid=1000 pid=1327317 comm="/usr/bin/dbus-broker-launch --config-file=/usr/sha")
+dbus-daemon[1327238]: [session uid=1000 pid=1327238 pidfd=5] Activated service 'org.freedesktop.systemd1' failed: Process org.freedesktop.systemd1 exited with status 1
+[0-0] PASSED in undefined - file:///e2e/create-and-search.e2e.ts
+
+ "spec" Reporter:
+------------------------------------------------------------------
+[wry 0.55.1 linux #0-0] Running: wry (v0.55.1) on linux
+[wry 0.55.1 linux #0-0] Session ID: ada0cc49-519d-4cc0-b511-0b377e08fccf
+[wry 0.55.1 linux #0-0]
+[wry 0.55.1 linux #0-0] » e2e/create-and-search.e2e.ts
+[wry 0.55.1 linux #0-0] compiled Searchis application
+[wry 0.55.1 linux #0-0]    ✓ keeps the quick-search visual and keyboard contract on real data
+[wry 0.55.1 linux #0-0]    ✓ manages the group tree, language badges and non-empty group deletion (SPEC-21)
+[wry 0.55.1 linux #0-0]    ✓ keeps editor history per snippet and preserves original line endings (SPEC-21 repair R1/R2)
+[wry 0.55.1 linux #0-0]    ✓ imports, edits, opens, trashes and rescans file templates (SPEC-22)
+[wry 0.55.1 linux #0-0]    ✓ copies with formats, exports and opens file templates from the quick-search window (SPEC-23)
+[wry 0.55.1 linux #0-0]
+[wry 0.55.1 linux #0-0] 5 passing (19.3s)
+
+
+Spec Files:	 1 passed, 1 total (100% completed) in 00:00:20  
+
+KCrash: Application 'xdg-desktop-portal-kde' crashing... crashRecursionCounter = 2

@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { OpenWithCandidate } from '../api/snippets';
+import { OpenWithCandidate, templatesApi } from '../api/snippets';
 import { Group, GROUP_FILTER_PREFIX, Snippet, SidebarFilter, SnippetLanguage, SortOption, TypeFilter } from '../types/snippet';
 import { SelectField } from './ui/SelectField';
 import { CodeEditor } from './ui/CodeEditor';
@@ -239,6 +239,17 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
   const [isSensitive, setIsSensitive] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const runTemplateAction = async (
+    snippet: Snippet,
+    action: (id: string) => Promise<string>,
+    failure: string,
+  ): Promise<{ ok: boolean; message: string }> => {
+    try {
+      return { ok: true, message: await action(snippet.id) };
+    } catch (e) {
+      return { ok: false, message: `${failure}：${(e as { message?: string })?.message ?? '未知错误'}` };
+    }
+  };
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
   const [keyError, setKeyError] = useState('');
@@ -700,6 +711,15 @@ export const ManagerWindow: React.FC<ManagerWindowProps> = ({
             rememberedDesktopId={openWithByExtension?.[selectedSnippet.fileExt ?? '']}
             onSave={fields => onSaveTemplate?.(selectedSnippet, fields) ?? Promise.resolve('当前版本无法保存文件模板。')}
             onOpen={desktopId => onOpenTemplate?.(selectedSnippet, desktopId)}
+            onExport={() => runTemplateAction(selectedSnippet, async id => {
+              const outcome = await templatesApi.export(id, crypto.randomUUID());
+              return outcome.path ? `已导出到 ${outcome.path}` : '已导出';
+            }, '导出失败')}
+            onFormatCopy={() => runTemplateAction(selectedSnippet, async id => {
+              // 管理窗口里只写剪贴板，不自动粘贴到其他窗口。
+              const outcome = await templatesApi.formatCopy(id, crypto.randomUUID(), false);
+              return outcome.notes?.length ? `已带格式复制（${outcome.notes.join('；')}）` : '已带格式复制';
+            }, '带格式复制失败')}
             onLoadOpenWith={() => onLoadOpenWith?.(selectedSnippet) ?? Promise.resolve([])}
             onTrash={() => onDeleteSnippet(selectedSnippet.id)}
             onRestore={() => onRestoreSnippet(selectedSnippet.id)}

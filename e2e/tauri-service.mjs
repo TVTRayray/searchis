@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import TauriWorkerService, { launcher } from '@wdio/tauri-service';
@@ -12,6 +12,10 @@ if (!process.env.SEARCHIS_E2E_FILES_DIR) {
 }
 process.env.SEARCHIS_E2E_OPEN_LOG ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'open-calls.log');
 process.env.SEARCHIS_E2E_IMPORT_GATE ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'import-gate');
+// SPEC-23：带格式复制写入“记录替身”而不是真实剪贴板；导出目录指向临时目录（不写用户的下载目录）。
+process.env.SEARCHIS_E2E_CLIPBOARD_LOG ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'clipboard-calls.log');
+process.env.SEARCHIS_E2E_EXPORT_DIR ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'exports');
+mkdirSync(process.env.SEARCHIS_E2E_EXPORT_DIR, { recursive: true });
 process.env.SEARCHIS_E2E_PICK_LIST ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'pick-list.txt');
 
 export { launcher };

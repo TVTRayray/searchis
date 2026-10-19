@@ -1,6 +1,7 @@
 mod clipboard;
 mod commands;
 mod error;
+mod format_copy;
 mod logging;
 mod model;
 mod platform;
@@ -247,6 +248,14 @@ pub fn run() {
                 );
             }
 
+            #[cfg(not(feature = "e2e-webdriver"))]
+            let format_clipboard = Arc::new(platform::x11_clipboard::X11Clipboard::new())
+                as Arc<dyn platform::x11_clipboard::FormatClipboard>;
+            // E2E 构建只记录“格式名 → 字节长度/哈希”，不写真实剪贴板。
+            #[cfg(feature = "e2e-webdriver")]
+            let format_clipboard = Arc::new(platform::x11_clipboard::RecordingClipboard)
+                as Arc<dyn platform::x11_clipboard::FormatClipboard>;
+
             let state = match Repository::open_with_paths(&data_dir, &config_dir) {
                 Ok(repository) => AppState {
                     service: Some(Arc::new(
@@ -258,6 +267,7 @@ pub fn run() {
                     window_manager,
                     search_visible: std::sync::Mutex::new(false),
                     target_window: std::sync::Mutex::new(None),
+                    format_clipboard: Arc::clone(&format_clipboard),
                 },
                 Err(error) => {
                     logger.failure("database_startup", &error);
@@ -269,6 +279,7 @@ pub fn run() {
                         window_manager,
                         search_visible: std::sync::Mutex::new(false),
                         target_window: std::sync::Mutex::new(None),
+                        format_clipboard: Arc::clone(&format_clipboard),
                     }
                 }
             };
@@ -304,6 +315,8 @@ pub fn run() {
             commands::template_create_blank,
             commands::template_update,
             commands::template_open,
+            commands::template_format_copy,
+            commands::template_export,
             commands::template_open_with_candidates,
             commands::template_scan,
             commands::template_pick_files,

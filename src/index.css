@@ -1141,6 +1141,21 @@ body:has(.quick-search-shell) #root {
   background: var(--color-danger-subtle);
   font-size: 12.5px;
 }
+.quick-notice {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 18px;
+  color: var(--color-fg);
+  background: var(--color-selected-bg);
+  font-size: 12.5px;
+}
+.quick-notice svg { flex: none; color: var(--color-accent); }
+.quick-hints { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
+.quick-file-badge { border-color: var(--color-border-strong); color: var(--color-fg-secondary); }
 .quick-footer {
   position: relative;
   z-index: 10;
@@ -1296,6 +1311,7 @@ body:has(.quick-search-shell) #root {
 .manager-group-dialog { display: flex; flex-direction: column; gap: 12px; min-width: 320px; }
 
 .quick-badges { display: flex; flex: none; align-items: center; gap: 6px; }
+.quick-pin-mark { color: var(--color-accent, currentColor); }
 .quick-sep { color: var(--color-fg-muted); }
 .quick-group { color: var(--color-fg-secondary); font-size: 11.5px; }
 .quick-search-subline .quick-usage { border: 0; padding: 0; color: var(--color-fg-muted); white-space: nowrap; }

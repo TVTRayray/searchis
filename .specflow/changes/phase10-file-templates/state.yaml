@@ -1,7 +1,7 @@
 change_id: phase10-file-templates
 state: ready
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-16T07:22:19.578Z
+updated_at: 2026-10-19T00:44:55.447Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
@@ -73,7 +73,7 @@ specs:
     qa_report: reviews/reviewer-mvamxti6-w0esv.md
   - id: formatted-copy-export
     title: SPEC-23 快搜窗口文件动作：带格式复制、导出与打开
-    state: ready
+    state: qa_passed
     depends_on:
       - file-templates
     paths:
@@ -87,11 +87,12 @@ specs:
       - src/types/**
       - src/index.css
       - e2e/**
+      - src/components/ui/FileTemplateDetail.tsx
     qa_attempts: 0
-    qa_report: null
+    qa_report: reviews/reviewer-mvej5nta-uwvw7.md
   - id: settings-backup
     title: SPEC-24 设置视图改版（S1）与 zip 备份、恢复、重置
-    state: todo
+    state: ready
     depends_on:
       - formatted-copy-export
     paths:
@@ -435,5 +436,98 @@ history:
   - at: 2026-10-16T07:22:19.578Z
     event: spec_ready
     detail: formatted-copy-export
+  - at: 2026-10-16T07:22:43.852Z
+    event: task_dispatched
+    detail: implementer:implementer-mvan4gsr-gdmci:formatted-copy-export:route=implementer
+  - at: 2026-10-16T07:22:48.153Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvan4gsr:wZ:p12
+  - at: 2026-10-16T08:12:11.747Z
+    event: decision_required
+    detail: >
+      SPEC-23 的后端、快搜窗口、快捷键速查与 E2E 已完成并通过；唯一未完成项是 tasks 4.5 / 成功标准中
+
+      “管理窗口右栏‘导出’‘带格式复制’按钮启用”。这两个按钮是 src/components/ui/FileTemplateDetail.tsx
+      里写死 disabled 的，
+
+      该文件不在本任务 allowed_paths 内（只列了 ManagerWindow.tsx，但不改子组件无法启用按钮，也无法给它传新
+      props），
+
+      故按规则不越权修改，请决策是否把 src/components/ui/FileTemplateDetail.tsx 加入
+      allowed_paths。
+
+      后端命令 template_format_copy / template_export 已就绪，启用按钮只需在该组件加
+      onExport/onFormatCopy 两个 props 并在 ManagerWindow 接线。
+
+      已完成：X11 CLIPBOARD 选区持有者（TARGETS/TIMESTAMP/INCR/SelectionClear，私有 Xvfb
+      上实测）；md/xlsx/其他文件格式转换纯函数；
+
+      带格式复制计数幂等与失败不计数；导出（命名、(2) 后缀、renameat2 不覆盖、无残留）；execute_paste 的 autoPaste
+      改为 请求值 && settings.autoPaste；
+
+      快搜结果行文件图标与大写扩展名徽标、按键语义、底栏随类型切换、IME 防护、提示条；快捷键速查按 通用/文本片段/文件模板 分组。
+
+      tasks.md 已勾选 4.1–4.4、4.6–4.8；4.5 与 4.9（实机）未勾选。
+  - at: 2026-10-16T08:29:22.317Z
+    event: spec_paths_added
+    detail: '{"spec":"formatted-copy-export","paths":["src/components/ui/FileTemplateDetail.tsx"],"reason":"人工决策
+      A（2026-10-16）：管理窗口导出/带格式复制按钮位于 SPEC-22 新增组件"}'
+  - at: 2026-10-16T08:29:39.714Z
+    event: human_resolution
+    detail: "ready: 人工决策 A：FileTemplateDetail.tsx 加入 SPEC-23 范围"
+  - at: 2026-10-16T08:29:39.899Z
+    event: task_dispatched
+    detail: implementer:implementer-mvapijln-esj55:formatted-copy-export:route=implementer
+  - at: 2026-10-16T08:29:44.392Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvapijln:wZ:p13
+  - at: 2026-10-16T08:36:14.720Z
+    event: implementation_completed
+    detail: formatted-copy-export
+  - at: 2026-10-16T08:36:15.617Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvapr0xq-s0f97:formatted-copy-export:route=reviewer
+  - at: 2026-10-16T08:36:19.001Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvapr0xq-s0f97:wZ:p14
+  - at: 2026-10-16T08:45:02.312Z
+    event: decision_required
+    detail: formatted-copy-export:design_conformance
+  - at: 2026-10-16T09:35:22.787Z
+    event: spec_returned_to_implementer
+    detail: formatted-copy-export
+  - at: 2026-10-16T09:35:22.787Z
+    event: human_resolution
+    detail: "repairing: 人工决策 A：置顶文件模板应显示扩展名类型图标"
+  - at: 2026-10-16T09:35:23.014Z
+    event: task_dispatched
+    detail: implementer:implementer-mvarv24l-7cj3g:formatted-copy-export:route=implementer
+  - at: 2026-10-16T09:35:27.435Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvarv24l:wZ:p15
+  - at: 2026-10-16T09:37:39.523Z
+    event: implementation_completed
+    detail: formatted-copy-export
+  - at: 2026-10-16T09:37:40.379Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvary03x-l01wb:formatted-copy-export:route=reviewer
+  - at: 2026-10-16T09:37:43.765Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvary03x-l01wb:wZ:p16
+  - at: 2026-10-19T00:42:45.838Z
+    event: lease_expired
+    detail: lease-mvary03x-b1nug:reviewer-mvary03x-l01wb
+  - at: 2026-10-19T00:42:45.841Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvej5nta-uwvw7:formatted-copy-export:route=reviewer
+  - at: 2026-10-19T00:42:50.146Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvej5nta-uwvw7:wZ:p19
+  - at: 2026-10-19T00:44:55.446Z
+    event: qa_passed
+    detail: formatted-copy-export
+  - at: 2026-10-19T00:44:55.447Z
+    event: spec_ready
+    detail: settings-backup
 labels:
   - visual

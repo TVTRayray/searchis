@@ -12,6 +12,7 @@ use crate::{
     validation::{normalize_key, validate_create, validate_group_name, validate_update},
 };
 
+mod template_actions;
 mod templates;
 pub use templates::TemplateFs;
 
@@ -177,6 +178,8 @@ impl SnippetService {
     }
 
     /// SPEC-03 完整粘贴事务：剪贴板写入 → 自动粘贴 → 统计更新。
+    ///
+    /// 最终是否自动粘贴 = 请求标志 且 `settings.autoPaste`（SPEC-23：前端不再自行决定）。
     pub fn paste(
         &self,
         input: crate::model::PasteInput,
@@ -196,30 +199,15 @@ impl SnippetService {
                 action: "copied".into(),
                 target_valid: false,
                 counted: false,
+                auto_paste_disabled: false,
             });
         }
+        let setting_enabled = self.repository.get_settings()?.0.auto_paste;
         // 3. 写剪贴板（失败直接返回，不计数不注入）
         clipboard.write_text(snippet.content.clone())?;
         // 4. 自动粘贴
-        let mut action = "copied".into();
-        let mut target_valid = false;
-        if input.auto_paste {
-            if let Ok(Some(target)) = window_manager.get_active_window() {
-                if window_manager.activate_window(target).is_ok() {
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    if window_manager.inject_ctrl_v(target).is_ok() {
-                        action = "pasted".into();
-                        target_valid = true;
-                    } else {
-                        action = "degraded".into();
-                    }
-                } else {
-                    action = "degraded".into();
-                }
-            } else {
-                action = "degraded".into();
-            }
-        }
+        let (action, target_valid) =
+            auto_paste_step(input.auto_paste && setting_enabled, window_manager);
         // 5. 原子统计更新
         let (updated, counted) = self.record_usage(&input.snippet_id, &input.operation_id)?;
         Ok(crate::model::PasteOutcome {
@@ -227,6 +215,7 @@ impl SnippetService {
             action,
             target_valid,
             counted,
+            auto_paste_disabled: input.auto_paste && !setting_enabled,
         })
     }
 
@@ -711,7 +700,30 @@ fn to_search_item(snippet: &Snippet, group_name: Option<String>) -> SearchResult
     }
 }
 
-/// 文件模板没有文本正文；复制/粘贴由 SPEC-23 提供。
+/// 激活原窗口并发送固定的 Ctrl+V。返回（action, targetValid）；
+/// 任一步失败退化为 "degraded"（内容已在剪贴板中）。`enabled=false` 时不做任何注入。
+pub(crate) fn auto_paste_step(
+    enabled: bool,
+    window_manager: &dyn crate::platform::WindowManager,
+) -> (String, bool) {
+    if !enabled {
+        return ("copied".into(), false);
+    }
+    let Ok(Some(target)) = window_manager.get_active_window() else {
+        return ("degraded".into(), false);
+    };
+    if window_manager.activate_window(target).is_err() {
+        return ("degraded".into(), false);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    if window_manager.inject_ctrl_v(target).is_ok() {
+        ("pasted".into(), true)
+    } else {
+        ("degraded".into(), false)
+    }
+}
+
+/// 文本复制/粘贴不适用于文件模板；文件模板走 `template_format_copy`。
 fn reject_file_content_action(snippet: &Snippet) -> Result<(), AppError> {
     if snippet.kind == "file" {
         return Err(AppError::new(
@@ -1062,6 +1074,42 @@ mod tests {
         assert_eq!(outcome.action, "copied");
         assert!(!outcome.target_valid);
         assert!(outcome.counted);
+    }
+
+    #[test]
+    fn paste_requested_autopaste_is_ignored_when_setting_is_off() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = Repository::open(directory.path()).unwrap();
+        let service = SnippetService::new(repo);
+        let (mut settings, revision) = service.repository.get_settings().unwrap();
+        settings.auto_paste = false;
+        service.repository.update_settings(&settings, revision).unwrap();
+        let created = create_snippet(&service, "ap-off", "hello");
+        let wm = FakeWindowManager {
+            inject_available: true,
+            activate_succeeds: true,
+            inject_succeeds: true,
+        };
+        let cb = FakeClipboard {
+            fail: false,
+            written: std::sync::Mutex::new(vec![]),
+        };
+        let outcome = service
+            .paste(
+                PasteInput {
+                    snippet_id: created.id.clone(),
+                    operation_id: uuid::Uuid::new_v4().to_string(),
+                    auto_paste: true,
+                },
+                &cb,
+                &wm,
+            )
+            .unwrap();
+        assert_eq!(outcome.action, "copied");
+        assert!(!outcome.target_valid);
+        assert!(outcome.auto_paste_disabled);
+        assert!(outcome.counted);
+        assert_eq!(cb.written.lock().unwrap().as_slice(), ["hello"]);
     }
 
     #[test]

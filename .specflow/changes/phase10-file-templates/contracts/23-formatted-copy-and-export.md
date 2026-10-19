@@ -13,7 +13,7 @@
 - 允许修改范围：
   - `src-tauri/src/**`（新增 `format_copy/` 模块：md→HTML、xlsx→SpreadsheetML/HTML/TSV、URI 列表；`platform/x11_clipboard.rs`：选区持有者；导出服务）
   - `src-tauri/Cargo.toml`（新增 `pulldown-cmark`、`x11rb`；复用 SPEC-22 的 `umya-spreadsheet` 读取 xlsx）
-  - `src/components/QuickSearchWindow.tsx`、`src/components/ManagerWindow.tsx`（启用“导出”“带格式复制”按钮）、`src/components/KeyboardShortcutsModal.tsx`、`src/api/**`、`src/types/**`、`src/index.css`
+  - `src/components/QuickSearchWindow.tsx`、`src/components/ManagerWindow.tsx`（启用“导出”“带格式复制”按钮）、`src/components/ui/FileTemplateDetail.tsx`（仅按钮启用与 onExport/onFormatCopy 接线——2026-10-16 人工授权）、`src/components/KeyboardShortcutsModal.tsx`、`src/api/**`、`src/types/**`、`src/index.css`
   - `e2e/**`
 - 禁止修改范围：
   - 文本片段的剪贴板写入路径（继续使用现有封装，行为不变）

@@ -1,6 +1,7 @@
 //! SPEC-22 文件模板：命名规则、路径安全、目录扫描（纯函数核心 + IO 层）。
 //!
 //! 日志约束：本模块与调用方都不得记录文件名、相对路径或分组名。
+pub mod export;
 pub mod fsops;
 pub mod names;
 pub mod paths;

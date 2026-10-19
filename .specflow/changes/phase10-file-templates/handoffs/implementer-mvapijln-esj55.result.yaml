@@ -1,0 +1,25 @@
+task_id: implementer-mvapijln-esj55
+lease_id: lease-mvapijln-2e9un
+outcome: completed
+summary: |
+  补完 tasks 4.5 剩余项：管理窗口右栏“导出”“带格式复制”按钮启用。
+  FileTemplateDetail.tsx 新增 onExport/onFormatCopy props（返回 {ok,message}），在文件信息卡下方以 data-testid="file-action-result" 显示结果；
+  文件缺失时按钮禁用。ManagerWindow.tsx 直接调用已有 templatesApi.export / formatCopy（operationId 用 crypto.randomUUID()）；
+  管理窗口里带格式复制固定 autoPaste=false（只写剪贴板，不向其他窗口注入）。App.tsx 不在 allowed_paths，未改动，故用内联结果文案而非 toast。
+  SPEC-22 E2E 中“按钮 disabled”断言改为可用；SPEC-23 E2E 末尾新增管理窗口按钮用例（剪贴板记录替身：写一次且含 text/html、计数 +1；导出新增一个文件）。
+  tasks.md 勾选 4.5；4.9 实机仍为 pending_human。
+evidence:
+  changed_files:
+    - src/components/ui/FileTemplateDetail.tsx
+    - src/components/ManagerWindow.tsx
+    - e2e/create-and-search.e2e.ts
+    - .specflow/changes/phase10-file-templates/tasks.md
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvapijln-esj55.result.yaml
+  test_results:
+    - "cd src-tauri && cargo test：191 passed, 0 failed"
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：5 passing（含更新后的 SPEC-22 断言与新增管理窗口按钮用例）"
+    - "实机项（AC-30/31/32、真实剪贴板、自动粘贴）：pending_human，未自动化"
+unresolved_issues:
+  - "pending_human：tasks 4.9 实机验收。"
+  - "管理窗口按钮的结果为内联文案（非全局 toast），因 App.tsx 不在 allowed_paths。"

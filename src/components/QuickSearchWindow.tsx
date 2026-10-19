@@ -7,12 +7,19 @@ import {
   Database,
   FileCode,
   FileText,
+  Info,
   LayoutGrid,
   Lock,
   Star,
   Terminal,
 } from "lucide-react";
-import { SearchResultItem, settingsApi, snippetsApi } from "../api/snippets";
+import {
+  SearchResultItem,
+  settingsApi,
+  snippetsApi,
+  templatesApi,
+} from "../api/snippets";
+import { FileTypeIcon, fileCategory } from "./ui/FileTypeIcon";
 import { useTheme } from "./ThemeProvider";
 import {
   Command,
@@ -33,6 +40,23 @@ interface QuickSearchWindowProps {
 }
 
 const DEFAULT_LIMIT = 20;
+const AUTO_PASTE_OFF = "自动粘贴已在设置中关闭";
+
+/** 底栏提示随选中条目类型切换（PRD FR-PCK-02 v0.4）。 */
+const TEXT_HINTS: ReadonlyArray<readonly [string, string]> = [
+  ["复制", "↵"],
+  ["粘贴", "Ctrl+↵"],
+  ["编辑", "Ctrl+E"],
+  ["关闭", "Esc"],
+];
+const FILE_HINTS: ReadonlyArray<readonly [string, string]> = [
+  ["带格式复制", "↵"],
+  ["粘贴", "Ctrl+↵"],
+  ["导出", "Shift+↵"],
+  ["打开", "Ctrl+O"],
+  ["编辑", "Ctrl+E"],
+  ["关闭", "Esc"],
+];
 
 const highlight = (text: string, query: string) => {
   const needle = query.trim();
@@ -78,6 +102,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   const [total, setTotal] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const seqRef = useRef(0);
@@ -125,7 +150,17 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     isOpenRef.current = false;
     setSearchQuery("");
     setError(null);
+    setNotice(null);
     onClose();
+  };
+  /** 有提示时让用户看清楚再关闭（自动粘贴被设置关闭、公式转数值等）。 */
+  const closeWithNotices = (messages: string[]) => {
+    if (messages.length === 0) {
+      close();
+      return;
+    }
+    setNotice(messages.join(" "));
+    window.setTimeout(close, 1100);
   };
 
   const fetchResults = useCallback(
@@ -292,6 +327,7 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
   }, [fetchResults]);
 
   useEffect(() => {
+    setNotice(null);
     void fetchResults(searchQuery);
   }, [searchQuery, fetchResults]);
 
@@ -331,7 +367,9 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
             : result,
         ),
       );
-      if (!keepOpen) close();
+      if (!keepOpen) {
+        closeWithNotices(outcome.autoPasteDisabled ? [AUTO_PASTE_OFF] : []);
+      }
     } catch (pasteError) {
       setError((pasteError as { message?: string }).message ?? "操作失败");
     } finally {
@@ -359,6 +397,77 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
       close();
     } catch (copyError) {
       setError((copyError as { message?: string }).message ?? "复制失败");
+    } finally {
+      copyingRef.current = false;
+    }
+  };
+
+  /** 文件模板：Enter 带格式复制；Ctrl+Enter / Ctrl+数字 带格式复制并自动粘贴。 */
+  const doFormatCopy = async (item: SearchResultItem, autoPaste: boolean) => {
+    if (copyingRef.current) return;
+    copyingRef.current = true;
+    setError(null);
+    setNotice(null);
+    try {
+      const outcome = await templatesApi.formatCopy(
+        item.id,
+        crypto.randomUUID(),
+        autoPaste,
+      );
+      setResults((current) =>
+        current.map((result) =>
+          result.id === outcome.snippet.id
+            ? { ...result, usageCount: outcome.snippet.usageCount }
+            : result,
+        ),
+      );
+      closeWithNotices([
+        ...outcome.notes,
+        ...(outcome.autoPasteDisabled ? [AUTO_PASTE_OFF] : []),
+      ]);
+    } catch (copyError) {
+      setError((copyError as { message?: string }).message ?? "带格式复制失败");
+    } finally {
+      copyingRef.current = false;
+    }
+  };
+
+  /** Shift+Enter：导出副本；成功后窗口保持打开并显示路径。 */
+  const doExport = async (item: SearchResultItem) => {
+    if (copyingRef.current) return;
+    copyingRef.current = true;
+    setError(null);
+    setNotice(null);
+    try {
+      const outcome = await templatesApi.export(item.id, crypto.randomUUID());
+      if (outcome.counted) {
+        setResults((current) =>
+          current.map((result) =>
+            result.id === item.id
+              ? { ...result, usageCount: result.usageCount + 1 }
+              : result,
+          ),
+        );
+      }
+      setNotice(outcome.path ? `已导出到 ${outcome.path}` : "已导出");
+    } catch (exportError) {
+      setError((exportError as { message?: string }).message ?? "导出失败");
+    } finally {
+      copyingRef.current = false;
+    }
+  };
+
+  /** Ctrl+O：用默认软件打开，不计数，成功后关闭。 */
+  const doOpen = async (item: SearchResultItem) => {
+    if (copyingRef.current) return;
+    copyingRef.current = true;
+    setError(null);
+    setNotice(null);
+    try {
+      await templatesApi.open(item.id);
+      close();
+    } catch (openError) {
+      setError((openError as { message?: string }).message ?? "无法打开文件");
     } finally {
       copyingRef.current = false;
     }
@@ -412,19 +521,33 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
     if (!(event.ctrlKey || event.metaKey)) {
       if (event.key === "Enter" && selected) {
         event.preventDefault();
-        void doCopy(selected);
+        if (event.shiftKey) {
+          if (selected.kind === "file") void doExport(selected);
+        } else if (selected.kind === "file") {
+          void doFormatCopy(selected, false);
+        } else {
+          void doCopy(selected);
+        }
       }
       return;
     }
     if (/^[1-9]$/.test(event.key)) {
       event.preventDefault();
       const item = results[Number(event.key) - 1];
-      if (item) void doPaste(item, false);
+      if (!item) return;
+      if (item.kind === "file") void doFormatCopy(item, true);
+      else void doPaste(item, false);
       return;
     }
     if (event.key === "Enter" && selected) {
       event.preventDefault();
-      void doPaste(selected, false);
+      if (selected.kind === "file") void doFormatCopy(selected, true);
+      else void doPaste(selected, false);
+      return;
+    }
+    if ((event.key === "o" || event.key === "O") && selected) {
+      event.preventDefault();
+      if (selected.kind === "file") void doOpen(selected);
       return;
     }
     if ((event.key === "e" || event.key === "E") && selected) {
@@ -449,17 +572,21 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
         data-snippet-id={item.id}
         onSelect={() => {
           setSelectedIndex(index);
-          void doCopy(item);
+          if (item.kind === "file") void doFormatCopy(item, false);
+          else void doCopy(item);
         }}
         onContextMenu={(event) => handleItemContextMenu(event, item)}
       >
         <span
-          className={`quick-key ${selectedIndex === index ? (item.pinned ? "quick-key-pinned-selected" : "quick-key-selected") : item.pinned ? "quick-key-pinned" : ""}`}
+          className={`quick-key ${item.kind === "file" ? "file-mark " : ""}${selectedIndex === index ? (item.pinned ? "quick-key-pinned-selected" : "quick-key-selected") : item.pinned ? "quick-key-pinned" : ""}`}
           data-kind={item.kind}
           data-language={item.language}
+          data-category={item.kind === "file" ? fileCategory(item.fileExt) : undefined}
           aria-hidden
         >
-          {item.pinned ? (
+          {item.kind === "file" ? (
+            <FileTypeIcon ext={item.fileExt} className="size-4" />
+          ) : item.pinned ? (
             <Star className="size-3.5 fill-current" strokeWidth={1.5} />
           ) : (
             languageIcon(item.language)
@@ -484,13 +611,29 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
           </div>
         </div>
         <div className="quick-badges">
+          {item.kind === "file" && item.pinned && (
+            <Star
+              className="size-3 fill-current quick-pin-mark"
+              strokeWidth={1.5}
+              data-testid="pin-mark"
+              aria-label="已固定"
+            />
+          )}
           {item.sensitive && (
             <span className="quick-sensitive">
               <Lock className="size-3" strokeWidth={1.5} />
               敏感
             </span>
           )}
-          {item.language !== "plain" && (
+          {item.kind === "file" && item.fileExt && (
+            <span
+              className="quick-language-badge quick-file-badge"
+              data-testid="file-badge"
+            >
+              {item.fileExt.toUpperCase()}
+            </span>
+          )}
+          {item.kind !== "file" && item.language !== "plain" && (
             <span className="quick-language-badge" data-testid="language-badge">
               {item.language.toUpperCase()}
             </span>
@@ -534,6 +677,12 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
             <div className="quick-error" role="alert">
               <AlertCircle className="size-4" strokeWidth={1.5} aria-hidden />
               {error}
+            </div>
+          )}
+          {notice && (
+            <div className="quick-notice" role="status" data-testid="quick-notice">
+              <Info className="size-4" strokeWidth={1.5} aria-hidden />
+              <span className="truncate">{notice}</span>
             </div>
           )}
           <CommandList className="min-h-0 flex-1">
@@ -593,16 +742,14 @@ export const QuickSearchWindow: React.FC<QuickSearchWindowProps> = ({
               <LayoutGrid className="size-3.5" strokeWidth={1.5} />
             </button>
           </span>
-          <span className="flex items-center gap-2">
-            <span>
-              仅复制 <kbd className="raycast-kbd">↵</kbd>
-            </span>
-            <span>
-              粘贴 <kbd className="raycast-kbd">Ctrl+↵</kbd>
-            </span>
-            <span>
-              关闭 <kbd className="raycast-kbd">Esc</kbd>
-            </span>
+          <span className="quick-hints" data-testid="quick-hints" data-kind={selected?.kind ?? "text"}>
+            {(selected?.kind === "file" ? FILE_HINTS : TEXT_HINTS).map(
+              ([label, keys]) => (
+                <span key={label}>
+                  {label} <kbd className="raycast-kbd">{keys}</kbd>
+                </span>
+              ),
+            )}
           </span>
         </footer>
       </section>

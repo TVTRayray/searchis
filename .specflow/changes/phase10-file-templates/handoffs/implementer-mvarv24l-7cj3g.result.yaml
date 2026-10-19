@@ -1,0 +1,21 @@
+task_id: implementer-mvarv24l-7cj3g
+lease_id: lease-mvarv24l-9u989
+outcome: completed
+summary: |
+  修复 reviewer-mvapr0xq-s0f97 的 R1（仅此一项）：QuickSearchWindow.tsx 结果行图标分支改为文件模板优先
+  （file → FileTypeIcon，其次 pinned → Star，其次语言图标），置顶文件模板不再以星标取代类型图标。
+  置顶状态由既有 quick-key-pinned 样式、“固定片段”分组，以及徽标区内新增的小型独立 Star 标记（data-testid="pin-mark"，仅置顶文件行）表示；文本片段展示不变。
+  E2E（SPEC-23 用例）新增：将 xlsx 模板置顶后，断言图标槽含 lucide-file-spreadsheet 而非 lucide-star、pin-mark 存在、XLSX 徽标仍在；取消置顶后无 pin-mark 且图标不变。
+  未改动 Rust。
+evidence:
+  changed_files:
+    - src/components/QuickSearchWindow.tsx
+    - src/index.css
+    - e2e/create-and-search.e2e.ts
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvarv24l-7cj3g.result.yaml
+  test_results:
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：5 passing（含新增置顶 xlsx 类型图标断言）"
+    - "cargo test：本轮未改 Rust，未重跑（上一轮 191 passed）"
+unresolved_issues:
+  - "pending_human：tasks 4.9 实机验收（AC-30/31/32、真实剪贴板）；置顶行渲染截图对照。"

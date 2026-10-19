@@ -1,0 +1,37 @@
+task_id: implementer-mvan4gsr-gdmci
+change_id: phase10-file-templates
+role: implementer
+target_spec: formatted-copy-export
+adapter: herdr
+lease_id: lease-mvan4gsr-oggwv
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/formatted-copy-export.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src-tauri/src/**
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src/components/QuickSearchWindow.tsx
+  - src/components/ManagerWindow.tsx
+  - src/components/KeyboardShortcutsModal.tsx
+  - src/api/**
+  - src/types/**
+  - src/index.css
+  - e2e/**
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mvan4gsr
+  pane_id: wZ:p12
+  state: working

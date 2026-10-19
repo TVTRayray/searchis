@@ -6,15 +6,46 @@ interface KeyboardShortcutsModalProps {
   onClose: () => void;
 }
 
-const shortcuts = [
-  { key: 'Alt + O', desc: '全局呼出 / 隐藏 Searchis 快速检索窗口' },
-  { key: '↑ / ↓ 或 J / K', desc: '在匹配结果列表中上下移动选中项' },
-  { key: 'Enter (↵)', desc: '自动写入剪贴板、发送粘贴按键并关闭窗口' },
-  { key: 'Ctrl + Enter (Ctrl↵)', desc: '仅复制到剪贴板，不触发自动粘贴与关闭' },
-  { key: 'Ctrl + 1～9', desc: '按下数字键直接选择对应索引的文本片段' },
-  { key: 'Ctrl + E', desc: '快捷打开当前选中片段的编辑界面' },
-  { key: 'Ctrl + N', desc: '以当前输入的搜索词作为 Key 新建片段' },
-  { key: 'Esc', desc: '关闭窗口' },
+interface ShortcutItem {
+  key: string;
+  desc: string;
+}
+
+interface ShortcutGroup {
+  title: string;
+  items: ShortcutItem[];
+}
+
+/** 按“通用 / 文本片段 / 文件模板”分组，与快搜窗口底栏及 PRD FR-PCK-02 v0.4 一致。 */
+const shortcutGroups: ShortcutGroup[] = [
+  {
+    title: '通用',
+    items: [
+      { key: 'Alt + O', desc: '全局呼出 / 隐藏 Searchis 快速检索窗口' },
+      { key: '↑ / ↓ 或 J / K', desc: '在匹配结果列表中上下移动选中项' },
+      { key: 'Ctrl + E', desc: '编辑当前选中的条目' },
+      { key: 'Ctrl + N', desc: '以当前输入的搜索词作为 Key 新建片段' },
+      { key: 'Esc', desc: '关闭窗口' },
+    ],
+  },
+  {
+    title: '文本片段',
+    items: [
+      { key: 'Enter (↵)', desc: '复制到剪贴板并关闭窗口' },
+      { key: 'Ctrl + Enter (Ctrl↵)', desc: '复制并自动粘贴到原窗口（可在设置中关闭自动粘贴）' },
+      { key: 'Ctrl + 1～9', desc: '直接粘贴对应序号的文本片段' },
+    ],
+  },
+  {
+    title: '文件模板',
+    items: [
+      { key: 'Enter (↵)', desc: '带格式复制（可直接粘贴到 WPS、文件管理器等）并关闭窗口' },
+      { key: 'Ctrl + Enter (Ctrl↵)', desc: '带格式复制并自动粘贴到原窗口' },
+      { key: 'Shift + Enter (Shift↵)', desc: '导出一份副本到导出目录，窗口保持打开' },
+      { key: 'Ctrl + O', desc: '用默认软件打开文件并关闭窗口' },
+      { key: 'Ctrl + 1～9', desc: '带格式复制并自动粘贴对应序号的文件模板' },
+    ],
+  },
 ];
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
@@ -45,14 +76,21 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           </button>
         </header>
 
-        <ul className="max-h-[460px] overflow-auto divide-y theme-divider-subtle" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-          {shortcuts.map(item => (
-            <li key={item.key} className="w-full flex items-center justify-between gap-3 px-5 py-2.5 text-[12.5px]">
-              <span className="text-theme-secondary">{item.desc}</span>
-              <kbd className="raycast-kbd">{item.key}</kbd>
-            </li>
+        <div className="max-h-[460px] overflow-auto">
+          {shortcutGroups.map(group => (
+            <section key={group.title} aria-label={group.title} data-testid="shortcut-group">
+              <h3 className="px-5 pt-3 pb-1 text-[11.5px] font-semibold text-theme-secondary">{group.title}</h3>
+              <ul className="divide-y theme-divider-subtle" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {group.items.map(item => (
+                  <li key={item.key} className="w-full flex items-center justify-between gap-3 px-5 py-2 text-[12.5px]">
+                    <span className="text-theme-secondary">{item.desc}</span>
+                    <kbd className="raycast-kbd">{item.key}</kbd>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
 
         <footer className="flex justify-end px-5 py-3 theme-titlebar border-t">
           <button type="button" className="btn-primary" onClick={onClose}>

@@ -1,0 +1,52 @@
+task_id: implementer-mvan4gsr-gdmci
+lease_id: lease-mvan4gsr-oggwv
+outcome: needs_decision
+summary: |
+  SPEC-23 的后端、快搜窗口、快捷键速查与 E2E 已完成并通过；唯一未完成项是 tasks 4.5 / 成功标准中
+  “管理窗口右栏‘导出’‘带格式复制’按钮启用”。这两个按钮是 src/components/ui/FileTemplateDetail.tsx 里写死 disabled 的，
+  该文件不在本任务 allowed_paths 内（只列了 ManagerWindow.tsx，但不改子组件无法启用按钮，也无法给它传新 props），
+  故按规则不越权修改，请决策是否把 src/components/ui/FileTemplateDetail.tsx 加入 allowed_paths。
+  后端命令 template_format_copy / template_export 已就绪，启用按钮只需在该组件加 onExport/onFormatCopy 两个 props 并在 ManagerWindow 接线。
+  已完成：X11 CLIPBOARD 选区持有者（TARGETS/TIMESTAMP/INCR/SelectionClear，私有 Xvfb 上实测）；md/xlsx/其他文件格式转换纯函数；
+  带格式复制计数幂等与失败不计数；导出（命名、(2) 后缀、renameat2 不覆盖、无残留）；execute_paste 的 autoPaste 改为 请求值 && settings.autoPaste；
+  快搜结果行文件图标与大写扩展名徽标、按键语义、底栏随类型切换、IME 防护、提示条；快捷键速查按 通用/文本片段/文件模板 分组。
+  tasks.md 已勾选 4.1–4.4、4.6–4.8；4.5 与 4.9（实机）未勾选。
+evidence:
+  changed_files:
+    - src-tauri/Cargo.toml
+    - src-tauri/Cargo.lock
+    - src-tauri/src/lib.rs
+    - src-tauri/src/commands.rs
+    - src-tauri/src/model.rs
+    - src-tauri/src/service.rs
+    - src-tauri/src/service/template_actions.rs
+    - src-tauri/src/service/templates.rs
+    - src-tauri/src/format_copy/mod.rs
+    - src-tauri/src/format_copy/markdown.rs
+    - src-tauri/src/format_copy/uri.rs
+    - src-tauri/src/format_copy/xlsx.rs
+    - src-tauri/src/format_copy/xlsx/tests.rs
+    - src-tauri/src/platform/mod.rs
+    - src-tauri/src/platform/x11_clipboard.rs
+    - src-tauri/src/platform/x11_clipboard/tests.rs
+    - src-tauri/src/templates/mod.rs
+    - src-tauri/src/templates/export.rs
+    - src/api/snippets.ts
+    - src/components/QuickSearchWindow.tsx
+    - src/components/KeyboardShortcutsModal.tsx
+    - src/index.css
+    - e2e/create-and-search.e2e.ts
+    - e2e/tauri-service.mjs
+    - .specflow/changes/phase10-file-templates/tasks.md
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvan4gsr-gdmci.result.yaml
+  test_results:
+    - "cd src-tauri && cargo test：191 passed, 0 failed（含 format_copy md/xlsx/uri、x11_clipboard 私有 Xvfb 实测含 INCR 与 SelectionClear、export、template_actions、autoPaste 与设置取“与”）"
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：5 passing（含新增 SPEC-23 用例：结果行图标/徽标、底栏切换、IME、Enter 格式集合与计数、Shift+Enter 导出且窗口保持、Ctrl+O、autoPaste=false 提示且不注入、损坏 xlsx 失败不计数、文件缺失）。首轮并行重叠运行时出现过一次既有用例 Ctrl+E 超时，独立重跑通过，判断为并发干扰。"
+    - "NFR-PERF-06（release）：md 1 MB p95=29.6 ms；xlsx 5,000 单元格 p95=20.7 ms（各 100 次；debug 构建分别约 160 ms / 119 ms）"
+    - "实机项（AC-30 WPS 文字、AC-31 WPS 表格、AC-32 Dolphin、纯文本粘贴；真实剪贴板写入与自动粘贴）：pending_human，未自动化。E2E 只用剪贴板记录替身，且仅在 autoPaste=false 下测试 Ctrl+Enter。"
+unresolved_issues:
+  - "需要决策：允许修改 src/components/ui/FileTemplateDetail.tsx 以启用‘导出’‘带格式复制’按钮（tasks 4.5 剩余部分）。现有 SPEC-22 E2E 断言这两个按钮为 disabled，启用后需同步更新该断言。"
+  - "Settings 新增 exportDir（只读，默认 null）；SettingsConfig.exportDir 在前端类型中为可选，避免改动 App.tsx（不在允许范围）。"
+  - "E2E 构建新增环境变量 SEARCHIS_E2E_CLIPBOARD_LOG / SEARCHIS_E2E_EXPORT_DIR（e2e/tauri-service.mjs 设置）；SEARCHIS_E2E_CLIPBOARD_FAIL=1 可注入剪贴板失败。"
+  - "pending_human：4.9 实机验收。"

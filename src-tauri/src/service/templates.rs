@@ -66,7 +66,7 @@ impl TemplateFs {
     }
 }
 
-fn missing_error() -> AppError {
+pub(super) fn missing_error() -> AppError {
     AppError::new(
         "TEMPLATE_FILE_MISSING",
         "模板文件已不在模板目录中。已重新扫描目录，请刷新列表。",
@@ -718,7 +718,7 @@ impl SnippetService {
 
     // ------------------------------------------------------------ 打开
 
-    fn open_target(&self, id: &str) -> Result<(FileRow, PathBuf), AppError> {
+    pub(super) fn open_target(&self, id: &str) -> Result<(FileRow, PathBuf), AppError> {
         let fs = self.tfs()?;
         let row = self.require_file(id)?;
         if row.deleted_at.is_some() {

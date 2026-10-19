@@ -31,6 +31,8 @@ pub struct AppState {
     pub window_manager: Arc<dyn WindowManager>,
     pub search_visible: Mutex<bool>,
     pub target_window: Mutex<Option<WindowHandle>>,
+    // SPEC-23
+    pub format_clipboard: Arc<dyn crate::platform::x11_clipboard::FormatClipboard>,
 }
 
 impl AppState {
@@ -198,6 +200,28 @@ pub fn template_open_with_candidates(
 }
 
 /// 目录扫描在后台线程池执行，不阻塞界面。
+/// SPEC-23：带格式复制（Enter / Ctrl+Enter / Ctrl+数字）。
+#[tauri::command(async)]
+pub fn template_format_copy(
+    state: tauri::State<'_, AppState>,
+    input: crate::model::TemplateFormatCopyInput,
+) -> Result<crate::model::TemplateFormatCopyOutcome, AppError> {
+    let clipboard = state.format_clipboard.clone();
+    let wm = state.window_manager.clone();
+    audited(&state, "template_format_copy", |s| {
+        s.template_format_copy(input, clipboard.as_ref(), wm.as_ref())
+    })
+}
+
+/// SPEC-23：导出到导出目录（Shift+Enter）。
+#[tauri::command(async)]
+pub fn template_export(
+    state: tauri::State<'_, AppState>,
+    input: crate::model::TemplateExportInput,
+) -> Result<crate::model::TemplateExportOutcome, AppError> {
+    audited(&state, "template_export", |s| s.template_export(input))
+}
+
 #[tauri::command(async)]
 pub fn template_scan(state: tauri::State<'_, AppState>) -> Result<ScanResult, AppError> {
     audited(&state, "template_scan", SnippetService::template_scan)

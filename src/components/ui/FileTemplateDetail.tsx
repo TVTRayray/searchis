@@ -22,6 +22,9 @@ interface FileTemplateDetailProps {
   /** 返回错误文案；成功返回 null。 */
   onSave: (fields: TemplateFormFields) => Promise<string | null>;
   onOpen: (desktopId?: string) => void;
+  /** 返回给用户看的结果文案。 */
+  onExport: () => Promise<{ ok: boolean; message: string }>;
+  onFormatCopy: () => Promise<{ ok: boolean; message: string }>;
   onLoadOpenWith: () => Promise<OpenWithCandidate[]>;
   onTrash: () => void;
   onRestore: () => void;
@@ -37,6 +40,8 @@ export const FileTemplateDetail: React.FC<FileTemplateDetailProps> = ({
   rememberedDesktopId,
   onSave,
   onOpen,
+  onExport,
+  onFormatCopy,
   onLoadOpenWith,
   onTrash,
   onRestore,
@@ -50,6 +55,8 @@ export const FileTemplateDetail: React.FC<FileTemplateDetailProps> = ({
   const [pinned, setPinned] = useState(snippet.pinned);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionResult, setActionResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [menu, setMenu] = useState<{ loading: boolean; items: OpenWithCandidate[]; error: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +70,7 @@ export const FileTemplateDetail: React.FC<FileTemplateDetailProps> = ({
     setPinned(snippet.pinned);
     setError('');
     setMenu(null);
+    setActionResult(null);
   }, [snippet.id, snippet.revision, snippet.title, snippet.key, snippet.groupId, snippet.tags, snippet.aliases, snippet.pinned]);
 
   useEffect(() => {
@@ -95,6 +103,14 @@ export const FileTemplateDetail: React.FC<FileTemplateDetailProps> = ({
     });
     setSaving(false);
     setError(message ?? '');
+  };
+
+  const runAction = async (action: () => Promise<{ ok: boolean; message: string }>) => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionResult(null);
+    setActionResult(await action());
+    setActionBusy(false);
   };
 
   const openMenu = async () => {
@@ -205,15 +221,21 @@ export const FileTemplateDetail: React.FC<FileTemplateDetailProps> = ({
                 </div>
               )}
             </div>
-            <button type="button" className="manager-button manager-button-secondary" disabled title="导出将在后续版本提供">
+            <button type="button" className="manager-button manager-button-secondary" disabled={snippet.fileMissing || actionBusy} onClick={() => void runAction(onExport)} title="导出一份副本到导出目录">
               <Download strokeWidth={1.5} className="size-3.5" aria-hidden />导出
             </button>
-            <button type="button" className="manager-button manager-button-secondary" disabled title="带格式复制将在后续版本提供">
+            <button type="button" className="manager-button manager-button-secondary" disabled={snippet.fileMissing || actionBusy} onClick={() => void runAction(onFormatCopy)} title="带格式复制到剪贴板（不自动粘贴）">
               <Copy strokeWidth={1.5} className="size-3.5" aria-hidden />带格式复制
             </button>
           </div>
         )}
       </div>
+
+      {actionResult && (
+        <div className={actionResult.ok ? 'manager-popover-note' : 'manager-field-error'} role={actionResult.ok ? 'status' : 'alert'} data-testid="file-action-result">
+          {actionResult.message}
+        </div>
+      )}
 
       <div className="manager-form-card">
         <section className="manager-form-section">

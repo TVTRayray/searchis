@@ -1,0 +1,38 @@
+task_id: implementer-mvarv24l-7cj3g
+change_id: phase10-file-templates
+role: implementer
+target_spec: formatted-copy-export
+adapter: herdr
+lease_id: lease-mvarv24l-9u989
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/formatted-copy-export.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src-tauri/src/**
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src/components/QuickSearchWindow.tsx
+  - src/components/ManagerWindow.tsx
+  - src/components/KeyboardShortcutsModal.tsx
+  - src/api/**
+  - src/types/**
+  - src/index.css
+  - e2e/**
+  - src/components/ui/FileTemplateDetail.tsx
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mvarv24l
+  pane_id: wZ:p15
+  state: working

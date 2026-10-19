@@ -1,0 +1,28 @@
+task_id: reviewer-mvej5nta-uwvw7
+change_id: phase10-file-templates
+role: reviewer
+target_spec: formatted-copy-export
+adapter: herdr
+lease_id: lease-mvej5nta-oqnq4
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/formatted-copy-export.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - qa_report
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: ready
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: reviewer-reviewer-mvej5nta-uwvw7
+  pane_id: wZ:p19
+  state: working

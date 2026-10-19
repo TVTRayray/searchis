@@ -48,14 +48,14 @@
 
 ## formatted-copy-export: SPEC-23 快搜窗口文件动作：带格式复制、导出与打开
 
-- [ ] 4.1 `platform/x11_clipboard.rs`：选区所有者线程、TARGETS/TIMESTAMP/INCR/SelectionClear
-- [ ] 4.2 格式转换纯函数：md→HTML/plain（转义原始 HTML、链接白名单）；xlsx→XML Spreadsheet/HTML/TSV（50,000 单元格上限、公式缓存值）；其他文件→uri-list/gnome-copied-files/plain
-- [ ] 4.3 `template_format_copy` 计数幂等与失败不计数；`template_export` 文件名、`(2)`、不覆盖改名、无残留
-- [ ] 4.4 `execute_paste` autoPaste 后端判定修正
-- [ ] 4.5 快搜结果行文件模板图标与大写扩展名徽标（自 3.9 移交）；快搜按键（Enter/Ctrl+Enter/Shift+Enter/Ctrl+O/Ctrl+数字）、底栏切换、IME 防护；快捷键速查按类型分组；管理窗口“导出”“带格式复制”按钮启用
-- [ ] 4.6 单元测试：md、xlsx（含预研样本）、HTML/TSV、上限、导出命名与失败、autoPaste、operationId
-- [ ] 4.7 E2E（剪贴板替身）：底栏切换、Enter 格式集合与计数、Shift+Enter 写临时导出目录且窗口保持、autoPaste=false 不注入
-- [ ] 4.8 性能：1 MB md、5,000 单元格 xlsx 各 100 次 p95（NFR-PERF-06）
+- [x] 4.1 `platform/x11_clipboard.rs`：选区所有者线程、TARGETS/TIMESTAMP/INCR/SelectionClear
+- [x] 4.2 格式转换纯函数：md→HTML/plain（转义原始 HTML、链接白名单）；xlsx→XML Spreadsheet/HTML/TSV（50,000 单元格上限、公式缓存值）；其他文件→uri-list/gnome-copied-files/plain
+- [x] 4.3 `template_format_copy` 计数幂等与失败不计数；`template_export` 文件名、`(2)`、不覆盖改名、无残留
+- [x] 4.4 `execute_paste` autoPaste 后端判定修正
+- [x] 4.5 快搜结果行文件模板图标与大写扩展名徽标（自 3.9 移交）；快搜按键（Enter/Ctrl+Enter/Shift+Enter/Ctrl+O/Ctrl+数字）、底栏切换、IME 防护；快捷键速查按类型分组；管理窗口“导出”“带格式复制”按钮启用
+- [x] 4.6 单元测试：md、xlsx（含预研样本）、HTML/TSV、上限、导出命名与失败、autoPaste、operationId
+- [x] 4.7 E2E（剪贴板替身）：底栏切换、Enter 格式集合与计数、Shift+Enter 写临时导出目录且窗口保持、autoPaste=false 不注入
+- [x] 4.8 性能：1 MB md、5,000 单元格 xlsx 各 100 次 p95（NFR-PERF-06）
 - [ ] 4.9 实机（写真实剪贴板，需人执行或授权）：AC-30 WPS 文字、AC-31 WPS 表格、AC-32 Dolphin、纯文本编辑器粘贴
 
 ## settings-backup: SPEC-24 设置视图改版（S1）与 zip 备份、恢复、重置

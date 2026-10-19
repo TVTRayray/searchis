@@ -1,0 +1,37 @@
+task_id: reviewer-mvapr0xq-s0f97
+lease_id: lease-mvapr0xq-kebqs
+outcome: completed
+summary: |
+  已完成 SPEC-23 两份 implementer result 的联合审查及 Design Conformance 全部 27 条记录。
+  结论 repair：R1 置顶文件模板的快搜结果行优先显示 Star，覆盖了要求的扩展名类型图标。
+  从当前 JSX 提取执行的静态探针已复现：未置顶 xlsx 为 FileTypeIcon，置顶后为 Star。
+  Rust 191 项、前端构建、隔离 E2E 5 项均通过，但现有 E2E 未覆盖此分支。
+  接受已授权的 FileTemplateDetail 按钮接线范围与只读 exportDir 非阻断项。
+  实机剪贴板、自动粘贴、WPS/Dolphin、明暗截图等逐项列为 pending_human，未自动化。
+  仅写入本 change 内的审查报告、结果及证据，未修改实现、状态或规划工件，未标记 QA passed。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvapr0xq-s0f97.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvapr0xq-s0f97.result.yaml
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/cargo-format-copy.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/build.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/e2e.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/cargo-all.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/perf.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/design-static.log
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/static-probe.mjs
+    - .specflow/changes/phase10-file-templates/reviews/evidence/reviewer-mvapr0xq-s0f97/static-probe.log
+  test_results:
+    - 'Reviewer: cd src-tauri && cargo test format_copy — 21 passed, 0 failed，先运行最小相关 Rust 测试。'
+    - 'Reviewer: npm run build — 通过；有 >500 kB chunk 非阻断提醒。'
+    - 'Reviewer: .specflow/bin/e2e-isolated.sh — 5 passing；私有显示、D-Bus、KWin，临时 XDG/导出目录与剪贴板/打开替身；未在真实桌面运行 npm run test:e2e。'
+    - 'Reviewer: cd src-tauri && cargo test — 191 passed, 0 failed，包含私有 Xvfb X11 测试。'
+    - 'Reviewer: cd src-tauri && cargo test --release qa_perf -- --nocapture — 4 passed；100 次 md 1 MB p95=24.1 ms、xlsx 5000 单元格 p95=15.2 ms。'
+    - 'Reviewer: static-probe.mjs — 运行成功，确定性复现 R1（不是应用符合性通过）；明暗正文/muted/选中/主按钮/notice token 对比度均 >=4.5:1；组件模块静态 import 审计无孤立项。'
+    - 'Reviewer: design-static.log — 组件/App 无硬编码颜色；本 spec 组件无硬编码圆角/阴影；src 无 backdrop-filter、玻璃 token、氛围光、Figtree 引用。'
+    - 'pending_human: AC-30/31/32、真实剪贴板、自动粘贴、外部应用粘贴、纯文本编辑器粘贴、明暗关键状态截图、首帧/焦点视觉巡检、KWin 圆角与 KDE Global Menu；未执行，不计入自动化通过。'
+unresolved_issues:
+  - 'R1 (medium, design_conformance): QuickSearchWindow.tsx 的 item.pinned 分支先于 file 类型分支，置顶文件以 Star 替代扩展名图标；需保留 FileTypeIcon，并增加置顶文件实际图标回归断言。'
+  - 'pending_human 实机/视觉项详见 QA 报告全部 27 条 Design Conformance 与实机清单；这些人工待验项本身不阻断自动化 QA。'
+verdict: repair
+category: design_conformance
