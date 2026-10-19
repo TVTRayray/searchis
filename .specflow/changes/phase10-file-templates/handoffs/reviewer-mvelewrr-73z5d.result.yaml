@@ -1,0 +1,20 @@
+task_id: reviewer-mvelewrr-73z5d
+lease_id: lease-mvelewrr-izpdr
+outcome: completed
+summary: |
+  SPEC-24 settings-backup 复审：上轮 missing_test 已修复（COMMIT 失败注入测试覆盖覆盖/新建目录/新文件，断言 DB、模板目录哈希树、import-staging 还原并可重新导入），实现逻辑无改动。
+  cargo test 218 passed、npm run build 通过。按人工决策 2026-10-19 记录一条 regression：index.html 仍从 Google Fonts 远程加载 Figtree（两条 preconnect + stylesheet），description 含“MacOS 风格”，且无“不引用 googleapis/gstatic”断言；退回修复。详见 reviews/reviewer-mvelewrr-73z5d.md。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvelewrr-73z5d.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvelewrr-73z5d.result.yaml
+  test_results:
+    - "cargo test：218 passed, 0 failed, 1 ignored"
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：本轮未重跑（前端无改动，上轮 6 passing）"
+unresolved_issues:
+  - "regression：index.html 删除两条 preconnect 与 Figtree stylesheet、修正 description 的“MacOS 风格”、E2E 补“页面不引用 fonts.googleapis.com/gstatic”断言；修复后需重跑 build 与隔离 E2E。"
+  - "pending_human：tasks 5.9 实机验收（KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图）。"
+  - "pending_human：Design Conformance 中对比度、主题首帧、token 逐值核对、快搜 Q-A/徽标回归、KWin 圆角与 Global Menu。"
+verdict: repair
+category: regression

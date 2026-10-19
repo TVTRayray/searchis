@@ -52,6 +52,26 @@ pub fn default_export_dir(home: Option<&Path>, config_home: Option<&Path>) -> Op
     .find(|path| path.is_dir())
 }
 
+/// 校验要保存为导出目录的路径：绝对路径、存在、是目录且当前用户可写。返回规范化后的字符串。
+pub fn validate_export_dir(value: &str) -> Result<String, AppError> {
+    let invalid = |message: &str| AppError::validation("exportDir", message);
+    let path = PathBuf::from(value);
+    if !path.is_absolute() {
+        return Err(invalid("导出目录必须是绝对路径。"));
+    }
+    let meta = fs::metadata(&path).map_err(|_| invalid("导出目录不存在。"))?;
+    if !meta.is_dir() {
+        return Err(invalid("导出目录不是文件夹。"));
+    }
+    let c_path = CString::new(path.as_os_str().as_bytes()).map_err(|_| invalid("导出目录不合法。"))?;
+    // SAFETY: c_path 是以 NUL 结尾、在调用期间存活的 CString。
+    let writable = unsafe { libc::access(c_path.as_ptr(), libc::W_OK | libc::X_OK) } == 0;
+    if !writable {
+        return Err(invalid("导出目录不可写。请选择有写入权限的文件夹。"));
+    }
+    Ok(path.to_string_lossy().into_owned())
+}
+
 /// 解析设置里的导出目录；`None` 用默认目录。显式配置的目录不存在时不自动创建。
 pub fn resolve_export_dir(configured: Option<&str>) -> Result<PathBuf, AppError> {
     if let Some(configured) = configured.filter(|value| !value.is_empty()) {

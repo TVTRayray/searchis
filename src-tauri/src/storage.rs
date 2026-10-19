@@ -19,7 +19,9 @@ use crate::{
     search_index::SearchIndex,
 };
 
+mod backup;
 mod files;
+pub use backup::{ExistingSnippet, ImportPlan, PlanFile, PlanGroup, PlanSnippet};
 pub use files::{FileMove, FileRow, GroupDeleteFs, NewFile, UpdateFile};
 
 const SCHEMA_VERSION: i64 = 5;
@@ -33,6 +35,7 @@ pub struct Repository {
     search_index: Mutex<SearchIndex>,
     /// 测试注入：让文件模板相关的数据库事务在提交前失败。
     fail_file_writes: std::sync::atomic::AtomicBool,
+    fail_import_commit: std::sync::atomic::AtomicBool,
 }
 
 impl Repository {
@@ -64,6 +67,7 @@ impl Repository {
             connection: Mutex::new(connection),
             search_index: Mutex::new(SearchIndex::default()),
             fail_file_writes: std::sync::atomic::AtomicBool::new(false),
+            fail_import_commit: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -948,145 +952,6 @@ impl Repository {
         revision: i64,
     ) -> Result<GroupDeleteOutcome, AppError> {
         self.group_delete_impl(id, revision, true, &files::GroupDeleteFs::default())
-    }
-
-    // === SPEC-07: 导入 ===
-
-    pub fn import_snippets(
-        &self,
-        snippets_raw: &[serde_json::Value],
-        _import_token: &str,
-    ) -> Result<crate::model::ImportOutcome, AppError> {
-        let mut connection = self.connection.lock().map_err(|_| db_write_error())?;
-        let transaction = connection.transaction().map_err(|_| db_write_error())?;
-        let mut inserted = 0i64;
-        let mut updated = 0i64;
-        for item in snippets_raw {
-            let id = item
-                .get("id")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 id 字段。"))?;
-            let key = item
-                .get("key")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 key 字段。"))?;
-            let content = item
-                .get("content")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "片段缺少 content 字段。"))?;
-            let title = item.get("title").and_then(|v| v.as_str()).unwrap_or(key);
-            let aliases: Vec<String> = serde_json::from_value(
-                item.get("aliases")
-                    .cloned()
-                    .unwrap_or(serde_json::json!([])),
-            )
-            .unwrap_or_default();
-            let tags: Vec<String> =
-                serde_json::from_value(item.get("tags").cloned().unwrap_or(serde_json::json!([])))
-                    .unwrap_or_default();
-            let pinned = item
-                .get("pinned")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let sensitive = item
-                .get("sensitive")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let deleted_at = item
-                .get("deletedAt")
-                .and_then(|v| v.as_str())
-                .map(String::from);
-            let now = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-            let aliases_json = serde_json::to_string(&aliases).unwrap_or_default();
-            let tags_json = serde_json::to_string(&tags).unwrap_or_default();
-            let content_norm = content.to_lowercase();
-            let aliases_norm = aliases.join(" ").to_lowercase();
-            let tags_norm = tags.join(" ").to_lowercase();
-            let exists: Option<String> = transaction
-                .query_row(
-                    "SELECT id FROM snippets WHERE id = ?1",
-                    params![id],
-                    |row| row.get(0),
-                )
-                .optional()
-                .map_err(|_| db_write_error())?;
-            if let Some(_existing_id) = exists {
-                // 按 ID 覆盖（更新）
-                transaction
-                    .execute(
-                        "UPDATE snippets SET key = ?1, title = ?2, content = ?3, aliases = ?4, tags = ?5,
-                         pinned = ?6, sensitive = ?7, deleted_at = ?8, updated_at = ?9, revision = revision + 1,
-                         content_norm = ?10, aliases_norm = ?11, tags_norm = ?12 WHERE id = ?13",
-                        params![
-                            key, title, content, aliases_json, tags_json,
-                            pinned, sensitive, deleted_at, now,
-                            content_norm, aliases_norm, tags_norm, id,
-                        ],
-                    )
-                    .map_err(|_| db_write_error())?;
-                updated += 1;
-            } else {
-                // 新增
-                let normalized_key = key.to_lowercase();
-                transaction
-                    .execute(
-                        "INSERT INTO snippets (
-                            id, key, normalized_key, title, content, aliases, tags, pinned, sensitive,
-                            usage_count, last_used_at, created_at, updated_at, deleted_at, revision,
-                            content_norm, aliases_norm, tags_norm
-                         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, NULL, ?10, ?10, ?11, 1, ?12, ?13, ?14)",
-                        params![
-                            id, key, normalized_key, title, content, aliases_json, tags_json,
-                            pinned, sensitive, now, deleted_at,
-                            content_norm, aliases_norm, tags_norm,
-                        ],
-                    )
-                    .map_err(|_| db_write_error())?;
-                inserted += 1;
-            }
-        }
-        transaction.commit().map_err(|_| db_write_error())?;
-        Ok(crate::model::ImportOutcome { inserted, updated })
-    }
-
-    // === SPEC-07: 重置 ===
-
-    pub fn reset_to_examples(&self) -> Result<i64, AppError> {
-        // 示例数据：至少 3 条片段
-        let examples = vec![
-            serde_json::json!({
-                "id": "ex-1",
-                "key": "hello-searchis",
-                "title": "Searchis 问候",
-                "content": "你好！很高兴认识你。这是我通过 Searchis 快速粘贴的第一条文本片段。",
-                "aliases": [],
-                "tags": ["示例"],
-                "pinned": true,
-                "sensitive": false,
-            }),
-            serde_json::json!({
-                "id": "ex-2",
-                "key": "email-work",
-                "title": "工作邮箱",
-                "content": "example@work.com",
-                "aliases": ["工作邮箱"],
-                "tags": ["工作"],
-                "pinned": false,
-                "sensitive": true,
-            }),
-            serde_json::json!({
-                "id": "ex-3",
-                "key": "addr-home",
-                "title": "家庭地址",
-                "content": "XX市XX区XX街道",
-                "aliases": [],
-                "tags": ["地址", "生活"],
-                "pinned": false,
-                "sensitive": true,
-            }),
-        ];
-        self.import_snippets(&examples, "reset")
-            .map(|o| o.inserted + o.updated)
     }
 }
 

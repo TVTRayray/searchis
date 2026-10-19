@@ -1,0 +1,19 @@
+task_id: implementer-mvelgxo5-oz6l3
+lease_id: lease-mvelgxo5-u9upf
+outcome: completed
+summary: |
+  修复 reviewer-mvelewrr-73z5d 的唯一退回项（regression：index.html 远程 Figtree）。
+  index.html 删除两条 preconnect（fonts.googleapis.com / fonts.gstatic.com）、Figtree stylesheet 及其注释；description 去掉“MacOS 风格”。
+  E2E（SPEC-24 用例）新增断言：main 窗口 document.documentElement.outerHTML 不含 fonts.googleapis.com / fonts.gstatic.com。
+  后端与其他前端代码无改动。
+evidence:
+  changed_files:
+    - index.html
+    - e2e/create-and-search.e2e.ts
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvelgxo5-oz6l3.result.yaml
+  test_results:
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：6 passing（含新增远程字体主机断言）"
+    - "cargo test：本轮未重跑（未改动 Rust 代码；上轮 218 passed, 0 failed, 1 ignored）"
+unresolved_issues:
+  - "pending_human：tasks 5.9 实机验收（KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图）。"

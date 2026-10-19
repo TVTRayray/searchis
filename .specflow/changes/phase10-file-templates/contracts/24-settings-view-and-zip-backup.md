@@ -14,6 +14,7 @@
   - `src-tauri/capabilities/**`（对话框权限）
   - `src/components/SettingsModal.tsx`（改为设置视图，可重命名为 `SettingsView.tsx`）、`AboutModal.tsx`（并入设置“关于”分节后删除）、`src/App.tsx`、`src/components/ManagerWindow.tsx`（左栏切换到设置导航）、`src/api/**`、`src/types/**`、`src/index.css`
   - `e2e/**`
+  - `index.html`（仅删除 Google Fonts 远程 Figtree 引用与 preconnect、修正 description 中的“MacOS 风格”——2026-10-19 人工授权，补 SPEC-20 遗漏）
 - 禁止修改范围：
   - 带格式复制、扫描与文件操作核心逻辑（只调用，不改）
   - KDE Global Menu 菜单结构（“关于”菜单项改为打开设置的“关于”分节，命令 ID 不变）

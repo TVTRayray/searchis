@@ -12,6 +12,7 @@ use crate::{
     validation::{normalize_key, validate_create, validate_group_name, validate_update},
 };
 
+mod backup;
 mod template_actions;
 mod templates;
 pub use templates::TemplateFs;
@@ -20,6 +21,8 @@ pub struct SnippetService {
     repository: Repository,
     /// SPEC-22：模板目录；未绑定时（单元测试）文件相关操作返回 TEMPLATE_FS_FAILED。
     templates: Option<TemplateFs>,
+    /// SPEC-24：备份导入的暂存会话与互斥状态。
+    backup: backup::BackupState,
 }
 
 impl SnippetService {
@@ -27,6 +30,7 @@ impl SnippetService {
         Self {
             repository,
             templates: None,
+            backup: backup::BackupState::default(),
         }
     }
 
@@ -79,15 +83,6 @@ impl SnippetService {
 
     pub fn list(&self) -> Result<Vec<Snippet>, AppError> {
         self.repository.list()
-    }
-
-    /// v1 备份只含文本片段；文件模板由 SPEC-24 的 v2 备份承载。
-    fn list_text(&self) -> Result<Vec<Snippet>, AppError> {
-        Ok(self
-            .list()?
-            .into_iter()
-            .filter(|s| s.kind != "file")
-            .collect())
     }
 
     pub fn update(&self, input: UpdateSnippetInput) -> Result<Snippet, AppError> {
@@ -349,6 +344,21 @@ impl SnippetService {
                     }
                 };
             }
+            "exportDir" => {
+                settings.export_dir = match value {
+                    serde_json::Value::Null => None,
+                    serde_json::Value::String(text) if text.trim().is_empty() => None,
+                    serde_json::Value::String(text) => {
+                        Some(crate::templates::export::validate_export_dir(text.trim())?)
+                    }
+                    _ => {
+                        return Err(AppError::validation(
+                            "exportDir",
+                            "必须是字符串或 null。",
+                        ))
+                    }
+                };
+            }
             "openWithByExtension" => {
                 let map = value
                     .as_object()
@@ -376,143 +386,6 @@ impl SnippetService {
         let new_rev = self.repository.update_settings(&settings, revision)?;
         settings.schema_version = new_rev;
         Ok(settings)
-    }
-
-    // === SPEC-07: 导出 ===
-
-    pub fn export_preview(&self, _path: &str) -> Result<crate::model::ExportPreview, AppError> {
-        let snippets = self.list_text()?;
-        let settings_resp = self.get_settings(false)?;
-        let settings = settings_resp.settings;
-        let sensitive_count = snippets.iter().filter(|s| s.sensitive).count() as i64;
-        let snippet_count = snippets.len() as i64;
-        // 估算 JSON 大小：直接序列化一次
-        let backup = serde_json::json!({
-            "schemaVersion": 1,
-            "exportedAt": Utc::now().to_rfc3339(),
-            "appVersion": "0.1.0",
-            "snippets": &snippets,
-            "settings": &settings,
-        });
-        let estimated_size = serde_json::to_vec(&backup)
-            .map_err(|_| AppError::new("EXPORT_FAILED", "序列化估算失败。"))?
-            .len() as u64;
-        Ok(crate::model::ExportPreview {
-            estimated_size_bytes: estimated_size,
-            sensitive_count,
-            snippet_count,
-            has_settings: true,
-        })
-    }
-
-    pub fn export_confirm(&self, path: &str) -> Result<crate::model::ExportOutcome, AppError> {
-        use std::io::Write;
-        let snippets = self.list_text()?;
-        let settings_resp = self.get_settings(false)?;
-        let settings = settings_resp.settings;
-        let backup = serde_json::json!({
-            "schemaVersion": 1,
-            "exportedAt": Utc::now().to_rfc3339(),
-            "appVersion": "0.1.0",
-            "snippets": &snippets,
-            "settings": &settings,
-        });
-        let json = serde_json::to_string_pretty(&backup)
-            .map_err(|_| AppError::new("EXPORT_FAILED", "序列化备份数据失败。"))?;
-        if json.len() > 100 * 1024 * 1024 {
-            return Err(AppError::new(
-                "EXPORT_FAILED",
-                format!("备份文件超过 100 MB 上限（估算 {} 字节）。", json.len()),
-            ));
-        }
-        let mut file = std::fs::File::create(path)
-            .map_err(|e| AppError::new("EXPORT_FAILED", format!("无法创建文件: {e}")))?;
-        file.write_all(json.as_bytes())
-            .map_err(|e| AppError::new("EXPORT_FAILED", format!("写入文件失败: {e}")))?;
-        file.sync_all().map_err(|_| {
-            let _ = std::fs::remove_file(path);
-            AppError::new("EXPORT_FAILED", "文件同步失败，已清理。")
-        })?;
-        Ok(crate::model::ExportOutcome {
-            path: path.to_string(),
-            size_bytes: json.len() as u64,
-            snippet_count: snippets.len() as i64,
-        })
-    }
-
-    // === SPEC-07: 导入 ===
-
-    pub fn import_validate(&self, path: &str) -> Result<crate::model::ImportValidation, AppError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| AppError::new("IMPORT_FAILED", format!("无法读取文件: {e}")))?;
-        if content.len() > 100 * 1024 * 1024 {
-            return Err(AppError::new("IMPORT_TOO_LARGE", "导入文件超过 100 MB。"));
-        }
-        let parsed: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| AppError::new("IMPORT_FAILED", format!("JSON 格式错误: {e}")))?;
-        let obj = parsed
-            .as_object()
-            .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "导入文件必须是 JSON 对象。"))?;
-        let mut errors = Vec::new();
-        let schema_version = obj
-            .get("schemaVersion")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        if schema_version != 1 {
-            errors.push(format!("schemaVersion 必须为 1，实际为 {schema_version}"));
-        }
-        let snippets_raw = obj.get("snippets").and_then(|v| v.as_array());
-        let snippet_count = snippets_raw.as_ref().map_or(0, |a| a.len() as i64);
-        let settings_present = obj.get("settings").is_some();
-        // 校验每条 snippet 的必填字段
-        if let Some(snippets_arr) = snippets_raw {
-            for (i, item) in snippets_arr.iter().enumerate() {
-                if item.get("id").is_none() {
-                    errors.push(format!("片段 {i}: 缺少 id 字段"));
-                }
-                if item.get("key").is_none() {
-                    errors.push(format!("片段 {i}: 缺少 key 字段"));
-                }
-                if item.get("content").is_none() {
-                    errors.push(format!("片段 {i}: 缺少 content 字段"));
-                }
-            }
-        }
-        let import_token = uuid::Uuid::new_v4().to_string();
-        Ok(crate::model::ImportValidation {
-            valid: errors.is_empty(),
-            snippet_count,
-            settings_present,
-            schema_version,
-            errors,
-            import_token,
-        })
-    }
-
-    pub fn import_commit(
-        &self,
-        path: &str,
-        import_token: &str,
-    ) -> Result<crate::model::ImportOutcome, AppError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| AppError::new("IMPORT_FAILED", format!("无法读取文件: {e}")))?;
-        let parsed: serde_json::Value = serde_json::from_str(&content)
-            .map_err(|e| AppError::new("IMPORT_FAILED", format!("JSON 格式错误: {e}")))?;
-        let obj = parsed
-            .as_object()
-            .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "导入文件必须是 JSON 对象。"))?;
-        let snippets_raw = obj
-            .get("snippets")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| AppError::new("IMPORT_SCHEMA_INVALID", "缺少 snippets 字段。"))?;
-        // 解析并提交到存储
-        self.repository.import_snippets(snippets_raw, import_token)
-    }
-
-    // === SPEC-07: 重置 ===
-
-    pub fn reset_examples(&self) -> Result<i64, AppError> {
-        self.repository.reset_to_examples()
     }
 
     // === SPEC-08: Onboarding ===

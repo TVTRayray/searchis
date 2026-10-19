@@ -21,9 +21,8 @@ import { TemplateFormFields } from './components/ui/FileTemplateDetail';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { QuickSearchWindow } from './components/QuickSearchWindow';
 import { ManagerWindow } from './components/ManagerWindow';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsSection, SettingsView } from './components/SettingsView';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { AboutModal } from './components/AboutModal';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // 检测当前 Tauri 窗口标签：search = 独立无边框检索窗口，其余（main）= 管理窗口。
@@ -152,31 +151,38 @@ const MainContent: React.FC = () => {
   }, [reloadSettings]);
 
   // SPEC-06 / RF3: 快捷键先注册，成功后再提交 Settings；任一步失败保留旧值。
-  const updateConfig = useCallback((key: string, value: unknown) => {
+  const updateConfig = useCallback(async (key: string, value: unknown): Promise<string | null> => {
     const previous = config;
-    const revision = settingsRevisionRef.current;
-
-    void (async () => {
-      try {
-        if (key === 'globalShortcut') {
-          await windowApi.registerShortcut(String(value)).catch(() => {});
-        }
-        await settingsApi.update(key, value, revision);
-        setConfig(prev => ({ ...prev, [key]: value } as SettingsConfig));
-        settingsRevisionRef.current = revision + 1;
-        setSettingsRevision(revision + 1);
-      } catch (error) {
-        setConfig(previous);
-        showToast(`设置保存失败：${errorMessage(error)}`, 'error');
+    try {
+      if (key === 'globalShortcut') {
+        await windowApi.registerShortcut(String(value)).catch(() => {});
       }
-    })();
+      try {
+        await settingsApi.update(key, value, settingsRevisionRef.current);
+      } catch (error) {
+        // 设置在别处被改过（如打开方式记忆、自动化脚本）：取最新 revision 重试一次。
+        if ((error as AppError)?.code !== 'REVISION_CONFLICT') throw error;
+        const latest = await settingsApi.get();
+        settingsRevisionRef.current = latest.revision;
+        await settingsApi.update(key, value, latest.revision);
+      }
+      const nextRevision = settingsRevisionRef.current + 1;
+      setConfig(prev => ({ ...prev, [key]: value } as SettingsConfig));
+      settingsRevisionRef.current = nextRevision;
+      setSettingsRevision(nextRevision);
+      return null;
+    } catch (error) {
+      setConfig(previous);
+      showToast(`设置保存失败：${errorMessage(error)}`, 'error');
+      return errorMessage(error);
+    }
   }, [config]);
 
   const [currentView, setCurrentView] = useState<ViewMode>('manager');
   const [activeFilterFromMenu, setActiveFilterFromMenu] = useState<SidebarFilter | undefined>(undefined);
   const [menuTriggerAction, setMenuTriggerAction] = useState<{ type: string; timestamp: number } | null>(null);
   const [isKeyboardHelpOpen, setIsKeyboardHelpOpen] = useState(false);
-  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<{ section: SettingsSection; nonce: number } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [pendingPermanentDeleteId, setPendingPermanentDeleteId] = useState<string | null>(null);
   const [editRequestId, setEditRequestId] = useState<string | null>(null);
@@ -255,7 +261,9 @@ const MainContent: React.FC = () => {
       if (action === 'shortcuts') {
         setIsKeyboardHelpOpen(true);
       } else if (action === 'about') {
-        setIsAboutOpen(true);
+        // Global Menu“关于”：命令 ID 不变，改为打开设置视图的“关于”分节。
+        setCurrentView('settings');
+        setSettingsTarget({ section: 'about', nonce: Date.now() });
       } else if (action === 'new-snippet') {
         setCurrentView('manager');
         setMenuTriggerAction({ type: 'new-snippet', timestamp: Date.now() });
@@ -264,10 +272,9 @@ const MainContent: React.FC = () => {
         setMenuTriggerAction({ type: 'edit-current', timestamp: Date.now() });
       } else if (action === 'copy-current') {
         setMenuTriggerAction({ type: 'copy-current', timestamp: Date.now() });
-      } else if (action === 'import') {
+      } else if (action === 'import' || action === 'export') {
         setCurrentView('settings');
-      } else if (action === 'export') {
-        setCurrentView('settings');
+        setSettingsTarget({ section: 'backup', nonce: Date.now() });
       }
     }).then(fn => { unlistenMenuAction = fn; }).catch(() => {});
 
@@ -484,11 +491,6 @@ const MainContent: React.FC = () => {
     }
   };
 
-  // 导入导出/重置仍由后续 UI slice 接入既有 Rust 命令。
-  const notYet = (feature: string) => () => {
-    showToast(`${feature}将在后续版本提供（对应 Spec）`, 'error');
-  };
-
   const selectCreated = (snippet: PersistedSnippet) => {
     setPrefillCreateKey(undefined);
     setEditRequestId(snippet.id);
@@ -697,13 +699,13 @@ const MainContent: React.FC = () => {
         )}
 
         {currentView === 'settings' && (
-          <SettingsModal
+          <SettingsView
             config={config}
             onUpdateConfig={updateConfig}
-            onExportData={notYet('数据导出')}
-            onImportData={notYet('数据导入')}
-            onResetSampleData={notYet('重置示例数据')}
+            target={settingsTarget}
             onClose={() => setCurrentView('manager')}
+            onDataChanged={refresh}
+            showToast={showToast}
           />
         )}
       </main>
@@ -713,10 +715,6 @@ const MainContent: React.FC = () => {
         onClose={() => setIsKeyboardHelpOpen(false)}
       />
 
-      <AboutModal
-        isOpen={isAboutOpen}
-        onClose={() => setIsAboutOpen(false)}
-      />
     </div>
   );
 };

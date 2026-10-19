@@ -861,24 +861,23 @@ input[type="checkbox"] {
 .manager-confirm-dialog p { margin: 8px 0 18px; color: var(--color-fg-secondary); font-size: 12.5px; line-height: 1.55; }
 .manager-confirm-actions { display: flex; justify-content: flex-end; gap: 7px; }
 
-/* Settings Page */
+/* Settings view (S1): left nav column reuses .manager-sidebar; content scrolls on its own */
+.settings-view { min-height: 0; }
+.settings-scroll {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-scroll::-webkit-scrollbar { display: none; }
 .settings-page {
   width: min(100%, 920px);
   min-height: 100%;
   margin: 0 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
   padding: 22px 30px 42px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.settings-page::-webkit-scrollbar { display: none; }
-.settings-nav-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 14px;
 }
 .settings-nav-title {
   margin: 0;
@@ -886,11 +885,6 @@ input[type="checkbox"] {
   font-family: var(--font-heading);
   font-size: 22px;
   font-weight: 600;
-}
-.settings-back-button {
-  height: 32px;
-  padding: 0 14px;
-  gap: 6px;
 }
 .settings-page-body {
   display: flex;
@@ -972,6 +966,47 @@ input[type="checkbox"] {
 .settings-file-button { position: relative; overflow: hidden; }
 .settings-file-button input { position: absolute; inset: 0; cursor: pointer; opacity: 0; }
 .settings-danger-row strong { color: var(--color-danger); }
+.settings-section { scroll-margin-top: 12px; }
+.settings-field { display: flex; flex-direction: column; gap: 6px; }
+.settings-field strong { color: var(--color-fg); font-size: 13px; font-weight: 600; }
+.settings-field-note { color: var(--color-fg-muted); font-size: 11.5px; line-height: 1.4; }
+.settings-path-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.settings-path-input { min-width: 0; flex: 1; }
+.settings-path-text { color: var(--color-fg-secondary) !important; font-size: 11.5px; overflow-wrap: anywhere; user-select: text; }
+.settings-field-error { margin: 2px 0 0; color: var(--color-danger); font-size: 12px; line-height: 1.4; }
+.settings-note-block { display: flex; flex-direction: column; gap: 4px; }
+.settings-note-block strong { color: var(--color-fg); font-size: 13px; font-weight: 600; }
+.settings-note-block span { color: var(--color-fg-muted); font-size: 11.5px; line-height: 1.4; }
+.settings-plaintext-note { margin-top: 14px; }
+.settings-error-list { margin: 0 0 16px; padding-left: 18px; color: var(--color-fg-secondary); font-size: 12px; line-height: 1.5; }
+.settings-busy { z-index: 80; }
+.settings-progress {
+  position: relative;
+  height: 6px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-selected-bg);
+}
+.settings-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width var(--motion-manager) ease-out;
+}
+.settings-progress[data-indeterminate] > span { width: 38%; animation: settings-progress-slide 1.2s ease-in-out infinite; }
+@keyframes settings-progress-slide { from { margin-left: -38%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .settings-progress[data-indeterminate] > span { width: 100%; animation: none; opacity: 0.5; }
+}
+.settings-about { display: flex; align-items: center; gap: 14px; }
+.settings-about-mark { display: grid; place-items: center; width: 44px; height: 44px; flex: none; font-size: 20px; font-weight: 600; }
+.settings-about-text { margin: 0; color: var(--color-fg-secondary); font-size: 12.5px; line-height: 1.55; }
+.settings-about-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.settings-about-card { padding: 12px; font-size: 12px; }
+.settings-about-card-title { display: flex; align-items: center; gap: 6px; color: var(--color-fg); font-weight: 600; }
+.settings-about-card p { margin: 3px 0 0; color: var(--color-fg-secondary); font-size: 11px; }
 
 @media (max-width: 1180px) {
   .manager-sidebar { width: 190px; min-width: 190px; }
@@ -992,6 +1027,8 @@ input[type="checkbox"] {
   .manager-form-grid, .manager-toggle-grid, .settings-theme-grid { grid-template-columns: 1fr; }
   .settings-page { padding: 16px 12px 26px; }
   .settings-page-body { padding-top: 12px; }
+  .settings-path-row { flex-wrap: wrap; }
+  .settings-about-grid { grid-template-columns: 1fr; }
   .settings-section { padding: 13px; }
   .settings-shortcut-input { width: 100%; }
 }

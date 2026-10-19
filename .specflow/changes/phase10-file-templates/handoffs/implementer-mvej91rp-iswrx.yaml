@@ -1,0 +1,42 @@
+task_id: implementer-mvej91rp-iswrx
+change_id: phase10-file-templates
+role: implementer
+target_spec: settings-backup
+adapter: herdr
+lease_id: lease-mvej91rp-nnku5
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/settings-backup.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src-tauri/src/**
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src-tauri/capabilities/**
+  - src/components/SettingsModal.tsx
+  - src/components/SettingsView.tsx
+  - src/components/AboutModal.tsx
+  - src/App.tsx
+  - src/components/ManagerWindow.tsx
+  - src/api/**
+  - src/types/**
+  - src/index.css
+  - package.json
+  - package-lock.json
+  - e2e/**
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mvej91rp
+  pane_id: wZ:p1A
+  state: working

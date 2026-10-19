@@ -1,3 +1,4 @@
+mod backup;
 mod clipboard;
 mod commands;
 mod error;
@@ -36,7 +37,9 @@ fn toggle_from_signal(app: &tauri::AppHandle) -> Result<(), AppError> {
 }
 
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_clipboard_manager::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(feature = "e2e-webdriver")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
@@ -349,7 +352,14 @@ pub fn run() {
             commands::export_confirm,
             commands::import_validate,
             commands::import_commit,
+            commands::import_discard,
             commands::reset_examples,
+            // SPEC-24
+            commands::settings_paths,
+            commands::templates_dir_open,
+            commands::settings_pick_directory,
+            commands::backup_pick_export_path,
+            commands::backup_pick_import_file,
             // SPEC-08
             commands::environment_detect,
             commands::onboarding_progress,

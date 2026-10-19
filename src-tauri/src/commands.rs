@@ -577,7 +577,7 @@ pub fn autostart_set(_app: tauri::AppHandle, input: AutostartInput) -> Result<bo
 // SPEC-07: 备份、恢复与重置
 // ============================================================
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_preview(
     state: tauri::State<'_, AppState>,
     path: String,
@@ -587,37 +587,62 @@ pub fn export_preview(
     })
 }
 
-#[tauri::command]
+/// 把进度事件按整数百分比节流后发给前端（`backup-progress`）。
+fn progress_emitter(app: tauri::AppHandle) -> impl Fn(crate::model::BackupProgress) {
+    let last = std::cell::Cell::new(u64::MAX);
+    move |progress: crate::model::BackupProgress| {
+        let percent = if progress.total == 0 { 100 } else { progress.done * 100 / progress.total };
+        if last.replace(percent) != percent {
+            let _ = app.emit("backup-progress", progress);
+        }
+    }
+}
+
+#[tauri::command(async)]
 pub fn export_confirm(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<crate::model::ExportOutcome, AppError> {
+    let emit = progress_emitter(app);
     audited(&state, "export_confirm", |service| {
-        service.export_confirm(&path)
+        service.export_confirm_with(&path, &emit)
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_validate(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<crate::model::ImportValidation, AppError> {
+    let emit = progress_emitter(app);
     audited(&state, "import_validate", |service| {
-        service.import_validate(&path)
+        service.import_validate_with(&path, &emit)
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn import_commit(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     input: crate::model::ImportCommitInput,
 ) -> Result<crate::model::ImportOutcome, AppError> {
+    let emit = progress_emitter(app);
     audited(&state, "import_commit", |service| {
-        service.import_commit(&input.path, &input.import_token)
+        service.import_commit_with(&input, &emit)
     })
 }
 
 #[tauri::command]
+pub fn import_discard(state: tauri::State<'_, AppState>, import_token: String) -> Result<(), AppError> {
+    audited(&state, "import_discard", |service| {
+        service.import_discard(&import_token);
+        Ok(())
+    })
+}
+
+#[tauri::command(async)]
 pub fn reset_examples(
     state: tauri::State<'_, AppState>,
     input: crate::model::ResetExamplesInput,
@@ -626,6 +651,107 @@ pub fn reset_examples(
         return Err(AppError::new("CONFIRM_REQUIRED", "请先确认重置操作。"));
     }
     audited(&state, "reset_examples", |service| service.reset_examples())
+}
+
+// ============================================================
+// SPEC-24: 设置视图（路径、目录对话框）
+// ============================================================
+
+#[tauri::command]
+pub fn settings_paths(
+    state: tauri::State<'_, AppState>,
+) -> Result<crate::model::SettingsPaths, AppError> {
+    audited(&state, "settings_paths", |s| s.settings_paths())
+}
+
+#[tauri::command(async)]
+pub fn templates_dir_open(state: tauri::State<'_, AppState>) -> Result<(), AppError> {
+    audited(&state, "templates_dir_open", |s| s.templates_dir_open())
+}
+
+/// E2E 构建：对话框由 `var` 指向的文本文件的第一行代替（空或文件不存在 = 取消）；
+/// 未设置该环境变量时同样视为取消，绝不弹出真实对话框。
+#[cfg(feature = "e2e-webdriver")]
+fn e2e_pick(var: &str) -> Option<String> {
+    let file = std::env::var_os(var)?;
+    let text = std::fs::read_to_string(file).unwrap_or_default();
+    text.lines()
+        .next()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+}
+
+fn picked_path(picked: Option<tauri_plugin_dialog::FilePath>) -> Option<String> {
+    picked
+        .and_then(|path| path.into_path().ok())
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+/// 选择导出目录（系统目录对话框；取消返回 None）。
+#[tauri::command(async)]
+pub fn settings_pick_directory(
+    app: tauri::AppHandle,
+    initial: Option<String>,
+) -> Result<Option<String>, AppError> {
+    #[cfg(feature = "e2e-webdriver")]
+    {
+        let _ = (&app, &initial);
+        return Ok(e2e_pick("SEARCHIS_E2E_PICK_DIR"));
+    }
+    #[cfg(not(feature = "e2e-webdriver"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app.dialog().file().set_title("选择导出目录");
+        if let Some(dir) = initial.filter(|d| std::path::Path::new(d).is_dir()) {
+            dialog = dialog.set_directory(dir);
+        }
+        Ok(picked_path(dialog.blocking_pick_folder()))
+    }
+}
+
+/// 选择备份保存位置（默认文件名 searchis-backup-YYYYMMDD-HHmmss.zip）。
+#[tauri::command(async)]
+pub fn backup_pick_export_path(app: tauri::AppHandle) -> Result<Option<String>, AppError> {
+    #[cfg(feature = "e2e-webdriver")]
+    {
+        let _ = &app;
+        return Ok(e2e_pick("SEARCHIS_E2E_BACKUP_SAVE"));
+    }
+    #[cfg(not(feature = "e2e-webdriver"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
+        let name = format!("searchis-backup-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+        Ok(picked_path(
+            app.dialog()
+                .file()
+                .set_title("导出备份")
+                .set_file_name(name)
+                .add_filter("Searchis 备份", &["zip"])
+                .blocking_save_file(),
+        ))
+    }
+}
+
+/// 选择要导入的备份文件（zip 或旧版 JSON）。
+#[tauri::command(async)]
+pub fn backup_pick_import_file(app: tauri::AppHandle) -> Result<Option<String>, AppError> {
+    #[cfg(feature = "e2e-webdriver")]
+    {
+        let _ = &app;
+        return Ok(e2e_pick("SEARCHIS_E2E_BACKUP_OPEN"));
+    }
+    #[cfg(not(feature = "e2e-webdriver"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
+        Ok(picked_path(
+            app.dialog()
+                .file()
+                .set_title("导入备份")
+                .add_filter("Searchis 备份", &["zip", "json"])
+                .blocking_pick_file(),
+        ))
+    }
 }
 
 // ============================================================

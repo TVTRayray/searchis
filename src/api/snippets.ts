@@ -271,7 +271,7 @@ export interface SettingsConfig {
   onboardingCompletedAt: string | null
   schemaVersion: number
   openWithByExtension: Record<string, string>
-  /** SPEC-23 只读；修改界面在 SPEC-24。null 表示使用默认下载目录。 */
+  /** SPEC-24：null 表示使用默认 XDG 下载目录。 */
   exportDir?: string | null
 }
 
@@ -288,4 +288,78 @@ export const settingsApi = {
   autostartGet: () => call<boolean>('autostart_get'),
   autostartSet: (enabled: boolean) =>
     call<boolean>('autostart_set', { input: { enabled } }),
+}
+
+// SPEC-24：设置视图路径与 zip 备份
+export interface SettingsPaths {
+  templatesDir: string
+  /** 解析后的默认导出目录；找不到可用目录时为 null。 */
+  defaultExportDir: string | null
+}
+
+export interface ExportPreview {
+  estimatedSizeBytes: number
+  sensitiveCount: number
+  snippetCount: number
+  hasSettings: boolean
+  templateCount: number
+  templateBytes: number
+  /** 估算大小超过 1 GB，或 backup.json 超过 100 MB。 */
+  exceedsLimit: boolean
+}
+
+export interface ExportOutcome {
+  path: string
+  sizeBytes: number
+  snippetCount: number
+  templateCount: number
+}
+
+export interface ImportValidation {
+  valid: boolean
+  snippetCount: number
+  settingsPresent: boolean
+  schemaVersion: number
+  errors: string[]
+  importToken: string
+  backupVersion: number
+  groupCount: number
+  templateCount: number
+  newCount: number
+  updateCount: number
+  conflictCount: number
+  conflictKeys: string[]
+}
+
+export interface ImportOutcome {
+  inserted: number
+  updated: number
+  replaced: number
+  skipped: number
+  groupsAdded: number
+}
+
+export interface BackupProgress {
+  phase: 'export' | 'extract' | 'apply'
+  done: number
+  total: number
+}
+
+export const backupApi = {
+  pickExportPath: () => call<string | null>('backup_pick_export_path'),
+  pickImportFile: () => call<string | null>('backup_pick_import_file'),
+  exportPreview: () => call<ExportPreview>('export_preview', { path: '' }),
+  exportConfirm: (path: string) => call<ExportOutcome>('export_confirm', { path }),
+  importValidate: (path: string) => call<ImportValidation>('import_validate', { path }),
+  importCommit: (path: string, importToken: string, overwriteConflicts: boolean) =>
+    call<ImportOutcome>('import_commit', { input: { path, importToken, overwriteConflicts } }),
+  importDiscard: (importToken: string) => call<void>('import_discard', { importToken }),
+  resetExamples: () => call<number>('reset_examples', { input: { confirm: true } }),
+}
+
+export const settingsPathsApi = {
+  paths: () => call<SettingsPaths>('settings_paths'),
+  pickDirectory: (initial?: string | null) =>
+    call<string | null>('settings_pick_directory', { initial: initial ?? null }),
+  openTemplatesDir: () => call<void>('templates_dir_open'),
 }

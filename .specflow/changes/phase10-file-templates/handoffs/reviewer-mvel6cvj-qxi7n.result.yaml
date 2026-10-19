@@ -1,0 +1,23 @@
+task_id: reviewer-mvel6cvj-qxi7n
+lease_id: lease-mvel6cvj-w7n2z
+outcome: completed
+summary: |
+  SPEC-24 settings-backup 复审：cargo test 217 passed、npm run build 通过、隔离 E2E 6 passing。
+  COMMIT 前移动文件的偏差按 Planner 四条不变量核对：1/2/3 在代码与测试中成立；第 4 条缺少 COMMIT 失败注入测试。
+  其余需求（设置视图、exportDir、zip 校验、AC-36/37、重置目录改名与文案、日志隐私、token 合规）均通过。
+  仅一项 missing_test 退回，实现逻辑无需改动。详见 reviews/reviewer-mvel6cvj-qxi7n.md。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mvel6cvj-qxi7n.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mvel6cvj-qxi7n.result.yaml
+  test_results:
+    - "cargo test：217 passed, 0 failed, 1 ignored"
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：6 passing"
+unresolved_issues:
+  - "missing_test：缺少注入 transaction.commit() 失败的测试（断言 DB、模板目录哈希树、import-staging 均还原，且可重新导入）。"
+  - "pending_human：tasks 5.9 KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图。"
+  - "low（既有遗留，不阻断）：index.html:12 仍引用 Figtree，违反 visual-qa-checklist“Figtree 零引用”；非本 change 引入。"
+  - "pending_human：Design Conformance 中对比度、主题首帧、token 逐值核对、快搜 Q-A/徽标回归、KWin 圆角与 Global Menu。"
+verdict: repair
+category: missing_test

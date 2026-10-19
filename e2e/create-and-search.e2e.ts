@@ -385,7 +385,7 @@ describe('compiled Searchis application', () => {
 
     await clickButtonContaining('main', '浅色 植物');
     await waitFor('main', () => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('theme-transition'), [], 'manager did not return to light theme');
-    await click('main', 'button[aria-label="返回片段管理"]');
+    await click('main', 'button[aria-label="返回片段"]');
     await waitFor('main', () => Boolean(document.querySelector('.manager-workspace')), [], 'manager workspace did not render');
     const managerAccent = await accentProbe();
     if (managerAccent.addColor !== 'rgb(94, 112, 86)' || managerAccent.primaryCount > 1 || (managerAccent.primaryCount === 1 && (managerAccent.primaryBackground !== themeSurfaces.light.primaryBg || managerAccent.primaryColor !== themeSurfaces.light.primaryFg))) {
@@ -1229,4 +1229,255 @@ describe('compiled Searchis application', () => {
     await waitFor('main', () => document.querySelector('[data-testid="file-action-result"]')?.textContent?.includes('已导出') ?? false, [], 'export result was not shown');
     if (exported().length !== exportsBefore + 1) throw new Error('manager export must create one file');
   });
+
+  it('navigates the settings view, changes the export directory and round-trips a zip backup (SPEC-24)', async function () {
+    this.timeout(180_000);
+    const data = process.env.XDG_DATA_HOME;
+    const files = process.env.SEARCHIS_E2E_FILES_DIR;
+    const pickDir = process.env.SEARCHIS_E2E_PICK_DIR;
+    const backupSave = process.env.SEARCHIS_E2E_BACKUP_SAVE;
+    const backupOpen = process.env.SEARCHIS_E2E_BACKUP_OPEN;
+    const openLog = process.env.SEARCHIS_E2E_OPEN_LOG;
+    if (!data || !files || !pickDir || !backupSave || !backupOpen || !openLog) throw new Error('E2E SPEC-24 environment is not set');
+    const templates = path.join(data, 'io.searchis.desktop', 'templates');
+    const short = suffix.slice(-6);
+    const work = path.join(files, 'spec24');
+    mkdirSync(work, { recursive: true });
+
+    const openSettings = async () => {
+      await click('main', '.manager-sidebar-footer button[aria-label="打开设置"]');
+      await waitFor('main', () => Boolean(document.querySelector('[data-testid="settings-view"]')), [], 'settings view did not render');
+    };
+    const pressEscape = () => inWindow('main', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
+      return true;
+    });
+    const clickTestId = async (id: string) => {
+      await waitFor('main', (_t, target) => {
+        const el = document.querySelector(`[data-testid="${target}"]`);
+        return el instanceof HTMLButtonElement && !el.disabled;
+      }, [id], `button ${id} is missing or disabled`);
+      await click('main', `[data-testid="${id}"]`);
+    };
+    const setPick = (file: string, value: string) => writeFileSync(file, value);
+    const dialogText = (id: string) => inWindow('main', (_t, target) => document.querySelector(`[data-testid="${target}"]`)?.textContent ?? '', id) as Promise<string>;
+    const sha = (value: Buffer) => createHash('sha256').update(value).digest('hex');
+    const hashTree = (root: string, base = root, out: Record<string, string> = {}) => {
+      for (const entry of readdirSync(root, { withFileTypes: true })) {
+        const full = path.join(root, entry.name);
+        if (entry.isDirectory()) hashTree(full, base, out);
+        else out[path.relative(base, full)] = sha(readFileSync(full));
+      }
+      return out;
+    };
+
+    // ---- 分节导航与返回
+    await clickButtonContaining('main', '全部片段');
+    await openSettings();
+    const navLabels = await inWindow('main', () => [...document.querySelectorAll('.settings-view .manager-sidebar .manager-side-item')].map(item => item.querySelector('.manager-side-label')?.textContent?.trim() ?? '')) as string[];
+    const expectedLabels = ['返回片段', '快捷键与启动', '粘贴行为', '外观主题', '文件与导出', '检索与数据', '备份与重置', '关于'];
+    if (JSON.stringify(navLabels) !== JSON.stringify(expectedLabels)) throw new Error(`unexpected settings nav: ${JSON.stringify(navLabels)}`);
+    const remoteFontRefs = await inWindow('main', () => {
+      const html = document.documentElement.outerHTML;
+      return ['fonts.googleapis.com', 'fonts.gstatic.com'].filter(host => html.includes(host));
+    }) as string[];
+    if (remoteFontRefs.length > 0) throw new Error(`page references remote font hosts: ${remoteFontRefs.join(', ')}`);
+    const widths = await inWindow('main', () => ({ nav: document.querySelector('.settings-view .manager-sidebar')?.getBoundingClientRect().width ?? 0, hasAboutModal: Boolean(document.querySelector('[aria-labelledby="about-dialog-title"]')) })) as { nav: number; hasAboutModal: boolean };
+    if (widths.nav < 150 || widths.hasAboutModal) throw new Error(`unexpected settings sidebar: ${JSON.stringify(widths)}`);
+    await click('main', '.settings-view [data-section="files"]');
+    await waitFor('main', () => {
+      const container = document.querySelector('.settings-scroll')?.getBoundingClientRect().top ?? -1000;
+      const section = document.getElementById('settings-files')?.getBoundingClientRect().top ?? 1000;
+      return Math.abs(section - container) < 80 && document.querySelector('.settings-view [data-section="files"]')?.getAttribute('aria-current') === 'true';
+    }, [], '文件与导出 section did not scroll into view');
+    await pressEscape();
+    await waitFor('main', () => Boolean(document.querySelector('.manager-workspace:not(.settings-view)')) && !document.querySelector('[data-testid="settings-view"]'), [], 'Esc did not return to the snippet manager');
+
+    // KDE Global Menu“关于”：命令 ID 不变，打开设置并定位到“关于”分节。
+    await inWindow('main', (tauri: any) => tauri.core.invoke('plugin:event|emit', { event: 'menu-action', payload: 'about' }));
+    await waitFor('main', () => {
+      const box = document.querySelector('.settings-scroll')?.getBoundingClientRect();
+      const top = document.getElementById('settings-about')?.getBoundingClientRect().top ?? 1e6;
+      // 最后一个分节滚不到容器顶部，只要整体进入可视区即可。
+      return Boolean(document.querySelector('[data-testid="settings-view"]')) && Boolean(box) && top >= (box?.top ?? 0) - 2 && top < (box?.bottom ?? 0) - 60 && (document.getElementById('settings-about')?.textContent ?? '').includes('SQLCipher');
+    }, [], 'menu About did not open the settings About section');
+    await pressEscape();
+    await waitFor('main', () => !document.querySelector('[data-testid="settings-view"]'), [], 'Esc did not leave settings');
+
+    // ---- 文件与导出：改导出目录后 SPEC-23 的导出写到新目录
+    const exportsA = path.join(work, '模板导出');
+    mkdirSync(exportsA, { recursive: true });
+    const blank = await invokeMain('template_create_blank', { input: { kind: 'md', title: `s24导出${short}`, key: `s24exp${short}`, groupId: null, requestId: crypto.randomUUID() } }) as { id: string; key: string };
+    await openSettings();
+    await click('main', '.settings-view [data-section="files"]');
+    const state = await dialogText('export-dir-state');
+    if (!state.includes('默认')) throw new Error(`export dir should start as default: ${state}`);
+    const templatesShown = await dialogText('templates-dir');
+    if (templatesShown !== templates) throw new Error(`templates dir shown wrongly: ${templatesShown}`);
+    const bodyText = await inWindow('main', () => document.body.textContent ?? '') as string;
+    if (!bodyText.includes('文件模板以明文存放，不受数据库加密保护')) throw new Error('plaintext note is missing');
+    // 不可用目录被拒绝，已保存值保持
+    await setValue('main', '#export-dir-input', path.join(work, '不存在的目录'));
+    await clickButtonContaining('main', '应用');
+    await waitFor('main', () => (document.querySelector('[data-testid="export-dir-error"]')?.textContent ?? '').length > 0, [], 'invalid export dir produced no error');
+    const afterReject = await invokeMain('settings_get') as { settings: { exportDir: string | null } };
+    if (afterReject.settings.exportDir !== null) throw new Error('rejected export dir must not be saved');
+    // 系统目录对话框替身选择新目录
+    setPick(pickDir, exportsA);
+    await clickButtonContaining('main', '选择…');
+    await browser.waitUntil(async () => ((await invokeMain('settings_get')) as { settings: { exportDir: string | null } }).settings.exportDir === exportsA, {
+      timeout: 8_000,
+      interval: 100,
+      timeoutMsg: `picked export dir was not saved: ${JSON.stringify(await inWindow('main', () => ({ error: document.querySelector('[data-testid="export-dir-error"]')?.textContent, draft: (document.querySelector('#export-dir-input') as HTMLInputElement | null)?.value, toast: document.querySelector('.main-toast')?.textContent, state: document.querySelector('[data-testid="export-dir-state"]')?.textContent })))} pick=${readFileSync(pickDir, 'utf8')}`,
+    });
+    if (await hasText('main', '使用默认下载目录')) throw new Error('settings still reports the default export dir');
+    // 打开模板目录：替身记录 xdg-open
+    const opensBefore = existsSync(openLog) ? readFileSync(openLog, 'utf8').split('\n').filter(Boolean).length : 0;
+    await clickButtonContaining('main', '打开');
+    await browser.waitUntil(() => {
+      const lines = existsSync(openLog) ? readFileSync(openLog, 'utf8').split('\n').filter(Boolean) : [];
+      return lines.length === opensBefore + 1 && JSON.parse(lines[lines.length - 1]).path === templates;
+    }, { timeout: 5_000, interval: 100, timeoutMsg: 'opening the templates dir did not call xdg-open' });
+    await pressEscape();
+    await waitFor('main', () => !document.querySelector('[data-testid="settings-view"]'), [], 'Esc did not leave settings');
+
+    await openSearch();
+    await setValue('search', inputSelectors.search, blank.key);
+    await waitFor('search', (_t, id) => document.querySelector('[cmdk-item][data-selected="true"]')?.getAttribute('data-snippet-id') === id, [blank.id], 'blank template was not selected');
+    await sendSearchKey('Enter', { shift: true });
+    await browser.waitUntil(() => readdirSync(exportsA).some(name => name.startsWith(`s24导出${short}_`)), { timeout: 8_000, interval: 100, timeoutMsg: 'Shift+Enter did not export into the new directory' });
+    await closeSearch();
+    const defaultExportDir = process.env.SEARCHIS_E2E_EXPORT_DIR;
+    if (defaultExportDir && readdirSync(defaultExportDir).some(name => name.startsWith(`s24导出${short}_`))) throw new Error('export must not land in the old directory');
+
+    // ---- 备份：构造 2 层分组、文本、md、xlsx 与回收站中的模板
+    const groupId = (name: string, parentId: string | null) => invokeMain('group_create', { input: { name, parentId, requestId: crypto.randomUUID() } }) as Promise<{ id: string }>;
+    const top = await groupId(`备份${short}`, null);
+    const child = await groupId(`子级${short}`, top.id);
+    const textKey = `s24txt${short}`;
+    await invokeMain('snippet_create', { input: { key: textKey, title: `备份文本${short}`, content: 'select 1;', aliases: [], tags: ['备份'], pinned: false, sensitive: true, groupId: child.id, language: 'sql', requestId: crypto.randomUUID() } });
+    const srcDir = path.join(work, 'sources');
+    mkdirSync(srcDir, { recursive: true });
+    writeFileSync(path.join(srcDir, `备份文档${short}.md`), '# 备份\n正文 1\n');
+    writeFileSync(path.join(srcDir, `备份表格${short}.xlsx`), Buffer.from('PK-s24-fake-xlsx'));
+    writeFileSync(path.join(srcDir, `备份回收${short}.md`), 'will be trashed');
+    const imported = await invokeMain('template_import', { input: { sourcePaths: [`备份文档${short}.md`, `备份表格${short}.xlsx`, `备份回收${short}.md`].map(name => path.join(srcDir, name)), groupId: child.id, requestId: crypto.randomUUID() } }) as { created: Array<{ id: string; title: string }> };
+    if (imported.created.length !== 3) throw new Error('backup fixture import failed');
+    await invokeMain('trash_move', { id: imported.created[2].id });
+    const beforeHashes = hashTree(templates);
+    const beforeSnippets = (await listSnippetRecords()).map(item => `${item.id}|${item.key}|${item.deletedAt === null}`).sort();
+    const beforeFileCount = (await listSnippetRecords() as Array<SnippetRecord & { kind?: string }>).filter(item => item.kind === 'file').length;
+    const beforeGroups = (await invokeMain('group_list') as Array<{ id: string; name: string; parentId: string | null }>).map(g => `${g.id}|${g.name}|${g.parentId}`).sort();
+
+    // 含敏感片段：先二次确认；取消则不生成任何文件
+    const zipPath = path.join(work, 'e2e-backup.zip');
+    setPick(backupSave, zipPath);
+    await openSettings();
+    await click('main', '.settings-view [data-section="backup"]');
+    await clickTestId('export-backup');
+    await waitFor('main', () => Boolean(document.querySelector('[data-testid="export-sensitive-dialog"]')), [], 'sensitive export confirmation did not appear');
+    await clickButtonContaining('main', '取消');
+    await browser.pause(300);
+    if (existsSync(zipPath)) throw new Error('cancelling the sensitive confirmation must not create a backup');
+    await clickTestId('export-backup');
+    await clickTestId('export-sensitive-confirm');
+    await browser.waitUntil(() => existsSync(zipPath), { timeout: 30_000, interval: 200, timeoutMsg: 'backup zip was not written' });
+    await waitFor('main', () => Boolean(document.querySelector('[data-testid="last-export"]')) && !document.querySelector('[data-testid="backup-busy"]'), [], 'export did not finish');
+    const zipBytes = readFileSync(zipPath);
+    if (zipBytes.subarray(0, 4).toString('latin1') !== 'PK\u0003\u0004') throw new Error('backup is not a zip file');
+    if (readdirSync(work).some(name => name.endsWith('.part') || name.startsWith('.e2e-backup'))) throw new Error('export left a temporary file behind');
+
+    // ---- 恶意备份（AC-37）：路径穿越条目被拒绝，模板目录之外不写任何文件
+    const evilZip = path.join(work, 'evil.zip');
+    writeFileSync(evilZip, storedZip([
+      ['backup.json', Buffer.from(JSON.stringify({ schemaVersion: 2, groups: [], snippets: [] }))],
+      ['../evil.sh', Buffer.from('echo boom')],
+    ]));
+    setPick(backupOpen, evilZip);
+    const dataBefore = readdirSync(path.dirname(templates)).sort();
+    await clickTestId('import-backup');
+    await waitFor('main', () => (document.querySelector('[data-testid="backup-error"]')?.textContent ?? '').includes('BACKUP_ARCHIVE_INVALID'), [], 'malicious archive was not rejected with BACKUP_ARCHIVE_INVALID');
+    await clickButtonContaining('main', '知道了');
+    if (existsSync(path.join(work, '..', 'evil.sh')) || existsSync(path.join(path.dirname(templates), 'evil.sh')) || existsSync(path.join(templates, '..', '..', 'evil.sh'))) throw new Error('traversal entry was written');
+    if (JSON.stringify(readdirSync(path.dirname(templates)).sort()) !== JSON.stringify(dataBefore)) throw new Error('rejected import left files in the data directory');
+    if (JSON.stringify(hashTree(templates)) !== JSON.stringify(beforeHashes)) throw new Error('rejected import changed the template directory');
+
+    // ---- 重置示例数据 → 导入备份（AC-36）
+    await clickTestId('reset-examples');
+    await waitFor('main', () => (document.querySelector('[data-testid="reset-dialog"]')?.textContent ?? '').includes('文件模板'), [], 'reset confirmation must mention file templates');
+    await clickTestId('reset-confirm');
+    await waitFor('main', () => (document.querySelector('.main-toast')?.textContent ?? '').includes('已重置'), [], 'reset did not report success');
+    if ((await invokeMain('group_list') as unknown[]).length !== 0) throw new Error('reset must remove groups');
+    if (Object.keys(hashTree(templates)).length !== 0) throw new Error('reset must remove template files');
+    if ((await listSnippetRecords()).length !== 3) throw new Error('reset must leave only the three examples');
+
+    setPick(backupOpen, zipPath);
+    await clickTestId('import-backup');
+    await waitFor('main', () => Boolean(document.querySelector('[data-testid="import-preview-dialog"]')), [], 'import preview did not appear');
+    const summary = await dialogText('import-preview-summary');
+    if (!summary.includes(`${beforeFileCount} 个文件模板`) || !summary.includes(`${beforeGroups.length} 个分组`)) throw new Error(`unexpected import preview: ${summary}`);
+    await clickTestId('import-confirm');
+    await waitFor('main', () => (document.querySelector('.main-toast')?.textContent ?? '').includes('导入完成'), [], 'import did not report success');
+    await invokeMain('template_scan');
+    const afterSnippets = (await listSnippetRecords()).filter(item => !['hello-searchis', 'email-work', 'addr-home'].includes(item.key)).map(item => `${item.id}|${item.key}|${item.deletedAt === null}`).sort();
+    const afterGroups = (await invokeMain('group_list') as Array<{ id: string; name: string; parentId: string | null }>).map(g => `${g.id}|${g.name}|${g.parentId}`).sort();
+    if (JSON.stringify(afterSnippets) !== JSON.stringify(beforeSnippets)) throw new Error('snippets were not restored');
+    if (JSON.stringify(afterGroups) !== JSON.stringify(beforeGroups)) throw new Error('groups were not restored');
+    const afterHashes = hashTree(templates);
+    if (JSON.stringify(afterHashes) !== JSON.stringify(beforeHashes)) throw new Error(`template files differ after the round trip: ${JSON.stringify({ beforeHashes, afterHashes })}`);
+
+    // 恢复默认导出目录，避免影响其他用例
+    await click('main', '.settings-view [data-section="files"]');
+    await clickButtonContaining('main', '恢复默认');
+    await waitFor('main', (tauri: any) => tauri.core.invoke('settings_get').then((r: any) => r.settings.exportDir === null), [], 'export dir was not reset to default');
+    await pressEscape();
+  });
 });
+
+/** 最小 stored-only zip 写入器：只给 E2E 构造非法路径条目（常规 zip 工具会拒绝写 `../`）。 */
+function storedZip(entries: Array<[string, Buffer]>): Buffer {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (buffer: Buffer) => {
+    let c = 0xffffffff;
+    for (const byte of buffer) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [name, body] of entries) {
+    const nameBytes = Buffer.from(name, 'utf8');
+    const crc = crc32(body);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(body.length, 18);
+    local.writeUInt32LE(body.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    locals.push(local, nameBytes, body);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(body.length, 20);
+    central.writeUInt32LE(body.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, nameBytes);
+    offset += local.length + nameBytes.length + body.length;
+  }
+  const centralBytes = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralBytes.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralBytes, end]);
+}

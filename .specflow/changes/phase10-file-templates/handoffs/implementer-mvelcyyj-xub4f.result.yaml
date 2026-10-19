@@ -1,0 +1,22 @@
+task_id: implementer-mvelcyyj-xub4f
+lease_id: lease-mvelcyyj-1omge
+outcome: completed
+summary: |
+  修复 reviewer-mvel6cvj-qxi7n 的唯一退回项（missing_test）：补充 COMMIT 失败注入测试，实现逻辑无改动。
+  storage/backup.rs apply_import 在 between()（文件已移入）之后、commit() 之前增加 Repository.fail_import_commit 标志检查；
+  置位时丢弃事务（回滚）并返回 DB_WRITE_FAILED，模拟 COMMIT 本身失败（该标志仅由 #[cfg(test)] 的 inject_import_commit_failure 置位，生产路径恒为 false）。
+  新测试 commit_failure_after_files_are_moved_restores_database_and_template_dir：覆盖“覆盖已有文件 + 新建目录 + 新文件”，
+  断言 DB dump、模板目录 tree（含哈希）不变、本地旧文件仍在原位、新目录被移除、import-staging 无遗留，且失败后可重新校验并成功导入。
+evidence:
+  changed_files:
+    - src-tauri/src/storage.rs
+    - src-tauri/src/storage/backup.rs
+    - src-tauri/src/service/backup.rs
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvelcyyj-xub4f.result.yaml
+  test_results:
+    - "cargo test：218 passed, 0 failed, 1 ignored（新增 commit_failure_after_files_are_moved_restores_database_and_template_dir）"
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：本轮未重跑（前端与 E2E 路径无改动；上轮 6 passing）"
+unresolved_issues:
+  - "pending_human：tasks 5.9 实机验收（KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图）。"
+  - "low（既有遗留，非本 change）：index.html:12 仍引用 Figtree。"

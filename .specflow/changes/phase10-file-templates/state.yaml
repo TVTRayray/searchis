@@ -1,7 +1,7 @@
 change_id: phase10-file-templates
-state: ready
+state: awaiting_archive_approval
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-19T00:44:55.447Z
+updated_at: 2026-10-19T01:52:53.628Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
@@ -92,7 +92,7 @@ specs:
     qa_report: reviews/reviewer-mvej5nta-uwvw7.md
   - id: settings-backup
     title: SPEC-24 设置视图改版（S1）与 zip 备份、恢复、重置
-    state: ready
+    state: qa_passed
     depends_on:
       - formatted-copy-export
     paths:
@@ -111,8 +111,9 @@ specs:
       - package.json
       - package-lock.json
       - e2e/**
-    qa_attempts: 0
-    qa_report: null
+      - index.html
+    qa_attempts: 2
+    qa_report: reviews/reviewer-mveljjym-775ll.md
 leases: []
 history:
   - at: 2026-10-15T03:37:42.427Z
@@ -529,5 +530,65 @@ history:
   - at: 2026-10-19T00:44:55.447Z
     event: spec_ready
     detail: settings-backup
+  - at: 2026-10-19T00:45:23.894Z
+    event: task_dispatched
+    detail: implementer:implementer-mvej91rp-iswrx:settings-backup:route=implementer
+  - at: 2026-10-19T00:45:28.097Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvej91rp:wZ:p1A
+  - at: 2026-10-19T01:39:13.192Z
+    event: implementation_completed
+    detail: settings-backup
+  - at: 2026-10-19T01:39:17.552Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvel6cvj-qxi7n:settings-backup:route=reviewer
+  - at: 2026-10-19T01:39:22.037Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvel6cvj-qxi7n:wZ:p1B
+  - at: 2026-10-19T01:44:19.951Z
+    event: repair_dispatched
+    detail: settings-backup:attempt-1
+  - at: 2026-10-19T01:44:26.108Z
+    event: task_dispatched
+    detail: implementer:implementer-mvelcyyj-xub4f:settings-backup:route=implementer
+  - at: 2026-10-19T01:44:30.387Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvelcyyj:wZ:p1D
+  - at: 2026-10-19T01:45:52.114Z
+    event: implementation_completed
+    detail: settings-backup
+  - at: 2026-10-19T01:45:56.584Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mvelewrr-73z5d:settings-backup:route=reviewer
+  - at: 2026-10-19T01:46:00.854Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mvelewrr-73z5d:wZ:p1E
+  - at: 2026-10-19T01:47:14.460Z
+    event: repair_dispatched
+    detail: settings-backup:attempt-2
+  - at: 2026-10-19T01:47:26.560Z
+    event: spec_paths_added
+    detail: '{"spec":"settings-backup","paths":["index.html"],"reason":"人工决策（2026-10-19）：修复
+      SPEC-20 遗漏的 Google Fonts 远程 Figtree 引用"}'
+  - at: 2026-10-19T01:47:31.062Z
+    event: task_dispatched
+    detail: implementer:implementer-mvelgxo5-oz6l3:settings-backup:route=implementer
+  - at: 2026-10-19T01:47:35.326Z
+    event: herdr_agent_started
+    detail: implementer-implementer-mvelgxo5:wZ:p1F
+  - at: 2026-10-19T01:49:32.526Z
+    event: implementation_completed
+    detail: settings-backup
+  - at: 2026-10-19T01:49:33.263Z
+    event: task_dispatched
+    detail: reviewer:reviewer-mveljjym-775ll:settings-backup:route=reviewer
+  - at: 2026-10-19T01:49:37.529Z
+    event: herdr_agent_started
+    detail: reviewer-reviewer-mveljjym-775ll:wZ:p1G
+  - at: 2026-10-19T01:52:53.628Z
+    event: qa_passed
+    detail: settings-backup
+  - at: 2026-10-19T01:52:53.628Z
+    event: archive_ready
 labels:
   - visual

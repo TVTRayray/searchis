@@ -1,0 +1,43 @@
+task_id: implementer-mvelgxo5-oz6l3
+change_id: phase10-file-templates
+role: implementer
+target_spec: settings-backup
+adapter: herdr
+lease_id: lease-mvelgxo5-u9upf
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/settings-backup.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - src-tauri/src/**
+  - src-tauri/Cargo.toml
+  - src-tauri/Cargo.lock
+  - src-tauri/capabilities/**
+  - src/components/SettingsModal.tsx
+  - src/components/SettingsView.tsx
+  - src/components/AboutModal.tsx
+  - src/App.tsx
+  - src/components/ManagerWindow.tsx
+  - src/api/**
+  - src/types/**
+  - src/index.css
+  - package.json
+  - package-lock.json
+  - e2e/**
+  - index.html
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: reviewing
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: implementer-implementer-mvelgxo5
+  pane_id: wZ:p1F
+  state: working

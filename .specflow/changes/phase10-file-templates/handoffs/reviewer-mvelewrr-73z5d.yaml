@@ -1,0 +1,28 @@
+task_id: reviewer-mvelewrr-73z5d
+change_id: phase10-file-templates
+role: reviewer
+target_spec: settings-backup
+adapter: herdr
+lease_id: lease-mvelewrr-izpdr
+inputs:
+  - proposal.md
+  - tasks.md
+  - specs/settings-backup.md
+  - design.md
+  - ux-design.md
+allowed_paths:
+  - .specflow/changes/phase10-file-templates/**
+expected_outputs:
+  - qa_report
+  - result
+test_commands:
+  - cd src-tauri && cargo test <scoped test filter>
+  - npm run build
+  - .specflow/bin/e2e-isolated.sh
+next_on_success: ready
+subagents: forbidden
+runtime:
+  provider: herdr
+  agent_name: reviewer-reviewer-mvelewrr-73z5d
+  pane_id: wZ:p1E
+  state: working

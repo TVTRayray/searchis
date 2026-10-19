@@ -17,6 +17,10 @@ process.env.SEARCHIS_E2E_CLIPBOARD_LOG ??= path.join(process.env.SEARCHIS_E2E_FI
 process.env.SEARCHIS_E2E_EXPORT_DIR ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'exports');
 mkdirSync(process.env.SEARCHIS_E2E_EXPORT_DIR, { recursive: true });
 process.env.SEARCHIS_E2E_PICK_LIST ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'pick-list.txt');
+// SPEC-24：目录/保存/打开对话框的替身——文件第一行是要返回的路径，空或不存在表示取消。
+process.env.SEARCHIS_E2E_PICK_DIR ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'pick-dir.txt');
+process.env.SEARCHIS_E2E_BACKUP_SAVE ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'backup-save.txt');
+process.env.SEARCHIS_E2E_BACKUP_OPEN ??= path.join(process.env.SEARCHIS_E2E_FILES_DIR, 'backup-open.txt');
 
 export { launcher };
 

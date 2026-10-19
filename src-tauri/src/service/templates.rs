@@ -41,8 +41,8 @@ use crate::{
 
 /// 模板目录的运行时状态。
 pub struct TemplateFs {
-    root: PathBuf,
-    ready: AtomicBool,
+    pub(super) root: PathBuf,
+    pub(super) ready: AtomicBool,
     /// 串行化所有会改动模板目录的操作（含扫描）。
     lock: Mutex<()>,
     /// 合并并发扫描。
@@ -61,7 +61,7 @@ impl TemplateFs {
         }
     }
 
-    fn guard(&self) -> MutexGuard<'_, ()> {
+    pub(super) fn guard(&self) -> MutexGuard<'_, ()> {
         self.lock.lock().unwrap_or_else(|p| p.into_inner())
     }
 }
@@ -84,7 +84,7 @@ fn path_exists(path: &Path) -> bool {
     path.symlink_metadata().is_ok()
 }
 
-fn trash_rel(id: &str, ext: &str) -> String {
+pub(super) fn trash_rel(id: &str, ext: &str) -> String {
     if ext.is_empty() {
         format!("{TRASH_DIR}/{id}")
     } else {
@@ -97,11 +97,13 @@ impl SnippetService {
     pub fn with_templates(mut self, root: PathBuf) -> Self {
         let fs = TemplateFs::new(root);
         self.templates = Some(fs);
+        // SPEC-24：先收拾上次崩溃遗留的导入暂存目录与重置临时目录，再初始化目录。
+        self.recover_backup_leftovers();
         let _ = self.tfs();
         self
     }
 
-    fn tfs(&self) -> Result<&TemplateFs, AppError> {
+    pub(super) fn tfs(&self) -> Result<&TemplateFs, AppError> {
         let fs = self
             .templates
             .as_ref()
@@ -115,7 +117,7 @@ impl SnippetService {
         Ok(fs)
     }
 
-    fn tfs_opt(&self) -> Result<Option<&TemplateFs>, AppError> {
+    pub(super) fn tfs_opt(&self) -> Result<Option<&TemplateFs>, AppError> {
         if self.templates.is_none() {
             return Ok(None);
         }

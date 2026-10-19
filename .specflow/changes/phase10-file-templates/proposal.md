@@ -45,6 +45,7 @@ PRD v0.4（2026-10-15）把 Searchis 从“文本片段工具”扩展为“文�
 - [x] file-templates 非阻断项（2026-10-16 人工接受）：① 导入文件选择使用系统 kdialog/zenity（平台原生能力优先），settings-backup 引入 dialog 插件时可统一；② v1 JSON 备份导出跳过文件模板，完整备份由 settings-backup 的 zip 提供。
 - [x] file-templates 安全修复（2026-10-16 人工决策）：S1 静态符号链接逃逸修复（决策 A）；残余目录级 TOCTOU 接受为安全例外（决策 B），威胁模型写入 contracts/22「安全与隐私」。
 - [x] formatted-copy-export 规划缺口（2026-10-16 人工决策 A）：管理窗口“导出”“带格式复制”按钮在 SPEC-22 新增的 `ui/FileTemplateDetail.tsx` 中；经 `specflow add-path` 加入 SPEC-23 范围（仅按钮启用与接线），contracts/23 已同步。非阻断：Settings 新增只读 exportDir 前端类型（可选字段），修改界面由 settings-backup 提供。
+- [x] SPEC-20 遗漏（2026-10-19 人工决策）：`index.html` 仍从 Google Fonts 远程加载 Figtree（启动访问外网，违反“Figtree 零引用、字体随包”），并入 settings-backup 修复轮处理；index.html 加入 SPEC-24 范围。
 - [ ] 颗粒纹理不透明度（浅色约 0.06、深色约 0.035）在实机调定后写回 `docs/design/design-tokens.md`。
 
 ## Source Requirements

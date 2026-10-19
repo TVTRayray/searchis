@@ -78,10 +78,10 @@ pub struct GroupDeleteFs {
     pub file_moves: Vec<FileMove>,
 }
 
-const FILE_ROW_COLUMNS: &str = "id, key, title, group_id, file_rel_path, file_ext, file_size,
+pub(super) const FILE_ROW_COLUMNS: &str = "id, key, title, group_id, file_rel_path, file_ext, file_size,
     file_inode, file_sha256, file_mtime, file_original_group_id, file_missing, deleted_at, revision";
 
-fn row_to_file(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileRow> {
+pub(super) fn row_to_file(row: &rusqlite::Row<'_>) -> rusqlite::Result<FileRow> {
     Ok(FileRow {
         id: row.get(0)?,
         key: row.get(1)?,
@@ -140,7 +140,7 @@ pub(super) fn apply_delete_fs(
 }
 
 impl Repository {
-    fn check_injected_failure(&self) -> Result<(), AppError> {
+    pub(super) fn check_injected_failure(&self) -> Result<(), AppError> {
         if self.fail_file_writes.load(Ordering::SeqCst) {
             return Err(db_write_error());
         }

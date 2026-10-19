@@ -392,7 +392,7 @@ pub struct AutostartInput {
     pub enabled: bool,
 }
 
-// === SPEC-07: 备份、恢复与重置 ===
+// === SPEC-07 / SPEC-24: 备份、恢复与重置 ===
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -401,6 +401,11 @@ pub struct ExportPreview {
     pub sensitive_count: i64,
     pub snippet_count: i64,
     pub has_settings: bool,
+    /// SPEC-24：文件模板数量与原文件合计字节数。
+    pub template_count: i64,
+    pub template_bytes: u64,
+    /// 估算大小超过 1 GB 或 backup.json 超过 100 MB。
+    pub exceeds_limit: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -409,6 +414,7 @@ pub struct ExportOutcome {
     pub path: String,
     pub size_bytes: u64,
     pub snippet_count: i64,
+    pub template_count: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -427,13 +433,26 @@ pub struct ImportValidation {
     pub schema_version: i64,
     pub errors: Vec<String>,
     pub import_token: String,
+    /// SPEC-24：备份版本（1 或 2）、分组数、模板数、预计新增/更新数与 Key 冲突。
+    pub backup_version: i64,
+    pub group_count: i64,
+    pub template_count: i64,
+    pub new_count: i64,
+    pub update_count: i64,
+    pub conflict_count: i64,
+    pub conflict_keys: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportCommitInput {
+    /// 保留以兼容既有 IPC 契约；暂存会话由 `import_token` 标识。
+    #[allow(dead_code)]
     pub path: String,
     pub import_token: String,
+    /// Key 冲突时使用导入记录覆盖现有记录；默认取消（返回 IMPORT_CONFLICT）。
+    #[serde(default)]
+    pub overwrite_conflicts: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -441,6 +460,29 @@ pub struct ImportCommitInput {
 pub struct ImportOutcome {
     pub inserted: i64,
     pub updated: i64,
+    /// 因 Key 冲突被导入记录取代的现有条目数。
+    pub replaced: i64,
+    /// 因本地已有同 id 条目且备份标记文件缺失而跳过的条目数。
+    pub skipped: i64,
+    pub groups_added: i64,
+}
+
+/// 长耗时备份操作的进度事件（`backup-progress`）。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProgress {
+    /// export | extract | apply
+    pub phase: &'static str,
+    pub done: u64,
+    pub total: u64,
+}
+
+/// 设置视图展示用的路径。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsPaths {
+    pub templates_dir: String,
+    pub default_export_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

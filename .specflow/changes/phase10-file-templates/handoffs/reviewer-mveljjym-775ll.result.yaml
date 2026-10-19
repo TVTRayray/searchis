@@ -1,0 +1,17 @@
+task_id: reviewer-mveljjym-775ll
+lease_id: lease-mveljjym-67jab
+outcome: completed
+summary: |
+  SPEC-24 settings-backup 复审：上轮唯一退回项（regression，index.html 远程 Figtree）已修复——两条 preconnect、Figtree stylesheet 与“MacOS 风格”均已删除，E2E 新增页面不引用 fonts.googleapis.com / fonts.gstatic.com 的断言。其余实现无改动，cargo test 218 passed、npm run build 通过、隔离 E2E 6 passing。无新增问题，verdict pass。Design Conformance 已按 visual-qa-checklist 27 项逐条填写：20 项 [x]（含 Figtree 零引用，index.html 无远程字体且有 E2E 断言），7 项 pending_human，无未通过项。详见 reviews/reviewer-mveljjym-775ll.md。
+evidence:
+  changed_files:
+    - .specflow/changes/phase10-file-templates/reviews/reviewer-mveljjym-775ll.md
+    - .specflow/changes/phase10-file-templates/handoffs/reviewer-mveljjym-775ll.result.yaml
+  test_results:
+    - "cargo test：218 passed, 0 failed, 1 ignored"
+    - "npm run build：通过（仅 chunk 体积警告）"
+    - ".specflow/bin/e2e-isolated.sh：6 passing"
+unresolved_issues:
+  - "pending_human：tasks 5.9 实机验收（KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图）。"
+  - "pending_human：Design Conformance 7 项（明/暗截图、对比度、主题首帧、token 逐值核对、快搜 Q-A、徽标规则、KWin 圆角与 Global Menu）。"
+verdict: pass

@@ -1,0 +1,60 @@
+task_id: implementer-mvej91rp-iswrx
+lease_id: lease-mvej91rp-nnku5
+outcome: completed
+summary: |
+  SPEC-24 settings-backup（tasks 5.1–5.8）已实现；5.9 为实机项，未勾选。
+  前端：设置从弹窗改为管理窗口内的设置视图 S1（SettingsView.tsx）。左栏复用 .manager-sidebar（同宽同样式），
+  分节为 返回片段 / 快捷键与启动 / 粘贴行为 / 外观主题 / 文件与导出 / 检索与数据 / 备份与重置 / 关于；点击跳转，Esc 与“返回片段”回到管理视图。
+  AboutModal 并入“关于”分节并删除（零引用）；Global Menu“关于”（menu-action about，命令 ID 不变）打开设置并定位到“关于”；菜单导入/导出定位到“备份与重置”。
+  “文件与导出”：导出目录（默认显示解析后的 XDG 下载目录）、“选择…”（tauri-plugin-dialog，Rust 侧调用；失败时提示手动输入）、“恢复默认”、文件名规则、
+  只读模板目录路径与“打开”（templates_dir_open → xdg-open）、“文件模板以明文存放，不受数据库加密保护”。settings.exportDir 经 settings_update 校验
+  （绝对路径、存在、目录、可写；否则 VALIDATION_FAILED，保持原值）。App.updateConfig 现返回错误文案，并在 REVISION_CONFLICT 时刷新 revision 重试一次。
+  后端：独立模块 src-tauri/src/backup（v1/v2 JSON 解析校验、zip 结构/路径/符号链接/多余文件/哈希/大小校验、解压、zip 写入）；
+  storage/backup.rs（apply_import 单事务、reset_all 单事务）；service/backup.rs（导出、校验、导入、重置、启动清理、设置路径）。
+  导出：searchis-backup-YYYYMMDD-HHmmss.zip（由保存对话框给出默认名），backup.json(schemaVersion 2: groups/snippets/settings，去掉 exportDir/openWithByExtension/onboardingCompletedAt) + templates/（含 .trash/）；
+  文件元数据以导出时实际读取的字节为准；backup.json ≤ 100 MB、zip ≤ 1 GB，超限拒绝并显示估算大小；含敏感片段二次确认；临时文件 + 不覆盖改名（RENAME_NOREPLACE）；0600。
+  导入：接受 v2 zip 与 v1 JSON（全部视为未分组 plain 文本）；校验阶段拒绝绝对路径、..、反斜杠、符号链接、templates/ 之外内容、多余/缺失文件、大小或 SHA-256 不符，
+  返回 BACKUP_ARCHIVE_INVALID；单文件 ≤ 20 MB、总量 ≤ 1 GB、条目 ≤ 20,000（IMPORT_TOO_LARGE）；解压到 <应用数据目录>/import-staging-<token>/；
+  预览（新增/更新/分组/模板/Key 冲突）后由用户确认；冲突须显式选择覆盖（IMPORT_CONFLICT），分组按 ID 合并、同级重名加 (2)；导入期间持有模板目录锁（暂停扫描）并显示进度遮罩；
+  同 token 只提交一次（重复提交返回同一结果）；启动时清理遗留 import-staging-* 与中断的重置。
+  重置：确认文案注明删除文件模板；模板目录先改名为 templates-reset-<uuid>，数据库单事务（清空条目、分组及幂等记录并写入示例）成功后删除，失败改回；启动时恢复中断的重置。
+  设计取舍（需 reviewer 知悉）：契约写作“数据库事务成功后再移入模板目录，失败用补偿事务回滚”。实现改为在同一个尚未提交的事务内，于全部数据库写入之后、COMMIT 之前把文件移入模板目录，
+  任何一步失败即 ROLLBACK 并撤销文件操作（新文件删除、被覆盖的旧文件从暂存挪回、本次新建的空目录移除）。外部可见保证相同（失败时数据库与模板目录保持原状、临时目录被清理），且无需事后对已提交事务做补偿。
+  行为变更提示：reset_examples 此前只是写入示例（不删除）；按 PRD FR-DAT-03 现在会清空全部条目与分组。
+evidence:
+  changed_files:
+    - src-tauri/Cargo.toml
+    - src-tauri/Cargo.lock
+    - src-tauri/capabilities/default.json
+    - src-tauri/src/lib.rs
+    - src-tauri/src/commands.rs
+    - src-tauri/src/model.rs
+    - src-tauri/src/service.rs
+    - src-tauri/src/service/backup.rs
+    - src-tauri/src/service/templates.rs
+    - src-tauri/src/storage.rs
+    - src-tauri/src/storage/backup.rs
+    - src-tauri/src/storage/files.rs
+    - src-tauri/src/templates/export.rs
+    - src-tauri/src/backup/mod.rs
+    - src/components/SettingsView.tsx
+    - src/components/SettingsModal.tsx (deleted)
+    - src/components/AboutModal.tsx (deleted)
+    - src/App.tsx
+    - src/api/snippets.ts
+    - src/index.css
+    - e2e/create-and-search.e2e.ts
+    - e2e/tauri-service.mjs
+    - .specflow/changes/phase10-file-templates/tasks.md
+    - .specflow/changes/phase10-file-templates/handoffs/implementer-mvej91rp-iswrx.result.yaml
+  test_results:
+    - "cargo test：217 passed, 0 failed, 1 ignored（新增 backup 模块 8 项、service::backup 18 项：AC-36 往返哈希一致、恶意 zip（../、绝对路径、反斜杠）、多余/缺失/哈希不符文件、符号链接、v1 JSON、Key 冲突、分组合并、导入 stash/place/after_place 三阶段注入失败回滚、数据库注入失败回滚、重置失败恢复、启动清理与中断重置恢复、exportDir 校验、设置不含本机项）"
+    - "npm run build：通过"
+    - ".specflow/bin/e2e-isolated.sh：6 passing（新增 SPEC-24 用例：设置分节导航/Esc/菜单“关于”、导出目录校验与选择后 Shift+Enter 导出到新目录、打开模板目录、敏感二次确认、AC-37 恶意 zip、AC-36 导出→重置→导入哈希一致）"
+    - "NFR 5.8（cargo test qa_perf_500mb_export_and_import，--ignored，25×20 MB 不可压缩数据共 524,454,212 字节）：release 构建 导出 9.27 s、校验+解压+SHA 0.49 s、提交 1.5 ms；debug 构建 导出 83.3 s、校验+解压 9.7 s、提交 3.5 ms。界面在 async 命令中执行并显示进度遮罩与 backup-progress 事件，不冻结。"
+unresolved_issues:
+  - "pending_human：tasks 5.9 实机验收（KDE 系统目录选择对话框、Dolphin 打开模板目录、浅/深设置视图截图）。E2E 中目录/保存/打开对话框与 xdg-open 均为替身。"
+  - "设计取舍见 summary：文件移入发生在 COMMIT 之前（同一事务内），与契约字面顺序（提交后移入 + 补偿事务）不同，外部保证等价；如需严格字面顺序请 reviewer 提出。"
+  - "导出进度按模板文件字节计；导入进度仅在校验/解压阶段连续，提交阶段为一次性（文件移入为同盘 rename，耗时毫秒级）。"
+  - "tauri-plugin-dialog 在 KDE 下是否走 xdg-desktop-portal 取决于运行环境（rfd 默认后端），需实机确认；不可用时输入框可手动输入路径。"
+  - "Global Menu“关于”的原生菜单点击无法自动化；E2E 通过 plugin:event|emit 发出同名 menu-action 验证前端处理。"
