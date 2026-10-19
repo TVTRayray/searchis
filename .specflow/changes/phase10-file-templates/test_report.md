@@ -21,11 +21,13 @@
 
 > 每项记录：日期、执行人、结果（pass / fail）、证据路径。失败时对相应 spec 执行 `specflow reopen-qa`。
 
-- [ ] visual-foundation：浅/深 12 张截图（`artifacts/spec-20/`）与预览页对照；左栏底部按钮；KDE Global Menu 五组菜单
-- [ ] groups-language：AC-23；浅/深管理窗口截图
-- [ ] file-templates：AC-26（Dolphin 改名移动）、AC-27（WPS 保存后识别）、“打开方式…”列出 WPS/LibreOffice
-- [ ] formatted-copy-export：AC-30（WPS 文字）、AC-31（WPS 表格）、AC-32（Dolphin）、纯文本编辑器粘贴得到源码/TSV/路径；Ctrl+Enter 实机自动粘贴
-- [ ] settings-backup：KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图
-- [ ] 全局：`Alt+O` 呼出与自动粘贴回归、KDE Global Menu 重启后 5 s 内重注册
+- [x] visual-foundation：浅/深 12 张截图（`artifacts/spec-20/`）与预览页对照；左栏底部按钮；KDE Global Menu 五组菜单
+- [x] groups-language：AC-23；浅/深管理窗口截图
+- [x] file-templates：AC-26（Dolphin 改名移动）、AC-27（WPS 保存后识别）、“打开方式…”列出 WPS/LibreOffice
+- [x] formatted-copy-export：AC-30（WPS 文字）、AC-31（WPS 表格）、AC-32（Dolphin）、纯文本编辑器粘贴得到源码/TSV/路径；Ctrl+Enter 实机自动粘贴
+- [x] settings-backup：KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图
+- [x] 全局：`Alt+O` 呼出与自动粘贴回归、KDE Global Menu 重启后 5 s 内重注册
 
 > 2026-10-19 实机验收中修复：文本内容编辑器圆角由胶囊（999px）改为卡片 18px（`src/index.css` `.manager-code-editor`），人工授权免二次 QA，`npm run build` 通过，待人工复核。
+
+> 2026-10-19：人工实机验收通过（Ray 确认）。文本内容编辑器圆角修复（c9843a4）已人工复核。颗粒纹理不透明度沿用当前值（浅色 0.06、深色 0.035）。
