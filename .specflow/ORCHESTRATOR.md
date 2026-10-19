@@ -97,7 +97,8 @@ Worker 以默认权限模式运行，权限对话框由人在 worker pane 里亲
    - implementer：`git status --porcelain` 列出的所有改动路径，都必须匹配任务包 `allowed_paths` 的 glob（`$D/**` 总是允许）。`artifacts/e2e/` 下的失败截图忽略。
    - reviewer：`$D/reviews/<T>.md` 已填写（Verdict、Findings、Design Conformance 逐条有结果，实机项标 `pending_human`）。reviewer 不得改动业务代码：`git status` 中除 `$D/**` 外不能出现新的改动。
 3. 导入：`SF import-result $C <T> $D/handoffs/<T>.result.yaml`。
-4. 清理：`ROUTER unregister <T> <pane>`，然后 `herdr pane close <pane>`。只关闭 dispatch 为本任务创建的 pane。
+4. 清理：**只在第 3 步 import 成功后**执行 `ROUTER unregister <T> <pane>` 和 `herdr pane close <pane>`（用 `&&` 串联在 import 之后，不要用 `;`）。只关闭 dispatch 为本任务创建的 pane。import 被拒时保留 pane，让同一个 worker 按拒绝原因补全。
+   - 如果 worker pane 已经丢失而 lease 仍有效：在新 pane 中启动同 kind/参数的 agent（`herdr pane split --current --direction down --cwd "$PWD" --no-focus` → `herdr agent start <name> --kind <kind> --pane <new> -- <config 中该角色的 args>`），发送 `SF prompt $C <T>` 加上补全说明，沿用原 task_id/lease_id；更新 router 注册为新 pane。
 5. 按新状态继续：
    - spec 变为 `qa_passed`：**先提交，再派发下一个 spec**（§9）。
    - `repairing`：告知 Guide `[ORCH] <spec> QA repair #n: <Findings 摘要>`，再派发修复轮。
