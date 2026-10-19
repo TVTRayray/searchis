@@ -1,17 +1,3 @@
 runtime_mode: managed
-active_changes:
-  - change_id: phase10-file-templates
-    state: awaiting_archive_approval
-    updated_at: 2026-10-19T01:52:53.628Z
-recent_events:
-  - at: 2026-10-19T01:52:53.628Z
-    event: qa_passed
-    detail: settings-backup
-    change_id: phase10-file-templates
-  - at: 2026-10-19T01:52:53.628Z
-    event: archive_ready
-    change_id: phase10-file-templates
-  - at: 2026-10-19T01:49:37.529Z
-    event: herdr_agent_started
-    detail: reviewer-reviewer-mveljjym-775ll:wZ:p1G
-    change_id: phase10-file-templates
+active_changes: []
+recent_events: []

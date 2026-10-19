@@ -1,7 +1,7 @@
 change_id: phase10-file-templates
-state: awaiting_archive_approval
+state: archived
 created_at: 2026-10-15T03:37:42.427Z
-updated_at: 2026-10-19T01:52:53.628Z
+updated_at: 2026-10-19T02:15:17.591Z
 specs:
   - id: visual-foundation
     title: SPEC-20 视觉定版：植物/暖炭主题地基与 HeaderBar 迁移
@@ -590,5 +590,8 @@ history:
     detail: settings-backup
   - at: 2026-10-19T01:52:53.628Z
     event: archive_ready
+  - at: 2026-10-19T02:15:17.591Z
+    event: archive_completed
+    detail: Merged 5 Delta Spec file(s).
 labels:
   - visual
