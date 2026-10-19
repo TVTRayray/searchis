@@ -72,12 +72,13 @@ herdr:
   kind:
     planner: claude
     implementer: claude
-    reviewer: pi
+    reviewer: claude # 2026-10-19: Pi provider unavailable, reviews on Claude Sonnet 5.5
   # Workers start in their default permission mode; permission prompts are answered by the human
   # in the worker pane. To opt in to a less interactive mode, the human may set e.g.
   # args: { implementer: [--permission-mode, acceptEdits] }
   args:
-    implementer: [--model, claude-sonnet-5-5] # coding workers on Sonnet 5.5 (2026-10-16); reviewer Pi keeps its own default model
+    implementer: [--model, claude-sonnet-5-5] # coding workers on Sonnet 5.5 (2026-10-16)
+    reviewer: [--model, claude-sonnet-5-5]
   # Herdr panes start from the server environment; forward the proxy that the orchestrator's
   # Claude Code session has, otherwise Pi's model requests fail with "fetch failed".
   inherit_env: [HTTP_PROXY, HTTPS_PROXY, ALL_PROXY, NO_PROXY, http_proxy, https_proxy, all_proxy, no_proxy]

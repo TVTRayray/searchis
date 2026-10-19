@@ -22,7 +22,7 @@
 |---|---|---|
 | Guide（指导者，另一个 Claude） | pane `wZ:p6` | `herdr agent prompt wZ:p6 "[ORCH] ..."` |
 | 人（Ray，人工关口） | 看得到所有 pane | `herdr notification show "SpecFlow" --body "..." --sound request`，并同时告知 Guide |
-| Worker（implementer=Claude，reviewer=Pi） | `specflow dispatch` 在你下方切出的 pane | `herdr agent read/prompt <pane>`；状态变化由 router 推送给你 |
+| Worker（implementer、reviewer 均为 Claude Sonnet 5.5；模型以 config 为准） | `specflow dispatch` 在你下方切出的 pane | `herdr agent read/prompt <pane>`；状态变化由 router 推送给你 |
 
 Router 推给你的消息格式：`[HERDR_ROUTER task_id=<T> worker=<pane> status=<idle|done|blocked|unknown>]`。它只是信号，内容要自己读。
 
