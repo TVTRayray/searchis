@@ -5,11 +5,17 @@
 
 ## Commands
 
-- `<command>`
+在最终提交 `a468e35`（feat/file-templates）上执行，2026-10-19：
+
+- `cd src-tauri && cargo test`
+- `npm run build`
+- `.specflow/bin/e2e-isolated.sh`（Xvfb + 私有 D-Bus + KWin 隔离显示）
 
 ## Results
 
-- `<result>`
+- `cargo test`：exit 0；`test result: ok. 218 passed; 0 failed; 1 ignored`（lib）；main 与 doc-tests 各 0 项。4 条编译警告（未使用 import、umya 弃用方法、未使用方法 `group_name`）；sqlcipher `hmac check failed` 日志来自错误密钥用例的预期输出。被忽略的 1 项为 `qa_perf_500mb_export_and_import`（需 `--ignored`，结果见 implementer-mvej91rp-iswrx.result.yaml）。
+- `npm run build`：exit 0；`✓ built in 2.45s`，仅 chunk > 500 kB 体积警告。
+- `.specflow/bin/e2e-isolated.sh`：exit 0；`6 passing (21s)`——quick-search 视觉与键盘契约、SPEC-21 分组树/语言徽标、SPEC-21 编辑器历史与换行、SPEC-22 文件模板、SPEC-23 带格式复制/导出/打开、SPEC-24 设置视图与 zip 备份往返。
 
 ## 实机验收（人工，归档审批前）
 
@@ -21,3 +27,5 @@
 - [ ] formatted-copy-export：AC-30（WPS 文字）、AC-31（WPS 表格）、AC-32（Dolphin）、纯文本编辑器粘贴得到源码/TSV/路径；Ctrl+Enter 实机自动粘贴
 - [ ] settings-backup：KDE 目录对话框、Dolphin 打开模板目录、浅/深设置视图截图
 - [ ] 全局：`Alt+O` 呼出与自动粘贴回归、KDE Global Menu 重启后 5 s 内重注册
+
+> 2026-10-19 实机验收中修复：文本内容编辑器圆角由胶囊（999px）改为卡片 18px（`src/index.css` `.manager-code-editor`），人工授权免二次 QA，`npm run build` 通过，待人工复核。

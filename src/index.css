@@ -1343,7 +1343,15 @@ body:has(.quick-search-shell) #root {
 }
 .manager-snippet-group { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.manager-code-editor { padding: 8px 10px; overflow: hidden; }
+/* Multi-line editor is a code block, not a pill input: 18px card radius like the former textarea. */
+.manager-code-editor {
+  min-height: 150px;
+  border-radius: var(--radius-card);
+  padding: 8px 10px;
+  overflow: hidden;
+  background: var(--color-surface-code);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
 .manager-code-editor:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .manager-group-dialog { display: flex; flex-direction: column; gap: 12px; min-width: 320px; }
 
